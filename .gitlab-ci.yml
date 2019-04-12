@@ -36,6 +36,7 @@ before_script:
     - echo -e "" >> Setup.dist.diff
     - echo -e "# The crypt module is now disabled by default because it breaks builds" >> Setup.dist.diff
     - echo -e "# on many systems (where -lcrypt is needed), e.g. Linux (I believe)." >> Setup.dist.diff
+    - echo -e "" >> Setup.dist.diff
     
     - cd Modules
     - patch < ../Setup.dist.diff
