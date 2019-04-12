@@ -19,6 +19,28 @@ before_script:
     - tar -xf Python-3.7.0.tgz
     - cd Python-3.7.0
     
+    - echo -e "--- Setup.dist.orig	2019-04-12 21:08:41.000000000 +0200" > Setup.dist.diff
+    - echo -e "+++ Setup.dist	2019-04-12 21:09:04.909204191 +0200" >> Setup.dist.diff
+    - echo -e "@@ -208,10 +208,10 @@" >> Setup.dist.diff
+    - echo -e "" >> Setup.dist.diff
+    - echo -e "# Socket module helper for SSL support; you must comment out the other" >> Setup.dist.diff
+    - echo -e "# socket line above, and possibly edit the SSL variable:" >> Setup.dist.diff
+    - echo -e "-#SSL=/usr/local/ssl" >> Setup.dist.diff
+    - echo -e "-#_ssl _ssl.c \\" >> Setup.dist.diff
+    - echo -e "-#	-DUSE_SSL -I\$(SSL)/include -I\$(SSL)/include/openssl \\" >> Setup.dist.diff
+    - echo -e "-#	-L\$(SSL)/lib -lssl -lcrypto" >> Setup.dist.diff
+    - echo -e "+SSL=/usr/local/ssl" >> Setup.dist.diff
+    - echo -e "+_ssl _ssl.c \\" >> Setup.dist.diff
+    - echo -e "+	-DUSE_SSL -I\$(SSL)/include -I\$(SSL)/include/openssl \\" >> Setup.dist.diff
+    - echo -e "+	-L\$(SSL)/lib -lssl -lcrypto" >> Setup.dist.diff
+    - echo -e "" >> Setup.dist.diff
+    - echo -e "# The crypt module is now disabled by default because it breaks builds" >> Setup.dist.diff
+    - echo -e "# on many systems (where -lcrypt is needed), e.g. Linux (I believe)." >> Setup.dist.diff
+    
+    - cd Modules
+    - patch < ../Setup.dist.diff
+    - cd ../
+    
     # Compiling Python 3.7
     - ./configure --enable-shared --with-ssl-default-suites=openssl
     - make
@@ -34,13 +56,6 @@ before_script:
     - cd /opt/
     - rm -rf Python-3.7.0.tgz
     - rm -rf /opt/Python-3.7.0
-
-    - cd /opt/
-    - wget https://files.pythonhosted.org/packages/83/21/f469c9923235f8c36d5fd5334ed11e2681abad7e0032c5aba964dcaf9bbb/ssl-1.16.tar.gz
-    - tar -xzf ssl-1.16.tar.gz
-    - cd ssl-1.16
-    - python3 setup.py install
-    
 
     #- apt-get install -y -qq python3-pip
     - export CTAPIPE_VERSION=master
