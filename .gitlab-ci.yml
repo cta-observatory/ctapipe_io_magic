@@ -25,10 +25,10 @@ before_script:
     - make install
     
     # Linking executables
-    #- ln -s /usr/local/bin/python* /usr/bin/
+    - ln -s /usr/local/bin/python* /usr/bin/
     
     # Linking libraries
-    #- ln -s /usr/local/lib/libpython* /usr/lib/x86_64-linux-gnu/
+    - ln -s /usr/local/lib/libpython* /usr/lib/x86_64-linux-gnu/
     
     # Cleaning up
     - cd /opt/
