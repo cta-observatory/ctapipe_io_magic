@@ -16,11 +16,11 @@ before_script:
     - md5sum -c Python-3.7.0.tgz.md5sum
     
     # Preparing the sources
-    - tar -xvf Python-3.7.0.tgz
+    - tar -xf Python-3.7.0.tgz
     - cd Python-3.7.0
     
     # Compiling Python 3.7
-    - ./configure --enable-shared
+    - ./configure --enable-shared --with-ssl-default-suites=openssl
     - make
     - make install
     
