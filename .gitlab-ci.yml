@@ -41,6 +41,7 @@ before_script:
     # - pip3 install https://github.com/cta-observatory/ctapipe-extra/archive/$CTAPIPE_VERSION.tar.gz
     # - pip3 install -e .
     
-# run_tests:
-#     script:
-#         - pytest -vvs
+run_tests:
+    script:
+        - echo "Yes!"
+        # - pytest -vvs
