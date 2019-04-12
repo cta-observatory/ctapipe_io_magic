@@ -35,6 +35,13 @@ before_script:
     - rm -rf Python-3.7.0.tgz
     - rm -rf /opt/Python-3.7.0
 
+    cd /opt/
+    - wget https://files.pythonhosted.org/packages/83/21/f469c9923235f8c36d5fd5334ed11e2681abad7e0032c5aba964dcaf9bbb/ssl-1.16.tar.gz
+    tar -xzf https://files.pythonhosted.org/packages/83/21/f469c9923235f8c36d5fd5334ed11e2681abad7e0032c5aba964dcaf9bbb/ssl-1.16.tar.gz
+    cd ssl-1.16
+    python3 setup.py install
+    
+
     #- apt-get install -y -qq python3-pip
     - export CTAPIPE_VERSION=master
     - pip3 install https://github.com/cta-observatory/ctapipe/archive/$CTAPIPE_VERSION.tar.gz
