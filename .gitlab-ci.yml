@@ -1,0 +1,6 @@
+before_script:
+    - export CTAPIPE_VERSION=master
+    - pip install https://github.com/cta-observatory/ctapipe/archive/$CTAPIPE_VERSION.tar.gz
+    
+run_tests:
+    - pytest -vvs
