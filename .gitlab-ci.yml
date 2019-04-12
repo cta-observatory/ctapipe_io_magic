@@ -37,7 +37,7 @@ before_script:
 
     - cd /opt/
     - wget https://files.pythonhosted.org/packages/83/21/f469c9923235f8c36d5fd5334ed11e2681abad7e0032c5aba964dcaf9bbb/ssl-1.16.tar.gz
-    - tar -xzf https://files.pythonhosted.org/packages/83/21/f469c9923235f8c36d5fd5334ed11e2681abad7e0032c5aba964dcaf9bbb/ssl-1.16.tar.gz
+    - tar -xzf ssl-1.16.tar.gz
     - cd ssl-1.16
     - python3 setup.py install
     
