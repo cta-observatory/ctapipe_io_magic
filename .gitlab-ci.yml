@@ -1,6 +1,6 @@
 before_script:
-    - apt-get update 
-    - apt-get install -y python3-pip
+    - apt-get update -qq
+    - apt-get install -y -qq python3-pip
     - export CTAPIPE_VERSION=master
     - pip install https://github.com/cta-observatory/ctapipe/archive/$CTAPIPE_VERSION.tar.gz
     - pip install -e .
