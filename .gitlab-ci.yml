@@ -1,7 +1,41 @@
 before_script:
     - printf "deb http://archive.debian.org/debian/ jessie main\ndeb-src http://archive.debian.org/debian/ jessie main\ndeb http://security.debian.org jessie/updates main\ndeb-src http://security.debian.org jessie/updates main" > /etc/apt/sources.list
     - apt-get update -qq
-    - apt-get install -y -qq python3-pip
+    
+    # Installing GCC
+    - apt-get install -yq make gcc g++
+    
+    # Installing auxiliary software
+    - apt-get install -yq wget zlib1g-dev bzip2 libssl-dev libbz2-dev
+    - apt-get install -yq tcl tcl-dev tk tk-dev tcl8.6 libtk8.6
+    
+    # Downloading Python 3.7
+    - cd /opt
+    - wget https://www.python.org/ftp/python/3.7.0/Python-3.7.0.tgz
+    - echo "41b6595deb4147a1ed517a7d9a580271 Python-3.7.0.tgz" > Python-3.7.0.tgz.md5sum
+    - md5sum -c Python-3.7.0.tgz.md5sum
+    
+    # Preparing the sources
+    - tar -xvf Python-3.7.0.tgz
+    - cd Python-3.7.0
+    
+    # Compiling Python 3.7
+    - ./configure --enable-shared
+    - make
+    - make install
+    
+    # Linking executables
+    #- ln -s /usr/local/bin/python* /usr/bin/
+    
+    # Linking libraries
+    #- ln -s /usr/local/lib/libpython* /usr/lib/x86_64-linux-gnu/
+    
+    # Cleaning up
+    - cd /opt/
+    - rm -rf Python-3.7.0.tgz
+    - rm -rf /opt/Python-3.7.0
+
+    #- apt-get install -y -qq python3-pip
     - export CTAPIPE_VERSION=master
     - pip3 install https://github.com/cta-observatory/ctapipe/archive/$CTAPIPE_VERSION.tar.gz
     - pip3 install -e .
