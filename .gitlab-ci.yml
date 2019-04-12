@@ -1,61 +1,11 @@
 before_script:
     - printf "deb http://archive.debian.org/debian/ jessie main\ndeb-src http://archive.debian.org/debian/ jessie main\ndeb http://security.debian.org jessie/updates main\ndeb-src http://security.debian.org jessie/updates main" > /etc/apt/sources.list
+    
+    - echo "deb http://ftp.de.debian.org/debian testing main" >> /etc/apt/sources.list
+    - echo 'APT::Default-Release "stable";' | tee -a /etc/apt/apt.conf.d/00local
+    
     - apt-get update -qq
-    # Installing GCC
-    - apt-get install -yq make gcc g++
-    
-    # Installing auxiliary software
-    - apt-get install -yq wget zlib1g-dev bzip2 libssl-dev libbz2-dev 
-    - apt-get install -yq tcl tcl-dev tk tk-dev tcl8.6 libtk8.6
-    - apt-get install -yq libssl1.0.0 libssl-dev
-    
-    # Downloading Python 3.7
-    - cd /opt
-    - wget https://www.python.org/ftp/python/3.7.0/Python-3.7.0.tgz
-    - echo "41b6595deb4147a1ed517a7d9a580271 Python-3.7.0.tgz" > Python-3.7.0.tgz.md5sum
-    - md5sum -c Python-3.7.0.tgz.md5sum
-    
-    # Preparing the sources
-    - tar -xf Python-3.7.0.tgz
-    - cd Python-3.7.0
-    
-    - echo -e "--- Setup.dist.orig	2019-04-12 21:08:41.000000000 +0200" > Setup.dist.diff
-    - echo -e "+++ Setup.dist	2019-04-12 21:09:04.909204191 +0200" >> Setup.dist.diff
-    - echo -e "@@ -208,10 +208,10 @@" >> Setup.dist.diff
-    - echo -e " " >> Setup.dist.diff
-    - echo -e " # Socket module helper for SSL support; you must comment out the other" >> Setup.dist.diff
-    - echo -e " # socket line above, and possibly edit the SSL variable:" >> Setup.dist.diff
-    - echo -e "-#SSL=/usr/local/ssl" >> Setup.dist.diff
-    - echo -e "-#_ssl _ssl.c \\" >> Setup.dist.diff
-    - echo -e "-#	-DUSE_SSL -I\$(SSL)/include -I\$(SSL)/include/openssl \\" >> Setup.dist.diff
-    - echo -e "-#	-L\$(SSL)/lib -lssl -lcrypto" >> Setup.dist.diff
-    - echo -e "+SSL=/usr/local/ssl" >> Setup.dist.diff
-    - echo -e "+_ssl _ssl.c \\" >> Setup.dist.diff
-    - echo -e "+	-DUSE_SSL -I\$(SSL)/include -I\$(SSL)/include/openssl \\" >> Setup.dist.diff
-    - echo -e "+	-L\$(SSL)/lib -lssl -lcrypto" >> Setup.dist.diff
-    - echo -e " " >> Setup.dist.diff
-    - echo -e " # The crypt module is now disabled by default because it breaks builds" >> Setup.dist.diff
-    - echo -e " # on many systems (where -lcrypt is needed), e.g. Linux (I believe)." >> Setup.dist.diff
-    
-    - cd Modules
-    - patch < ../Setup.dist.diff
-    - cd ../
-    
-    # Compiling Python 3.7
-    - ./configure --enable-shared --with-ssl-default-suites=openssl
-    - make
-    - make install
-    
-    # Linking executables
-    - ln -s /usr/local/bin/python* /usr/bin/
-    
-    # Linking libraries
-    - ln -s /usr/local/lib/libpython* /usr/lib/x86_64-linux-gnu/
-    
-    # Cleaning up
-    - cd /opt/
-    - rm -rf Python-3.7.0.tgz
-    - rm -rf /opt/Python-3.7.0
+    - apt-get -t testing install python3.7
 
     #- apt-get install -y -qq python3-pip
     - export CTAPIPE_VERSION=master
