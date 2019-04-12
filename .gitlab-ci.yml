@@ -6,7 +6,7 @@ before_script:
     - apt-get install -yq make gcc g++
     
     # Installing auxiliary software
-    - apt-get install -yq wget zlib1g-dev bzip2 libssl-dev libbz2-dev
+    - apt-get install -yq wget zlib1g-dev bzip2 libssl-dev libbz2-dev libssl-dev
     - apt-get install -yq tcl tcl-dev tk tk-dev tcl8.6 libtk8.6
     
     # Downloading Python 3.7
@@ -37,7 +37,8 @@ before_script:
 
     #- apt-get install -y -qq python3-pip
     - export CTAPIPE_VERSION=master
-    - pip3 install http://github.com/cta-observatory/ctapipe/archive/$CTAPIPE_VERSION.tar.gz
+    - pip3 install https://github.com/cta-observatory/ctapipe/archive/$CTAPIPE_VERSION.tar.gz
+    - pip3 install https://github.com/cta-observatory/ctapipe-extra/archive/$CTAPIPE_VERSION.tar.gz
     - pip3 install -e .
     
 run_tests:
