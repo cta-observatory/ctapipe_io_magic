@@ -13,10 +13,11 @@ before_script:
     
     - export CTAPIPE_VERSION=master
     - pip3 install https://github.com/cta-observatory/ctapipe/archive/$CTAPIPE_VERSION.tar.gz
-    - pip3 install https://github.com/cta-observatory/ctapipe-extra/archive/$CTAPIPE_VERSION.tar.gz
+    # - pip3 install https://github.com/cta-observatory/ctapipe-extra/archive/$CTAPIPE_VERSION.tar.gz
+    - pip3 install https://github.com/IevgenVovk/ctapipe-extra/archive/$CTAPIPE_VERSION.tar.gz
     - pip3 install -e .
     
 run_tests:
     script:
-         - echo "Yes!"
-        # - pytest -vvs
+        #  - echo "Yes!"
+        - pytest -vvs
