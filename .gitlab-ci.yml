@@ -16,5 +16,5 @@ before_script:
     
 run_tests:
     script:
-        - echo "Yes!"
-        # - pytest -vvs
+        # - echo "Yes!"
+        - pytest -vvs
