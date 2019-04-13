@@ -6,7 +6,7 @@ before_script:
     - cat /etc/apt/sources.list
     
     - apt-get update -qq
-    - apt-get -t testing install -y python3.6
+    - DEBIAN_FRONTEND=noninteractive apt-get -t testing install -y python3.6
 
     # #- apt-get install -y -qq python3-pip
     # - export CTAPIPE_VERSION=master
