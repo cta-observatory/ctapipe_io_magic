@@ -1,5 +1,5 @@
 before_script:
-    - printf "deb http://archive.debian.org/debian/ jessie main\ndeb-src http://archive.debian.org/debian/ jessie main\ndeb http://security.debian.org jessie/updates main\ndeb-src http://security.debian.org jessie/updates main" > /etc/apt/sources.list
+    - printf "deb http://archive.debian.org/debian/ jessie main\ndeb-src http://archive.debian.org/debian/ jessie main\ndeb http://security.debian.org jessie/updates main\ndeb-src http://security.debian.org jessie/updates main\n" > /etc/apt/sources.list
     
     - echo "deb http://ftp.de.debian.org/debian testing main" >> /etc/apt/sources.list
     - echo 'APT::Default-Release "stable";' | tee -a /etc/apt/apt.conf.d/00local
