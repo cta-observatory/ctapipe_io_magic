@@ -3,15 +3,16 @@ before_script:
     
     - echo "deb http://ftp.de.debian.org/debian testing main" >> /etc/apt/sources.list
     - echo 'APT::Default-Release "stable";' | tee -a /etc/apt/apt.conf.d/00local
+    - cat etc/apt/sources.list
     
-    - apt-get update -qq
-    - apt-get -t testing install python3.7
+    # - apt-get update -qq
+    # - apt-get -t testing install python3.7
 
-    #- apt-get install -y -qq python3-pip
-    - export CTAPIPE_VERSION=master
-    - pip3 install https://github.com/cta-observatory/ctapipe/archive/$CTAPIPE_VERSION.tar.gz
-    - pip3 install https://github.com/cta-observatory/ctapipe-extra/archive/$CTAPIPE_VERSION.tar.gz
-    - pip3 install -e .
+    # #- apt-get install -y -qq python3-pip
+    # - export CTAPIPE_VERSION=master
+    # - pip3 install https://github.com/cta-observatory/ctapipe/archive/$CTAPIPE_VERSION.tar.gz
+    # - pip3 install https://github.com/cta-observatory/ctapipe-extra/archive/$CTAPIPE_VERSION.tar.gz
+    # - pip3 install -e .
     
 run_tests:
     script:
