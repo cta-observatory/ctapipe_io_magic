@@ -10,7 +10,7 @@ import scipy.interpolate
 from astropy import units as u
 from astropy.time import Time
 from ctapipe.io.eventsource import EventSource
-from ctapipe.io.containers import DataContainer, TelescopePointingContainer, WeatherContainer
+from ctapipe.io.containers import DataContainer, TelescopePointingContainer
 from ctapipe.instrument import TelescopeDescription, SubarrayDescription, OpticsDescription, CameraGeometry
 
 __all__ = ['MAGICEventSource']
