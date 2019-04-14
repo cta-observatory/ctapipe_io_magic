@@ -140,7 +140,7 @@ class MAGICEventSource(EventSource):
             A run number of the file.
         """
 
-        mask = ".*\d+_M\d+_(\d+)\.\d+_.*"
+        mask = r".*\d+_M\d+_(\d+)\.\d+_.*"
         parsed_info = re.findall(mask, file_name)
 
         try:
@@ -603,7 +603,7 @@ class MarsDataRun:
             A run number of the file.
         """
 
-        mask = ".*\d+_M\d+_(\d+)\.\d+_.*"
+        mask = r".*\d+_M\d+_(\d+)\.\d+_.*"
         parsed_info = re.findall(mask, file_name)
 
         run_number = int(parsed_info[0])
