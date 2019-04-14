@@ -20,4 +20,4 @@ before_script:
 run_tests:
     script:
         #  - echo "Yes!"
-        - pytest -vvs
+        - pytest-3 -vvs
