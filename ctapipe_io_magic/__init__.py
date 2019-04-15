@@ -561,6 +561,8 @@ class MarsDataRun:
         # Detecting mono events
         self.mono_ids = self._find_mono_events()
 
+        self.n_camera_pixels = 1039
+
     @property
     def n_events_m1(self):
         return len(self.event_data['M1']['MJD'])
