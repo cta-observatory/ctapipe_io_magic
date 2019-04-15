@@ -59,7 +59,7 @@ class MAGICEventSource(EventSource):
         # To overcome this we substitute the input_url with first file matching
         # the specified file mask.
         del kwargs['input_url']
-        super().__init__(config=config, tool=tool, input_url=file_list[0], **kwargs)
+        super().__init__(input_url=file_list[0], **kwargs)
 
         # Retrieving the list of run numbers corresponding to the data files
         run_numbers = list(map(self._get_run_number, file_list))
@@ -77,7 +77,7 @@ class MAGICEventSource(EventSource):
         # MAGIC telescope description
         optics = OpticsDescription.from_name('MAGIC')
         geom = CameraGeometry.from_name('MAGICCam')
-        self.magic_tel_description = TelescopeDescription(optics=optics, camera=geom)
+        self.magic_tel_description = TelescopeDescription(name='MAGIC', type='MAGIC', optics=optics, camera=geom)
         self.magic_tel_descriptions = {1: self.magic_tel_description, 2: self.magic_tel_description}
         self.magic_subarray = SubarrayDescription('MAGIC', self.magic_tel_positions, self.magic_tel_descriptions)
 
