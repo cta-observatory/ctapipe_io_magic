@@ -118,7 +118,7 @@ class MAGICEventSource(EventSource):
                     pass
 
             except ImportError:
-                if re.match('.+_m\d_.+root', file_path.lower()) is None:
+                if re.match(r'.+_m\d_.+root', file_path.lower()) is None:
                     is_magic_root_file = False
 
         return is_magic_root_file
