@@ -1,7 +1,6 @@
 import copy
 import pytest
 from ctapipe_io_magic import MAGICEventSource
-from ctapipe.io.eventsourcefactory import EventSourceFactory
 from ctapipe.io.eventseeker import EventSeeker
 from ctapipe.utils import get_dataset_path
 
@@ -78,15 +77,6 @@ def test_geom():
         event = next(source._generator())
         assert event.inst.subarray.tels[1].camera.pix_x.size == 1039
         assert event.inst.subarray.tels[2].camera.pix_x.size == 1039
-
-
-def test_eventsourcefactory():
-    dataset = get_dataset_path("20131004_M1_05029747.003_Y_MagicCrab-W0.40+035.root")
-    dataset = dataset.replace('_M1_', '_M*_')
-
-    source = EventSourceFactory.produce(input_url=dataset)
-    assert source.__class__.__name__ == "MAGICEventSource"
-    assert source.input_url == dataset.replace('_M*_', '_M1_')
 
 
 def test_eventseeker():
