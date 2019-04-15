@@ -4,6 +4,7 @@
 import glob
 import re
 
+import scipy
 import numpy as np
 import scipy.interpolate
 
@@ -52,17 +53,17 @@ class MAGICEventSource(EventSource):
             self.log.error(msg)
             raise
 
-        file_list = glob.glob(kwargs['input_url'])
-        file_list.sort()
+        self.file_list = glob.glob(kwargs['input_url'])
+        self.file_list.sort()
 
         # EventSource can not handle file wild cards as input_url
         # To overcome this we substitute the input_url with first file matching
         # the specified file mask.
         del kwargs['input_url']
-        super().__init__(input_url=file_list[0], **kwargs)
+        super().__init__(input_url=self.file_list[0], **kwargs)
 
         # Retrieving the list of run numbers corresponding to the data files
-        run_numbers = list(map(self._get_run_number, file_list))
+        run_numbers = list(map(self._get_run_number, self.file_list))
         self.run_numbers = np.unique(run_numbers)
 
         # # Setting up the current run with the first run present in the data
@@ -170,7 +171,7 @@ class MAGICEventSource(EventSource):
         run = dict()
         run['number'] = run_number
         run['read_events'] = 0
-        run['data'] = MarsDataRun(run_file_mask=this_run_mask)
+        run['data'] = MarsDataRun(run_file_mask=this_run_mask, filter_list=self.file_list)
 
         return run
 
@@ -511,7 +512,7 @@ class MarsDataRun:
     This class implements reading of the event data from a single MAGIC data run.
     """
 
-    def __init__(self, run_file_mask):
+    def __init__(self, run_file_mask, filter_list=None):
         """
         Constructor of the class. Defines the run to use and the camera pixel arrangement.
 
@@ -521,26 +522,28 @@ class MarsDataRun:
             A path mask for files belonging to the run. Must correspond to a single run
             or an exception will be raised. Must correspond to calibrated ("sorcerer"-level)
             data.
+        filter_list: list, optional
+            A list of files, to which the run_file_mask should be applied. If None, all the
+            files satisfying run_file_mask will be used. Defaults to None.
         """
 
         self.run_file_mask = run_file_mask
 
-        # Loading the camera geometry
-        camera_geometry = CameraGeometry.from_name('MAGICCam')
-        self.camera_pixel_x = camera_geometry.pix_x.value
-        self.camera_pixel_y = camera_geometry.pix_y.value
-        self.n_camera_pixels = len(self.camera_pixel_x)
-
         # Preparing the lists of M1/2 data files
         file_list = glob.glob(run_file_mask)
+
+        # Filtering out extra files if necessary
+        if filter_list is not None:
+            file_list = list(set(file_list) & set(filter_list))
+
         self.m1_file_list = list(filter(lambda name: '_M1_' in name, file_list))
-        self.m1_file_list.sort()
         self.m2_file_list = list(filter(lambda name: '_M2_' in name, file_list))
+        self.m1_file_list.sort()
         self.m2_file_list.sort()
 
         # Retrieving the list of run numbers corresponding to the data files
         run_numbers = list(map(self._get_run_number, file_list))
-        run_numbers = np.unique(run_numbers)
+        run_numbers = scipy.unique(run_numbers)
 
         # Checking if a single run is going to be read
         if len(run_numbers) > 1:
@@ -636,81 +639,107 @@ class MarsDataRun:
 
         event_data['charge'] = []
         event_data['arrival_time'] = []
-        event_data['trigger_pattern'] = np.array([])
-        event_data['stereo_event_number'] = np.array([])
-        event_data['pointing_zd'] = np.array([])
-        event_data['pointing_az'] = np.array([])
-        event_data['pointing_ra'] = np.array([])
-        event_data['pointing_dec'] = np.array([])
-        event_data['MJD'] = np.array([])
+        event_data['trigger_pattern'] = scipy.array([])
+        event_data['stereo_event_number'] = scipy.array([])
+        event_data['pointing_zd'] = scipy.array([])
+        event_data['pointing_az'] = scipy.array([])
+        event_data['pointing_ra'] = scipy.array([])
+        event_data['pointing_dec'] = scipy.array([])
+        event_data['MJD'] = scipy.array([])
 
         event_data['file_edges'] = [0]
+
+        array_list = ['MCerPhotEvt.fPixels.fPhot', 'MArrivalTime.fData',
+                      'MTriggerPattern.fPrescaled',
+                      'MRawEvtHeader.fStereoEvtNumber', 'MRawEvtHeader.fDAQEvtNumber',
+                      'MTime.fMjd', 'MTime.fTime.fMilliSec', 'MTime.fNanoSec'
+                      ]
+
+        pointing_array_list = ['MPointingPos.fZd', 'MPointingPos.fAz', 'MPointingPos.fRa', 'MPointingPos.fDec']
+        drive_array_list = ['MReportDrive.fMjd', 'MReportDrive.fCurrentZd', 'MReportDrive.fCurrentAz',
+                            'MReportDrive.fRa', 'MReportDrive.fDec']
 
         for file_name in file_list:
 
             input_file = uproot.open(file_name)
 
+            events = input_file['Events'].arrays(array_list)
+
             # Reading the info common to MC and real data
-            charge = input_file['Events']['MCerPhotEvt.fPixels.fPhot'].array()
-            arrival_time = input_file['Events']['MArrivalTime.fData'].array()
-            trigger_pattern = input_file['Events']['MTriggerPattern.fPrescaled'].array()
-            stereo_event_number = input_file['Events']['MRawEvtHeader.fStereoEvtNumber'].array()
+            charge = events[b'MCerPhotEvt.fPixels.fPhot']
+            arrival_time = events[b'MArrivalTime.fData']
+            trigger_pattern = events[b'MTriggerPattern.fPrescaled']
+            stereo_event_number = events[b'MRawEvtHeader.fStereoEvtNumber']
 
             # Computing the event arrival time
-            mjd = input_file['Events']['MTime.fMjd'].array()
-            millisec = input_file['Events']['MTime.fTime.fMilliSec'].array()
-            nanosec = input_file['Events']['MTime.fNanoSec'].array()
+            mjd = events[b'MTime.fMjd']
+            millisec = events[b'MTime.fTime.fMilliSec']
+            nanosec = events[b'MTime.fNanoSec']
 
             mjd = mjd + (millisec / 1e3 + nanosec / 1e9) / 86400.0
 
-            degrees_per_hour = 15.0
-
             if 'MPointingPos.' in input_file['Events']:
                 # Retrieving the telescope pointing direction
-                pointing_zd = input_file['Events']['MPointingPos.fZd'].array() - input_file['Events'][
-                    'MPointingPos.fDevZd'].array()
-                pointing_az = input_file['Events']['MPointingPos.fAz'].array() - input_file['Events'][
-                    'MPointingPos.fDevAz'].array()
-                pointing_ra = (input_file['Events']['MPointingPos.fRa'].array() - input_file['Events'][
-                    'MPointingPos.fDevHa'].array()) * degrees_per_hour
-                pointing_dec = input_file['Events']['MPointingPos.fDec'].array() - input_file['Events'][
-                    'MPointingPos.fDevDec'].array()
+                pointing = input_file['Events'].arrays(pointing_array_list)
+
+                pointing_zd = pointing[b'MPointingPos.fZd']
+                pointing_az = pointing[b'MPointingPos.fAz']
+                pointing_ra = pointing[b'MPointingPos.fRa']
+                pointing_dec = pointing[b'MPointingPos.fDec']
             else:
                 # Getting the telescope drive info
-                drive_mjd = input_file['Drive']['MReportDrive.fMjd'].array()
-                drive_zd = input_file['Drive']['MReportDrive.fCurrentZd'].array()
-                drive_az = input_file['Drive']['MReportDrive.fCurrentAz'].array()
-                drive_ra = input_file['Drive']['MReportDrive.fRa'].array() * degrees_per_hour
-                drive_dec = input_file['Drive']['MReportDrive.fDec'].array()
+                drive = input_file['Drive'].arrays(drive_array_list)
 
-                # Creating azimuth and zenith angles interpolators
-                drive_zd_pointing_interpolator = scipy.interpolate.interp1d(drive_mjd, drive_zd,
-                                                                            fill_value="extrapolate")
-                drive_az_pointing_interpolator = scipy.interpolate.interp1d(drive_mjd, drive_az,
-                                                                            fill_value="extrapolate")
+                drive_mjd = drive[b'MReportDrive.fMjd']
+                drive_zd = drive[b'MReportDrive.fCurrentZd']
+                drive_az = drive[b'MReportDrive.fCurrentAz']
+                drive_ra = drive[b'MReportDrive.fRa']
+                drive_dec = drive[b'MReportDrive.fDec']
 
-                # Creating azimuth and zenith angles interpolators
-                drive_ra_pointing_interpolator = scipy.interpolate.interp1d(drive_mjd, drive_ra,
-                                                                            fill_value="extrapolate")
-                drive_dec_pointing_interpolator = scipy.interpolate.interp1d(drive_mjd, drive_dec,
-                                                                             fill_value="extrapolate")
+                # Finding only non-repeating drive entries
+                # Repeating entries lead to failure in pointing interpolation
+                non_repeating = scipy.diff(drive_mjd) > 0
+                non_repeating = scipy.concatenate((non_repeating, [True]))
 
-                # Interpolating the drive pointing to the event time stamps
-                pointing_zd = drive_zd_pointing_interpolator(event_data['MJD'])
-                pointing_az = drive_az_pointing_interpolator(event_data['MJD'])
-                pointing_ra = drive_ra_pointing_interpolator(event_data['MJD'])
-                pointing_dec = drive_dec_pointing_interpolator(event_data['MJD'])
+                # Filtering out the repeating ones
+                drive_mjd = drive_mjd[non_repeating]
+                drive_zd = drive_zd[non_repeating]
+                drive_az = drive_az[non_repeating]
+                drive_ra = drive_ra[non_repeating]
+                drive_dec = drive_dec[non_repeating]
+
+                if len(drive_zd) > 2:
+                    # If there are enough drive data, creating azimuth and zenith angles interpolators
+                    drive_zd_pointing_interpolator = scipy.interpolate.interp1d(drive_mjd, drive_zd, fill_value="extrapolate")
+                    drive_az_pointing_interpolator = scipy.interpolate.interp1d(drive_mjd, drive_az, fill_value="extrapolate")
+
+                    # Creating azimuth and zenith angles interpolators
+                    drive_ra_pointing_interpolator = scipy.interpolate.interp1d(drive_mjd, drive_ra, fill_value="extrapolate")
+                    drive_dec_pointing_interpolator = scipy.interpolate.interp1d(drive_mjd, drive_dec, fill_value="extrapolate")
+
+                    # Interpolating the drive pointing to the event time stamps
+                    pointing_zd = drive_zd_pointing_interpolator(mjd)
+                    pointing_az = drive_az_pointing_interpolator(mjd)
+                    pointing_ra = drive_ra_pointing_interpolator(mjd)
+                    pointing_dec = drive_dec_pointing_interpolator(mjd)
+
+                else:
+                    # Not enough data to interpolate the pointing direction.
+                    pointing_zd = scipy.repeat(-1, len(mjd))
+                    pointing_az = scipy.repeat(-1, len(mjd))
+                    pointing_ra = scipy.repeat(-1, len(mjd))
+                    pointing_dec = scipy.repeat(-1, len(mjd))
 
             event_data['charge'].append(charge)
             event_data['arrival_time'].append(arrival_time)
-            event_data['trigger_pattern'] = np.concatenate((event_data['trigger_pattern'], trigger_pattern))
-            event_data['stereo_event_number'] = np.concatenate((event_data['stereo_event_number'], stereo_event_number))
-            event_data['pointing_zd'] = np.concatenate((event_data['pointing_zd'], pointing_zd))
-            event_data['pointing_az'] = np.concatenate((event_data['pointing_az'], pointing_az))
-            event_data['pointing_ra'] = np.concatenate((event_data['pointing_ra'], pointing_ra))
-            event_data['pointing_dec'] = np.concatenate((event_data['pointing_dec'], pointing_dec))
+            event_data['trigger_pattern'] = scipy.concatenate((event_data['trigger_pattern'], trigger_pattern))
+            event_data['stereo_event_number'] = scipy.concatenate((event_data['stereo_event_number'], stereo_event_number))
+            event_data['pointing_zd'] = scipy.concatenate((event_data['pointing_zd'], pointing_zd))
+            event_data['pointing_az'] = scipy.concatenate((event_data['pointing_az'], pointing_az))
+            event_data['pointing_ra'] = scipy.concatenate((event_data['pointing_ra'], pointing_ra))
+            event_data['pointing_dec'] = scipy.concatenate((event_data['pointing_dec'], pointing_dec))
 
-            event_data['MJD'] = np.concatenate((event_data['MJD'], mjd))
+            event_data['MJD'] = scipy.concatenate((event_data['MJD'], mjd))
 
             event_data['file_edges'].append(len(event_data['trigger_pattern']))
 
