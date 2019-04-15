@@ -261,7 +261,7 @@ class MAGICEventSource(EventSource):
 
                     # Adding event charge and peak positions per pixel
                     data.dl1.tel[tel_i + 1].image = event_data['{:s}_image'.format(tel_id)]
-                    data.dl1.tel[tel_i + 1].peakpos = event_data['{:s}_peak_pos'.format(tel_id)]
+                    data.dl1.tel[tel_i + 1].pulse_time = event_data['{:s}_pulse_time'.format(tel_id)]
                     # data.dl1.tel[i_tel + 1].badpixels = np.array(
                     #     file['dl1/tel' + str(i_tel + 1) + '/badpixels'], dtype=np.bool)
 
@@ -372,7 +372,7 @@ class MAGICEventSource(EventSource):
 
                 # Adding event charge and peak positions per pixel
                 data.dl1.tel[tel_i + 1].image = event_data['image']
-                data.dl1.tel[tel_i + 1].peakpos = event_data['peak_pos']
+                data.dl1.tel[tel_i + 1].pulse_time = event_data['pulse_time']
                 # data.dl1.tel[tel_i + 1].badpixels = np.array(
                 #     file['dl1/tel' + str(i_tel + 1) + '/badpixels'], dtype=np.bool)
 
@@ -483,7 +483,7 @@ class MAGICEventSource(EventSource):
 
                 # Adding event charge and peak positions per pixel
                 data.dl1.tel[tel_i + 1].image = event_data['image']
-                data.dl1.tel[tel_i + 1].peakpos = event_data['peak_pos']
+                data.dl1.tel[tel_i + 1].pulse_time = event_data['pulse_time']
                 # data.dl1.tel[tel_i + 1].badpixels = np.array(
                 #     file['dl1/tel' + str(i_tel + 1) + '/badpixels'], dtype=np.bool)
 
@@ -913,7 +913,7 @@ class MarsDataRun:
         dict:
             The output has the following structure:
             'image' - photon_content in requested telescope
-            'peak_pos' - arrival_times in requested telescope
+            'pulse_time' - arrival_times in requested telescope
             'pointing_az' - pointing azimuth
             'pointing_zd' - pointing zenith angle
             'pointing_ra' - pointing right ascension
@@ -931,7 +931,7 @@ class MarsDataRun:
 
         event_data = dict()
         event_data['image'] = photon_content
-        event_data['peak_pos'] = arrival_times
+        event_data['pulse_time'] = arrival_times
         event_data['pointing_az'] = self.event_data[telescope]['pointing_az'][event_id]
         event_data['pointing_zd'] = self.event_data[telescope]['pointing_zd'][event_id]
         event_data['pointing_ra'] = self.event_data[telescope]['pointing_ra'][event_id]
@@ -957,9 +957,9 @@ class MarsDataRun:
         dict:
             The output has the following structure:
             'm1_image' - M1 photon_content
-            'm1_peak_pos' - M1 arrival_times
+            'm1_pulse_time' - M1 arrival_times
             'm2_image' - M2 photon_content
-            'm2_peak_pos' - M2 arrival_times
+            'm2_pulse_time' - M2 arrival_times
             'pointing_az' - pointing azimuth
             'pointing_zd' - pointing zenith angle
             'pointing_ra' - pointing right ascension
@@ -982,9 +982,9 @@ class MarsDataRun:
 
         event_data = dict()
         event_data['m1_image'] = m1_photon_content
-        event_data['m1_peak_pos'] = m1_arrival_times
+        event_data['m1_pulse_time'] = m1_arrival_times
         event_data['m2_image'] = m2_photon_content
-        event_data['m2_peak_pos'] = m2_arrival_times
+        event_data['m2_pulse_time'] = m2_arrival_times
         event_data['pointing_az'] = self.event_data['M1']['pointing_az'][m1_id]
         event_data['pointing_zd'] = self.event_data['M1']['pointing_zd'][m1_id]
         event_data['pointing_ra'] = self.event_data['M1']['pointing_ra'][m1_id]
@@ -1013,7 +1013,7 @@ class MarsDataRun:
         dict:
             The output has the following structure:
             'image' - photon_content in requested telescope
-            'peak_pos' - arrival_times in requested telescope
+            'pulse_time' - arrival_times in requested telescope
             'pointing_az' - pointing azimuth
             'pointing_zd' - pointing zenith angle
             'pointing_ra' - pointing right ascension
@@ -1031,7 +1031,7 @@ class MarsDataRun:
 
         event_data = dict()
         event_data['image'] = photon_content
-        event_data['peak_pos'] = arrival_times
+        event_data['pulse_time'] = arrival_times
         event_data['pointing_az'] = self.event_data[telescope]['pointing_az'][event_id]
         event_data['pointing_zd'] = self.event_data[telescope]['pointing_zd'][event_id]
         event_data['pointing_ra'] = self.event_data[telescope]['pointing_ra'][event_id]
