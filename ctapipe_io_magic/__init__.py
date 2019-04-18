@@ -507,6 +507,299 @@ class MAGICEventSource(EventSource):
         return
 
 
+class MAGICEventSourceMC(EventSource):
+    """
+    EventSource for MAGIC calibrated MCs.
+    """
+    _count = 0
+
+    def __init__(self, config=None, tool=None, **kwargs):
+        """
+        Constructor
+
+        Parameters
+        ----------
+        config: traitlets.loader.Config
+            Configuration specified by config file or cmdline arguments.
+            Used to set traitlet values.
+            Set to None if no configuration to pass.
+        tool: ctapipe.core.Tool
+            Tool executable that is calling this component.
+            Passes the correct logger to the component.
+            Set to None if no Tool to pass.
+        kwargs: dict
+            Additional parameters to be passed.
+            NOTE: The file mask of the data to read can be passed with
+            the 'input_url' parameter.
+        """
+
+        try:
+            import uproot
+        except ImportError:
+            msg = "The `uproot` python module is required to access the MAGIC data"
+            self.log.error(msg)
+            raise
+
+        self.file_name = kwargs['input_url']
+
+        super().__init__(**kwargs)
+
+        self.mc_file = MarsMCFile(self.file_name)
+
+        # MAGIC telescope positions in m wrt. to the center of CTA simulations
+        self.magic_tel_positions = {
+            1: [-27.24, -146.66, 50.00] * u.m,
+            2: [-96.44, -96.77, 51.00] * u.m
+        }
+        # MAGIC telescope description
+        optics = OpticsDescription.from_name('MAGIC')
+        geom = CameraGeometry.from_name('MAGICCam')
+        self.magic_tel_description = TelescopeDescription(name='MAGIC', type='MAGIC', optics=optics, camera=geom)
+        self.magic_tel_descriptions = {1: self.magic_tel_description, 2: self.magic_tel_description}
+        self.magic_subarray = SubarrayDescription('MAGIC', self.magic_tel_positions, self.magic_tel_descriptions)
+
+    @staticmethod
+    def is_compatible(file_name):
+        """
+        This method checks if the specified file name corresponds
+        to a MAGIC data file. The result will be True only if all
+        the files are of ROOT format and contain an 'Events' tree.
+
+        Parameters
+        ----------
+        file_name: str
+            A file name to check
+
+        Returns
+        -------
+        bool:
+            True if the given file is MAGIC data file, False otherwise.
+
+        """
+
+        is_magic_root_file = True
+
+        try:
+            import uproot
+
+            try:
+                with uproot.open(file_name) as input_data:
+                    if 'Events' not in input_data:
+                        is_magic_root_file = False
+            except ValueError:
+                # uproot raises ValueError if the file is not a ROOT file
+                is_magic_root_file = False
+                pass
+
+        except ImportError:
+            if re.match(r'.+_m\d_.+root', file_name.lower()) is None:
+                is_magic_root_file = False
+
+        return is_magic_root_file
+
+    def _generator(self):
+        """
+        The default event generator. Return the stereo event
+        generator instance.
+
+        Returns
+        -------
+
+        """
+
+        return self._mono_event_generator()
+
+    def _mono_event_generator(self):
+        """
+        Mono event generator. Yields DataContainer instances, filled
+        with the read event data.
+
+        Returns
+        -------
+        ctapipe.io.containers.DataContainer
+
+        """
+
+        counter = 0
+
+        # Data container - is initialized once, and data is replaced within it after each yield
+        data = DataContainer()
+        data.meta['origin'] = "MAGIC MC"
+        data.meta['input_url'] = self.input_url
+        data.meta['is_simulation'] = False
+
+        tels_with_data = {self.mc_file.telescope, }
+
+        # Loop over the events
+        for event_i in range(self.mc_file.n_mono_events):
+            # Event and run ids
+            event_order_number = self.mc_file.mono_ids[event_i]
+            event_id = self.mc_file.event_data['daq_event_number'][event_order_number]
+            obs_id = self.mc_file.run_number
+
+            # Reading event data
+            event_data = self.mc_file.get_mono_event_data(event_i)
+
+            # Event counter
+            data.count = counter
+
+            # Setting up the R0 container
+            data.r0.obs_id = obs_id
+            data.r0.event_id = event_id
+            data.r0.tel.clear()
+
+            # Setting up the R1 container
+            data.r1.obs_id = obs_id
+            data.r1.event_id = event_id
+            data.r1.tel.clear()
+
+            # Setting up the DL0 container
+            data.dl0.obs_id = obs_id
+            data.dl0.event_id = event_id
+            data.dl0.tel.clear()
+
+            # Setting up the MC container
+            data.mc.tel.clear()
+
+            # Creating the telescope pointing container
+            pointing = TelescopePointingContainer()
+            pointing.azimuth = np.deg2rad(event_data['pointing_az']) * u.rad
+            pointing.altitude = np.deg2rad(90 - event_data['pointing_zd']) * u.rad
+
+            # Adding the pointing container to the event data
+            data.pointing[self.mc_file.telescope] = pointing
+
+            # Adding event charge and peak positions per pixel
+            data.dl1.tel[self.mc_file.telescope].image = event_data['image']
+            data.dl1.tel[self.mc_file.telescope].pulse_time = event_data['pulse_time']
+
+            # Setting the telescopes with data
+            data.r0.tels_with_data = tels_with_data
+            data.r1.tels_with_data = tels_with_data
+            data.dl0.tels_with_data = tels_with_data
+            data.trig.tels_with_trigger = tels_with_data
+
+            # Setting the instrument sub-array
+            data.inst.subarray = self.magic_subarray
+
+            # mc = data.mc.tel[self.mc_file.telescope]
+            # mc.dc_to_pe = array_event['laser_calibrations'][tel_id]['calib']
+            # mc.pedestal = array_event['camera_monitorings'][tel_id]['pedestal']
+            # mc.reference_pulse_shape = pixel_settings['ref_shape'].astype('float64')
+            # mc.meta['refstep'] = float(pixel_settings['ref_step'])
+            # mc.time_slice = float(pixel_settings['time_slice'])
+            # mc.photo_electron_image = (
+            #     array_event
+            #         .get('photoelectrons', {})
+            #         .get(tel_index, {})
+            #         .get('photoelectrons', np.zeros(n_pixel, dtype='float32'))
+            # )
+
+            data.mc.energy = event_data['true_energy'] * u.GeV
+            data.mc.alt = (90 - event_data['true_zd']) * u.deg
+            data.mc.az = event_data['true_az'] * u.deg
+
+            yield data
+            counter += 1
+
+        return
+
+    def _pedestal_event_generator(self):
+        """
+        Pedestal event generator. Yields DataContainer instances, filled
+        with the read event data.
+
+        Returns
+        -------
+        ctapipe.io.containers.DataContainer
+
+        """
+
+        counter = 0
+
+        # Data container - is initialized once, and data is replaced within it after each yield
+        data = DataContainer()
+        data.meta['origin'] = "MAGIC MC"
+        data.meta['input_url'] = self.input_url
+        data.meta['is_simulation'] = False
+
+        tels_with_data = {self.mc_file.telescope, }
+
+        # Loop over the events
+        for event_i in range(self.mc_file.n_pedestal_events):
+            # Event and run ids
+            event_order_number = self.mc_file.pedestal_ids[event_i]
+            event_id = self.mc_file.event_data['daq_event_number'][event_order_number]
+            obs_id = self.mc_file.run_number
+
+            # Reading event data
+            event_data = self.mc_file.get_mono_event_data(event_i)
+
+            # Event counter
+            data.count = counter
+
+            # Setting up the R0 container
+            data.r0.obs_id = obs_id
+            data.r0.event_id = event_id
+            data.r0.tel.clear()
+
+            # Setting up the R1 container
+            data.r1.obs_id = obs_id
+            data.r1.event_id = event_id
+            data.r1.tel.clear()
+
+            # Setting up the DL0 container
+            data.dl0.obs_id = obs_id
+            data.dl0.event_id = event_id
+            data.dl0.tel.clear()
+
+            # Setting up the MC container
+            data.mc.tel.clear()
+
+            # Creating the telescope pointing container
+            pointing = TelescopePointingContainer()
+            pointing.azimuth = np.deg2rad(event_data['pointing_az']) * u.rad
+            pointing.altitude = np.deg2rad(90 - event_data['pointing_zd']) * u.rad
+
+            # Adding the pointing container to the event data
+            data.pointing[self.mc_file.telescope] = pointing
+
+            # Adding event charge and peak positions per pixel
+            data.dl1.tel[self.mc_file.telescope].image = event_data['image']
+            data.dl1.tel[self.mc_file.telescope].pulse_time = event_data['pulse_time']
+
+            # Setting the telescopes with data
+            data.r0.tels_with_data = tels_with_data
+            data.r1.tels_with_data = tels_with_data
+            data.dl0.tels_with_data = tels_with_data
+            data.trig.tels_with_trigger = tels_with_data
+
+            # Setting the instrument sub-array
+            data.inst.subarray = self.magic_subarray
+
+            # mc = data.mc.tel[self.mc_file.telescope]
+            # mc.dc_to_pe = array_event['laser_calibrations'][tel_id]['calib']
+            # mc.pedestal = array_event['camera_monitorings'][tel_id]['pedestal']
+            # mc.reference_pulse_shape = pixel_settings['ref_shape'].astype('float64')
+            # mc.meta['refstep'] = float(pixel_settings['ref_step'])
+            # mc.time_slice = float(pixel_settings['time_slice'])
+            # mc.photo_electron_image = (
+            #     array_event
+            #         .get('photoelectrons', {})
+            #         .get(tel_index, {})
+            #         .get('photoelectrons', np.zeros(n_pixel, dtype='float32'))
+            # )
+
+            data.mc.energy = event_data['true_energy'] * u.GeV
+            data.mc.alt = (90 - event_data['true_zd']) * u.deg
+            data.mc.az = event_data['true_az'] * u.deg
+
+            yield data
+            counter += 1
+
+        return
+
+
 class MarsDataRun:
     """
     This class implements reading of the event data from a single MAGIC data run.
@@ -1068,5 +1361,234 @@ class MarsDataRun:
         event_data['pointing_ra'] = self.event_data[telescope]['pointing_ra'][event_id]
         event_data['pointing_dec'] = self.event_data[telescope]['pointing_dec'][event_id]
         event_data['mjd'] = self.event_data[telescope]['MJD'][event_id]
+
+        return event_data
+
+
+class MarsMCFile:
+    """
+    This class implements reading of the event data from a MAGIC MC data file.
+    It actually corresponds to 2 MC files - for M1 and M2 telescopes, which are
+    treated as one as the stored events are recorded in the stereo mode.
+    """
+
+    def __init__(self, mc_file):
+        """
+        Constructor of the class. Defines the run to use and the camera pixel arrangement.
+
+        Parameters
+        ----------
+        mc_file: str
+            MC file path.
+        """
+
+        self.mc_file = mc_file
+        self.telescope = int(re.findall(r'.*_M(\d)_.*', mc_file)[0])
+        self.run_number = int(re.findall(r'.*_M\d_za\d+to\d+_\d_(\d+)_Y_.*', mc_file)[0])
+
+        # Reading the event data
+        self.event_data = self.load_events(self.mc_file)
+
+        # Detecting pedestal events
+        self.pedestal_ids = self._find_pedestal_events()
+        # Detecting mono events
+        self.mono_ids = self._find_mono_events()
+
+        self.n_camera_pixels = 1039
+
+    @property
+    def n_events(self):
+        return len(self.event_data['stereo_event_number'])
+
+    @property
+    def n_mono_events(self):
+        return len(self.mono_ids)
+
+    @property
+    def n_pedestal_events(self):
+        return len(self.pedestal_ids)
+
+    @staticmethod
+    def load_events(file_name):
+        """
+        This method loads events from the pre-defiled file and returns them as a dictionary.
+
+        Parameters
+        ----------
+        file_name: str
+            Name of the MAGIC calibrated file to use.
+
+        Returns
+        -------
+        dict:
+            A dictionary with the even properties: charge / arrival time data, trigger, direction etc.
+        """
+
+        try:
+            import uproot
+        except ImportError:
+            msg = "The `uproot` python module is required to access the MAGIC data"
+            raise ImportError(msg)
+
+        event_data = dict()
+
+        array_list = ['MCerPhotEvt.fPixels.fPhot', 'MArrivalTime.fData',
+                      'MTriggerPattern.fPrescaled',
+                      'MRawEvtHeader.fStereoEvtNumber', 'MRawEvtHeader.fDAQEvtNumber',
+                      'MPointingPos.fZd', 'MPointingPos.fAz', 'MPointingPos.fRa', 'MPointingPos.fDec',
+                      'MMcEvt.fEnergy', 'MMcEvt.fTheta', 'MMcEvt.fPhi'
+                      ]
+
+        names_mapping = {
+            b'MCerPhotEvt.fPixels.fPhot': 'charge',
+            b'MArrivalTime.fData': 'arrival_time',
+            b'MTriggerPattern.fPrescaled': 'trigger_pattern',
+            b'MRawEvtHeader.fStereoEvtNumber': 'stereo_event_number',
+            b'MRawEvtHeader.fDAQEvtNumber': 'daq_event_number',
+            b'MPointingPos.fZd': 'pointing_zd',
+            b'MPointingPos.fAz': 'pointing_az',
+            b'MPointingPos.fRa': 'pointing_ra',
+            b'MPointingPos.fDec': 'pointing_dec',
+            b'MMcEvt.fEnergy': 'true_energy',
+            b'MMcEvt.fTheta': 'true_zd',
+            b'MMcEvt.fPhi': 'true_az'
+        }
+
+        with uproot.open(file_name) as input_file:
+            if 'Events' in input_file:
+                data = input_file['Events'].arrays(array_list)
+
+                # Mapping the read structure to the alternative names
+                for key in data:
+                    name = names_mapping[key]
+                    event_data[name] = data[key]
+
+                # Post processing
+                event_data['true_zd'] = scipy.degrees(event_data['true_zd'])
+                event_data['true_az'] = scipy.degrees(event_data['true_az'])
+                # Transformation from Monte Carlo to usual azimuth
+                event_data['true_az'] = -1 * (event_data['true_az'] - 180 + 7)
+
+            else:
+                # The file is likely corrupted, so return empty arrays
+                for key in names_mapping:
+                    name = names_mapping[key]
+                    event_data[name] = scipy.zeros(0)
+
+        return event_data
+
+    def _find_pedestal_events(self):
+        """
+        This internal method identifies the IDs (order numbers) of the
+        pedestal events in the run.
+
+        Returns
+        -------
+        dict:
+            A dictionary of pedestal event IDs in M1/2 separately.
+        """
+
+        ped_triggers = scipy.where(self.event_data['trigger_pattern'] == 8)
+        pedestal_ids = ped_triggers[0]
+
+        return pedestal_ids
+
+    def _find_mono_events(self):
+        """
+        This internal method identifies the IDs (order numbers) of the
+        pedestal events in the run.
+
+        Returns
+        -------
+        dict:
+            A dictionary of pedestal event IDs.
+        """
+
+        mono_triggers = scipy.where(self.event_data['trigger_pattern'] == 1)
+        mono_ids = mono_triggers[0]
+
+        return mono_ids
+
+    def get_pedestal_event_data(self, pedestal_event_num):
+        """
+        This method read the photon content and arrival time (per pixel)
+        for the specified pedestal event. Also returned is the event telescope pointing
+        data.
+
+        Parameters
+        ----------
+        pedestal_event_num: int
+            Order number of the event in the list of pedestal events for the
+            given telescope, corresponding to this run.
+
+        Returns
+        -------
+        event_data: dict
+            A dictionary containing the event image, arrival time map, true energy and Az/Zd
+            as well as Az/Zd of the current telescope pointing.
+        """
+
+        event_id = self.pedestal_ids[pedestal_event_num]
+
+        photon_content = self.event_data['charge'][event_id][:self.n_camera_pixels]
+        arrival_times = self.event_data['arrival_time'][event_id][:self.n_camera_pixels]
+
+        pointing_zd = self.event_data['pointing_zd'][event_id]
+        pointing_az = self.event_data['pointing_az'][event_id]
+
+        event_true_energy = 0.0
+        event_true_zd = 0.0
+        event_true_az = 0.0
+
+        event_data = dict()
+        event_data['image'] = photon_content
+        event_data['pulse_time'] = arrival_times
+        event_data['pointing_az'] = pointing_az
+        event_data['pointing_zd'] = pointing_zd
+        event_data['true_energy'] = event_true_energy
+        event_data['true_az'] = event_true_az
+        event_data['true_zd'] = event_true_zd
+
+        return event_data
+
+    def get_mono_event_data(self, mono_event_num):
+        """
+        This method read the photon content and arrival time (per pixel)
+        for the specified mono event. Also returned is the event telescope pointing
+        data.
+
+        Parameters
+        ----------
+        mono_event_num: int
+            Order number of the event in the list of mono events for the
+            given telescope, corresponding to this run.
+
+        Returns
+        -------
+        event_data: dict
+            A dictionary containing the event image, arrival time map, true energy and Az/Zd
+            as well as Az/Zd of the current telescope pointing.
+        """
+
+        event_id = self.mono_ids[mono_event_num]
+
+        photon_content = self.event_data['charge'][event_id][:self.n_camera_pixels]
+        arrival_times = self.event_data['arrival_time'][event_id][:self.n_camera_pixels]
+
+        pointing_zd = self.event_data['pointing_zd'][event_id]
+        pointing_az = self.event_data['pointing_az'][event_id]
+
+        event_true_energy = 0.0
+        event_true_zd = 0.0
+        event_true_az = 0.0
+
+        event_data = dict()
+        event_data['image'] = photon_content
+        event_data['pulse_time'] = arrival_times
+        event_data['pointing_az'] = pointing_az
+        event_data['pointing_zd'] = pointing_zd
+        event_data['true_energy'] = event_true_energy
+        event_data['true_az'] = event_true_az
+        event_data['true_zd'] = event_true_zd
 
         return event_data
