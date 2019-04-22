@@ -1578,9 +1578,9 @@ class MarsMCFile:
         pointing_zd = self.event_data['pointing_zd'][event_id]
         pointing_az = self.event_data['pointing_az'][event_id]
 
-        event_true_energy = 0.0
-        event_true_zd = 0.0
-        event_true_az = 0.0
+        event_true_energy = self.event_data['true_energy'][event_id]
+        event_true_zd = self.event_data['true_zd'][event_id]
+        event_true_az = self.event_data['true_az'][event_id]
 
         event_data = dict()
         event_data['image'] = photon_content
