@@ -7,7 +7,7 @@ This module implements the *ctapipe* class, needed to read the calibrated data o
 Provided *ctapipe* is already installed, the installation can be done like so:
 
 ```bash
-git clone https://gitlab.mpcdf.mpg.de/ievo/ctapipe_io_magic.git
+https://github.com/cta-observatory/ctapipe_io_magic.git
 cd ctapipe_io_magic
 python setup.py install --user
 ```
