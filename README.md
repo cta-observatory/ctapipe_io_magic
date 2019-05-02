@@ -8,6 +8,13 @@ Provided *ctapipe* is already installed, the installation can be done like so:
 
 ```bash
 git clone https://gitlab.mpcdf.mpg.de/ievo/ctapipe_io_magic.git
+pip install ./ctapipe_io_magic/
+```
+
+This installation via pip (provided, pip is installed) has the advantage to be nicely controlled for belonging to a given conda environment (and to be uninstalled). Alternatively, do
+
+```bash
+git clone https://gitlab.mpcdf.mpg.de/ievo/ctapipe_io_magic.git
 cd ctapipe_io_magic
 python setup.py install --user
 ```

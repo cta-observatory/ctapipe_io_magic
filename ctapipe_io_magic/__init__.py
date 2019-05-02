@@ -11,7 +11,7 @@ import scipy.interpolate
 from astropy import units as u
 from astropy.time import Time
 from ctapipe.io.eventsource import EventSource
-from ctapipe.io.containers import DataContainer, TelescopePointingContainer
+from ctapipe.io.containers import DataContainer, TelescopePointingContainer, WeatherContainer
 from ctapipe.instrument import TelescopeDescription, SubarrayDescription, OpticsDescription, CameraGeometry
 
 __all__ = ['MAGICEventSource']
@@ -252,10 +252,10 @@ class MAGICEventSource(EventSource):
                 for tel_i, tel_id in enumerate(tels_in_file):
                     # Creating the telescope pointing container
                     pointing = TelescopePointingContainer()
-                    pointing.azimuth = np.deg2rad(event_data['pointing_az']) * u.rad
-                    pointing.altitude = np.deg2rad(90 - event_data['pointing_zd']) * u.rad
-                    pointing.ra = np.deg2rad(event_data['pointing_ra']) * u.rad
-                    pointing.dec = np.deg2rad(event_data['pointing_dec']) * u.rad
+                    pointing.azimuth = np.deg2rad(event_data['{:s}_pointing_az'.format(tel_id)]) * u.rad
+                    pointing.altitude = np.deg2rad(90 - event_data['{:s}_pointing_zd'.format(tel_id)]) * u.rad
+                    pointing.ra = np.deg2rad(event_data['{:s}_pointing_ra'.format(tel_id)]) * u.rad
+                    pointing.dec = np.deg2rad(event_data['{:s}_pointing_dec'.format(tel_id)]) * u.rad
 
                     # Adding the pointing container to the event data
                     data.pointing[tel_i + 1] = pointing
@@ -263,6 +263,7 @@ class MAGICEventSource(EventSource):
                     # Adding event charge and peak positions per pixel
                     data.dl1.tel[tel_i + 1].image = event_data['{:s}_image'.format(tel_id)]
                     data.dl1.tel[tel_i + 1].pulse_time = event_data['{:s}_pulse_time'.format(tel_id)]
+                    data.dl1.tel[tel_i + 1].badpixels = event_data['{:s}_bad_pixels'.format(tel_id)]
                     # data.dl1.tel[i_tel + 1].badpixels = np.array(
                     #     file['dl1/tel' + str(i_tel + 1) + '/badpixels'], dtype=np.bool)
 
@@ -278,6 +279,13 @@ class MAGICEventSource(EventSource):
 
                 # Setting the instrument sub-array
                 data.inst.subarray = self.magic_subarray
+                
+                # Filling weather information
+                weather = WeatherContainer()
+                weather.air_temperature = event_data['air_temperature'] * u.deg_C
+                weather.air_pressure = event_data['air_pressure'] * u.hPa
+                weather.air_humidity = event_data['air_humidity']
+                data.weather = weather
 
                 yield data
                 counter += 1
@@ -374,6 +382,7 @@ class MAGICEventSource(EventSource):
                 # Adding event charge and peak positions per pixel
                 data.dl1.tel[tel_i + 1].image = event_data['image']
                 data.dl1.tel[tel_i + 1].pulse_time = event_data['pulse_time']
+                data.dl1.tel[tel_i + 1].badpixels = event_data['bad_pixels']
                 # data.dl1.tel[tel_i + 1].badpixels = np.array(
                 #     file['dl1/tel' + str(i_tel + 1) + '/badpixels'], dtype=np.bool)
 
@@ -389,6 +398,13 @@ class MAGICEventSource(EventSource):
 
                 # Setting the instrument sub-array
                 data.inst.subarray = self.magic_subarray
+
+                # Filling weather information
+                weather = WeatherContainer()
+                weather.air_temperature = event_data['air_temperature'] * u.deg_C
+                weather.air_pressure = event_data['air_pressure'] * u.hPa
+                weather.air_humidity = event_data['air_humidity']
+                data.weather = weather
 
                 yield data
                 counter += 1
@@ -485,6 +501,7 @@ class MAGICEventSource(EventSource):
                 # Adding event charge and peak positions per pixel
                 data.dl1.tel[tel_i + 1].image = event_data['image']
                 data.dl1.tel[tel_i + 1].pulse_time = event_data['pulse_time']
+                data.dl1.tel[tel_i + 1].badpixels = event_data['bad_pixels']
                 # data.dl1.tel[tel_i + 1].badpixels = np.array(
                 #     file['dl1/tel' + str(i_tel + 1) + '/badpixels'], dtype=np.bool)
 
@@ -500,6 +517,13 @@ class MAGICEventSource(EventSource):
 
                 # Setting the instrument sub-array
                 data.inst.subarray = self.magic_subarray
+                
+                # Filling weather information
+                weather = WeatherContainer()
+                weather.air_temperature = event_data['air_temperature'] * u.deg_C
+                weather.air_pressure = event_data['air_pressure'] * u.hPa
+                weather.air_humidity = event_data['air_humidity']
+                data.weather = weather
 
                 yield data
                 counter += 1
@@ -648,8 +672,19 @@ class MarsDataRun:
         event_data['pointing_ra'] = scipy.array([])
         event_data['pointing_dec'] = scipy.array([])
         event_data['MJD'] = scipy.array([])
+        event_data['air_pressure'] = scipy.array([])
+        event_data['air_humidity'] = scipy.array([])
+        event_data['air_temperature'] = scipy.array([])
+        event_data['badpixelinfo'] = []
 
+        # run-wise meta information (same for all events)
+        event_data['mars_meta'] = dict()
+        
         event_data['file_edges'] = [0]
+
+        degrees_per_hour = 15.0
+        seconds_per_day = 86400.0
+        seconds_per_hour = 3600.
 
         array_list = ['MCerPhotEvt.fPixels.fPhot', 'MArrivalTime.fData',
                       'MTriggerPattern.fPrescaled',
@@ -657,9 +692,18 @@ class MarsDataRun:
                       'MTime.fMjd', 'MTime.fTime.fMilliSec', 'MTime.fNanoSec'
                       ]
 
-        pointing_array_list = ['MPointingPos.fZd', 'MPointingPos.fAz', 'MPointingPos.fRa', 'MPointingPos.fDec']
+        pointing_array_list = ['MPointingPos.fZd', 'MPointingPos.fAz', 'MPointingPos.fRa', 
+                               'MPointingPos.fDec', 'MPointingPos.fDevZd',
+                               'MPointingPos.fDevAz',  'MPointingPos.fDevHa', 
+                               'MPointingPos.fDevDec',
+                               ]
+        
         drive_array_list = ['MReportDrive.fMjd', 'MReportDrive.fCurrentZd', 'MReportDrive.fCurrentAz',
-                            'MReportDrive.fRa', 'MReportDrive.fDec']
+                            'MReportDrive.fRa', 'MReportDrive.fDec'
+                            ]
+        
+        weather_array_list = ['MTimeWeather.fMjd', 'MTimeWeather.fTime.fMilliSec', 'MTimeWeather.fNanoSec',
+                              'MReportWeather.fPressure', 'MReportWeather.fHumidity', 'MReportWeather.fTemperature']
 
         for file_name in file_list:
 
@@ -673,21 +717,70 @@ class MarsDataRun:
             trigger_pattern = events[b'MTriggerPattern.fPrescaled']
             stereo_event_number = events[b'MRawEvtHeader.fStereoEvtNumber']
 
+            # Reading the info only contained in real data
+            try:
+                badpixelinfo = input_file['RunHeaders']['MBadPixelsCam.fArray.fInfo'].array(uproot.asjagged(uproot.asdtype(np.int32))).flatten().reshape((4, 1183), order='F')
+                # now we have 3 axes:
+                # 1st axis: Unsuitable pixels
+                # 2nd axis: Uncalibrated pixels (says why pixel is unsuitable)
+                # 3rd axis: Bad hardware pixels (says why pixel is unsuitable)
+                # Each axis cointains a 32bit integer encoding more information about the specific problem, see MARS software, MBADPixelsPix.h
+                # Here, we however discard this additional information and only grep the "unsuitable" axis.
+                badpixelinfo = badpixelinfo[1].astype(bool)
+            except:
+                badpixelinfo = np.zeros(1183)
+
+            # Reading meta information:
+            event_data['mars_meta']['number'] = int(input_file['RunHeaders']['MRawRunHeader.fRunNumber'].array()[0])
+            event_data['mars_meta']['number_subrun'] = int(input_file['RunHeaders']['MRawRunHeader.fSubRunIndex'].array()[0])
+            event_data['mars_meta']['source_ra'] = input_file['RunHeaders']['MRawRunHeader.fSourceRA'].array()[0] / seconds_per_hour * degrees_per_hour * u.deg
+            event_data['mars_meta']['source_dec'] = input_file['RunHeaders']['MRawRunHeader.fSourceDEC'].array()[0] / seconds_per_hour * u.deg
+            event_data['mars_meta']['tel'] = int(input_file['RunHeaders']['MRawRunHeader.fTelescopeNumber'].array()[0])
+
             # Computing the event arrival time
             mjd = events[b'MTime.fMjd']
             millisec = events[b'MTime.fTime.fMilliSec']
             nanosec = events[b'MTime.fNanoSec']
 
-            mjd = mjd + (millisec / 1e3 + nanosec / 1e9) / 86400.0
+            mjd = mjd + (millisec / 1e3 + nanosec / 1e9) / seconds_per_day
 
+            # Reading weather information:
+            try:
+                weather_info = input_file['Weather'].arrays(weather_array_list)
+                
+                weather_time_day = weather_info[b'MTimeWeather.fMjd']
+                weather_time_millisec = weather_info[b'MTimeWeather.fTime.fMilliSec']
+                weather_time_nanosec = weather_info[b'MTimeWeather.fNanoSec']
+                weather_mjd = weather_time_day + (weather_time_millisec/1e3 + weather_time_nanosec/1e9) / seconds_per_day
+                weather_mjd, weather_indices = np.unique(weather_mjd, return_index = True)
+                
+                air_pressure_array = weather_info[b'MReportWeather.fPressure'][weather_indices] # hPa
+                air_humidity_array = weather_info[b'MReportWeather.fHumidity'][weather_indices]
+                air_temperature_array = weather_info[b'MReportWeather.fTemperature'][weather_indices] # degree celsius
+      
+                air_pressure_interpolator = scipy.interpolate.interp1d(weather_mjd, air_pressure_array, fill_value="extrapolate")
+                air_humidity_interpolator = scipy.interpolate.interp1d(weather_mjd, air_humidity_array, fill_value="extrapolate")
+                air_temperature_interpolator = scipy.interpolate.interp1d(weather_mjd, air_temperature_array, fill_value="extrapolate")
+                  
+                air_pressure = air_pressure_interpolator(mjd) #* u.hPa
+                air_humidity = air_humidity_interpolator(mjd)
+                air_temperature = air_temperature_interpolator(mjd) #* u.deg_C
+            except:
+                print("Could not find weather information. "
+                             "Set to 0 degree Celsius, 50% humidity, 790hPa ambient pressure.")
+                air_pressure = scipy.full(len(mjd), 790.) #* u.hPa
+                air_humidity = scipy.full(len(mjd), 0.5)
+                air_temperature = scipy.zeros(len(mjd)) #* u.deg_C
+
+            # Reading pointing information (in units of degrees):
             if 'MPointingPos.' in input_file['Events']:
                 # Retrieving the telescope pointing direction
                 pointing = input_file['Events'].arrays(pointing_array_list)
 
-                pointing_zd = pointing[b'MPointingPos.fZd']
-                pointing_az = pointing[b'MPointingPos.fAz']
-                pointing_ra = pointing[b'MPointingPos.fRa']
-                pointing_dec = pointing[b'MPointingPos.fDec']
+                pointing_zd = pointing[b'MPointingPos.fZd'] - pointing[b'MPointingPos.fDevZd']
+                pointing_az = pointing[b'MPointingPos.fAz'] - pointing[b'MPointingPos.fDevAz']
+                pointing_ra = (pointing[b'MPointingPos.fRa'] + pointing[b'MPointingPos.fDevHa']) * degrees_per_hour # N.B. the positive sign here, as HA = local sidereal time - ra
+                pointing_dec = pointing[b'MPointingPos.fDec'] - pointing[b'MPointingPos.fDevDec']
             else:
                 # Getting the telescope drive info
                 drive = input_file['Drive'].arrays(drive_array_list)
@@ -695,7 +788,7 @@ class MarsDataRun:
                 drive_mjd = drive[b'MReportDrive.fMjd']
                 drive_zd = drive[b'MReportDrive.fCurrentZd']
                 drive_az = drive[b'MReportDrive.fCurrentAz']
-                drive_ra = drive[b'MReportDrive.fRa']
+                drive_ra = drive[b'MReportDrive.fRa'] * degrees_per_hour
                 drive_dec = drive[b'MReportDrive.fDec']
 
                 # Finding only non-repeating drive entries
@@ -734,12 +827,16 @@ class MarsDataRun:
 
             event_data['charge'].append(charge)
             event_data['arrival_time'].append(arrival_time)
+            event_data['badpixelinfo'].append(badpixelinfo)
             event_data['trigger_pattern'] = scipy.concatenate((event_data['trigger_pattern'], trigger_pattern))
             event_data['stereo_event_number'] = scipy.concatenate((event_data['stereo_event_number'], stereo_event_number))
             event_data['pointing_zd'] = scipy.concatenate((event_data['pointing_zd'], pointing_zd))
             event_data['pointing_az'] = scipy.concatenate((event_data['pointing_az'], pointing_az))
             event_data['pointing_ra'] = scipy.concatenate((event_data['pointing_ra'], pointing_ra))
             event_data['pointing_dec'] = scipy.concatenate((event_data['pointing_dec'], pointing_dec))
+            event_data['air_pressure'] = scipy.concatenate((event_data['air_pressure'], air_pressure))
+            event_data['air_humidity'] = scipy.concatenate((event_data['air_humidity'], air_humidity))
+            event_data['air_temperature'] = scipy.concatenate((event_data['air_temperature'], air_temperature))
 
             event_data['MJD'] = scipy.concatenate((event_data['MJD'], mjd))
 
@@ -945,11 +1042,15 @@ class MarsDataRun:
             The output has the following structure:
             'image' - photon_content in requested telescope
             'pulse_time' - arrival_times in requested telescope
-            'pointing_az' - pointing azimuth
-            'pointing_zd' - pointing zenith angle
-            'pointing_ra' - pointing right ascension
-            'pointing_dec' - pointing declination
-            'mjd' - event arrival time
+            'bad_pixels' - boolean array indicating problematic pixels
+            'pointing_az' - pointing azimuth [degrees]
+            'pointing_zd' - pointing zenith angle [degrees]
+            'pointing_ra' - pointing right ascension [degrees]
+            'pointing_dec' - pointing declination [degrees]
+            'mjd' - event arrival time [MJD]
+            'air_humidity' - relative ambient air humidity
+            'air_pressure' - ambient air pressure [astropy units]
+            'air_temperature' - ambient air temperature [astropy units]
         """
 
         file_num = self._get_pedestal_file_num(pedestal_event_num, telescope)
@@ -959,15 +1060,20 @@ class MarsDataRun:
 
         photon_content = self.event_data[telescope]['charge'][file_num][id_in_file][:self.n_camera_pixels]
         arrival_times = self.event_data[telescope]['arrival_time'][file_num][id_in_file][:self.n_camera_pixels]
+        bad_pixels = self.event_data[telescope]['badpixelinfo'][file_num][:self.n_camera_pixels]
 
         event_data = dict()
         event_data['image'] = photon_content
         event_data['pulse_time'] = arrival_times
+        event_data['bad_pixels'] = bad_pixels
         event_data['pointing_az'] = self.event_data[telescope]['pointing_az'][event_id]
         event_data['pointing_zd'] = self.event_data[telescope]['pointing_zd'][event_id]
         event_data['pointing_ra'] = self.event_data[telescope]['pointing_ra'][event_id]
         event_data['pointing_dec'] = self.event_data[telescope]['pointing_dec'][event_id]
         event_data['mjd'] = self.event_data[telescope]['MJD'][event_id]
+        event_data['air_pressure'] = self.event_data[telescope]['air_pressure'][event_id]
+        event_data['air_humidity'] = self.event_data[telescope]['air_humidity'][event_id]
+        event_data['air_temperature'] = self.event_data[telescope]['air_temperature'][event_id]
 
         return event_data
 
@@ -989,13 +1095,22 @@ class MarsDataRun:
             The output has the following structure:
             'm1_image' - M1 photon_content
             'm1_pulse_time' - M1 arrival_times
+            'm1_bad_pixels' - boolean array indicating problematic M1 pixels
             'm2_image' - M2 photon_content
-            'm2_pulse_time' - M2 arrival_times
-            'pointing_az' - pointing azimuth
-            'pointing_zd' - pointing zenith angle
-            'pointing_ra' - pointing right ascension
-            'pointing_dec' - pointing declination
-            'mjd' - event arrival time
+            'm2_peak_pos' - M2 arrival_times
+            'm2_bad_pixels' - boolean array indicating problematic M2 pixels
+            'm1_pointing_az' - M1 pointing azimuth [degrees]
+            'm1_pointing_zd' - M1 pointing zenith angle [degrees]
+            'm1_pointing_ra' - M1 pointing right ascension [degrees]
+            'm1_pointing_dec' - M1 pointing declination [degrees]
+            'm2_pointing_az' - M2 pointing azimuth [degrees]
+            'm2_pointing_zd' - M2 pointing zenith angle [degrees]
+            'm2_pointing_ra' - M2 pointing right ascension [degrees]
+            'm2_pointing_dec' - M2 pointing declination [degrees]
+            'mjd' - event arrival time [MJD]
+            'air_humidity' - relative ambient air humidity
+            'air_pressure' - ambient air pressure [astropy units]
+            'air_temperature' - ambient air temperature [astropy units]
         """
 
         m1_file_num, m2_file_num = self._get_stereo_file_num(stereo_event_num)
@@ -1007,20 +1122,32 @@ class MarsDataRun:
 
         m1_photon_content = self.event_data['M1']['charge'][m1_file_num][m1_id_in_file][:self.n_camera_pixels]
         m1_arrival_times = self.event_data['M1']['arrival_time'][m1_file_num][m1_id_in_file][:self.n_camera_pixels]
+        m1_bad_pixels = self.event_data['M1']['badpixelinfo'][m1_file_num][:self.n_camera_pixels]
 
         m2_photon_content = self.event_data['M2']['charge'][m2_file_num][m2_id_in_file][:self.n_camera_pixels]
         m2_arrival_times = self.event_data['M2']['arrival_time'][m2_file_num][m2_id_in_file][:self.n_camera_pixels]
+        m2_bad_pixels = self.event_data['M2']['badpixelinfo'][m2_file_num][:self.n_camera_pixels]
 
         event_data = dict()
         event_data['m1_image'] = m1_photon_content
         event_data['m1_pulse_time'] = m1_arrival_times
+        event_data['m1_bad_pixels'] = m1_bad_pixels
         event_data['m2_image'] = m2_photon_content
         event_data['m2_pulse_time'] = m2_arrival_times
-        event_data['pointing_az'] = self.event_data['M1']['pointing_az'][m1_id]
-        event_data['pointing_zd'] = self.event_data['M1']['pointing_zd'][m1_id]
-        event_data['pointing_ra'] = self.event_data['M1']['pointing_ra'][m1_id]
-        event_data['pointing_dec'] = self.event_data['M1']['pointing_dec'][m1_id]
+        event_data['m2_bad_pixels'] = m2_bad_pixels
+        event_data['m1_pointing_az'] = self.event_data['M1']['pointing_az'][m1_id]
+        event_data['m1_pointing_zd'] = self.event_data['M1']['pointing_zd'][m1_id]
+        event_data['m1_pointing_ra'] = self.event_data['M1']['pointing_ra'][m1_id]
+        event_data['m1_pointing_dec'] = self.event_data['M1']['pointing_dec'][m1_id]
+        event_data['m2_pointing_az'] = self.event_data['M2']['pointing_az'][m2_id]
+        event_data['m2_pointing_zd'] = self.event_data['M2']['pointing_zd'][m2_id]
+        event_data['m2_pointing_ra'] = self.event_data['M2']['pointing_ra'][m2_id]
+        event_data['m2_pointing_dec'] = self.event_data['M2']['pointing_dec'][m2_id]
+        # get information identical for both telescopes from M!:
         event_data['mjd'] = self.event_data['M1']['MJD'][m1_id]
+        event_data['air_pressure'] = self.event_data['M1']['air_pressure'][m1_id]
+        event_data['air_humidity'] = self.event_data['M1']['air_humidity'][m1_id]
+        event_data['air_temperature'] = self.event_data['M1']['air_temperature'][m1_id]
 
         return event_data
 
@@ -1045,11 +1172,15 @@ class MarsDataRun:
             The output has the following structure:
             'image' - photon_content in requested telescope
             'pulse_time' - arrival_times in requested telescope
-            'pointing_az' - pointing azimuth
-            'pointing_zd' - pointing zenith angle
-            'pointing_ra' - pointing right ascension
-            'pointing_dec' - pointing declination
-            'mjd' - event arrival time
+            'bad_pixels' - boolean array indicating problematic pixels
+            'pointing_az' - pointing azimuth [degrees]
+            'pointing_zd' - pointing zenith angle [degrees]
+            'pointing_ra' - pointing right ascension [degrees]
+            'pointing_dec' - pointing declination [degrees]
+            'mjd' - event arrival time [MJD]
+            'air_humidity' - relative ambient air humidity
+            'air_pressure' - ambient air pressure [astropy units]
+            'air_temperature' - ambient air temperature [astropy units]
         """
 
         file_num = self._get_mono_file_num(mono_event_num, telescope)
@@ -1059,14 +1190,19 @@ class MarsDataRun:
 
         photon_content = self.event_data[telescope]['charge'][file_num][id_in_file][:self.n_camera_pixels]
         arrival_times = self.event_data[telescope]['arrival_time'][file_num][id_in_file][:self.n_camera_pixels]
+        bad_pixels = self.event_data[telescope]['badpixelinfo'][file_num][:self.n_camera_pixels]
 
         event_data = dict()
         event_data['image'] = photon_content
         event_data['pulse_time'] = arrival_times
+        event_data['bad_pixels'] = bad_pixels
         event_data['pointing_az'] = self.event_data[telescope]['pointing_az'][event_id]
         event_data['pointing_zd'] = self.event_data[telescope]['pointing_zd'][event_id]
         event_data['pointing_ra'] = self.event_data[telescope]['pointing_ra'][event_id]
         event_data['pointing_dec'] = self.event_data[telescope]['pointing_dec'][event_id]
         event_data['mjd'] = self.event_data[telescope]['MJD'][event_id]
+        event_data['air_pressure'] = self.event_data[telescope]['air_pressure'][event_id]
+        event_data['air_humidity'] = self.event_data[telescope]['air_humidity'][event_id]
+        event_data['air_temperature'] = self.event_data[telescope]['air_temperature'][event_id]
 
         return event_data

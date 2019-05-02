@@ -1,0 +1,9 @@
+/.project
+/build/
+/.pydevproject
+ctapipe_io_magic.egg-info/PKG-INFO
+ctapipe_io_magic.egg-info/dependency_links.txt
+ctapipe_io_magic.egg-info/requires.txt
+ctapipe_io_magic.egg-info/SOURCES.txt
+ctapipe_io_magic.egg-info/top_level.txt
+dist/
