@@ -203,7 +203,6 @@ class MAGICEventSource(EventSource):
         data = DataContainer()
         data.meta['origin'] = "MAGIC"
         data.meta['input_url'] = self.input_url
-        data.meta['is_simulation'] = False
 
         # Telescopes with data:
         tels_in_file = ["m1", "m2"]
@@ -229,6 +228,10 @@ class MAGICEventSource(EventSource):
 
                 # Reading event data
                 event_data = self.current_run['data'].get_stereo_event_data(event_i)
+                
+                data.meta['is_simulation'] = event_data['mars_meta']['is_simulation']
+                data.meta['source_ra'] = event_data['mars_meta']['source_ra']
+                data.meta['source_dec'] = event_data['mars_meta']['source_dec']
 
                 # Event counter
                 data.count = counter
@@ -314,7 +317,6 @@ class MAGICEventSource(EventSource):
         data = DataContainer()
         data.meta['origin'] = "MAGIC"
         data.meta['input_url'] = self.input_url
-        data.meta['is_simulation'] = False
 
         # Telescopes with data:
         tels_in_file = ["M1", "M2"]
@@ -350,6 +352,10 @@ class MAGICEventSource(EventSource):
 
                 # Reading event data
                 event_data = self.current_run['data'].get_mono_event_data(event_i, telescope=telescope)
+                
+                data.meta['is_simulation'] = event_data['mars_meta']['is_simulation']
+                data.meta['source_ra'] = event_data['mars_meta']['source_ra']
+                data.meta['source_dec'] = event_data['mars_meta']['source_dec']
 
                 # Event counter
                 data.count = counter
@@ -433,7 +439,6 @@ class MAGICEventSource(EventSource):
         data = DataContainer()
         data.meta['origin'] = "MAGIC"
         data.meta['input_url'] = self.input_url
-        data.meta['is_simulation'] = False
 
         # Telescopes with data:
         tels_in_file = ["M1", "M2"]
@@ -469,6 +474,10 @@ class MAGICEventSource(EventSource):
 
                 # Reading event data
                 event_data = self.current_run['data'].get_pedestal_event_data(event_i, telescope=telescope)
+                
+                data.meta['is_simulation'] = event_data['mars_meta']['is_simulation']
+                data.meta['source_ra'] = event_data['mars_meta']['source_ra']
+                data.meta['source_dec'] = event_data['mars_meta']['source_dec']
 
                 # Event counter
                 data.count = counter
@@ -676,9 +685,10 @@ class MarsDataRun:
         event_data['air_humidity'] = scipy.array([])
         event_data['air_temperature'] = scipy.array([])
         event_data['badpixelinfo'] = []
+        event_data['mars_meta'] = []
 
         # run-wise meta information (same for all events)
-        event_data['mars_meta'] = dict()
+        mars_meta = dict()
         
         event_data['file_edges'] = [0]
 
@@ -704,6 +714,9 @@ class MarsDataRun:
         
         weather_array_list = ['MTimeWeather.fMjd', 'MTimeWeather.fTime.fMilliSec', 'MTimeWeather.fNanoSec',
                               'MReportWeather.fPressure', 'MReportWeather.fHumidity', 'MReportWeather.fTemperature']
+        
+        metainfo_array_list = ['MRawRunHeader.fRunNumber', 'MRawRunHeader.fRunType', 'MRawRunHeader.fSubRunIndex',
+                               'MRawRunHeader.fSourceRA', 'MRawRunHeader.fSourceDEC', 'MRawRunHeader.fTelescopeNumber']
 
         for file_name in file_list:
 
@@ -717,8 +730,27 @@ class MarsDataRun:
             trigger_pattern = events[b'MTriggerPattern.fPrescaled']
             stereo_event_number = events[b'MRawEvtHeader.fStereoEvtNumber']
 
+            # Reading meta information:
+            meta_info = input_file['RunHeaders'].arrays(metainfo_array_list)
+            
+            mars_meta['number'] = int(meta_info[b'MRawRunHeader.fRunNumber'][0])
+            mars_meta['number_subrun'] = int(meta_info[b'MRawRunHeader.fSubRunIndex'][0])
+            mars_meta['source_ra'] = meta_info[b'MRawRunHeader.fSourceRA'][0] / seconds_per_hour * degrees_per_hour * u.deg
+            mars_meta['source_dec'] = meta_info[b'MRawRunHeader.fSourceDEC'][0] / seconds_per_hour * u.deg
+            mars_meta['tel'] = int(meta_info[b'MRawRunHeader.fTelescopeNumber'][0])
+            is_simulation = int(meta_info[b'MRawRunHeader.fRunType'][0])
+            if is_simulation == 0:
+                is_simulation = False
+            elif is_simulation == 256:
+                is_simulation = True
+            else:
+                msg = "Run type (Data or MC) of MAGIC data file not recognised."
+                self.log.error(msg)
+                raise
+            mars_meta['is_simulation'] = is_simulation
+
             # Reading the info only contained in real data
-            try:
+            if is_simulation == False:
                 badpixelinfo = input_file['RunHeaders']['MBadPixelsCam.fArray.fInfo'].array(uproot.asjagged(uproot.asdtype(np.int32))).flatten().reshape((4, 1183), order='F')
                 # now we have 3 axes:
                 # 1st axis: Unsuitable pixels
@@ -727,15 +759,8 @@ class MarsDataRun:
                 # Each axis cointains a 32bit integer encoding more information about the specific problem, see MARS software, MBADPixelsPix.h
                 # Here, we however discard this additional information and only grep the "unsuitable" axis.
                 badpixelinfo = badpixelinfo[1].astype(bool)
-            except:
+            else:
                 badpixelinfo = np.zeros(1183)
-
-            # Reading meta information:
-            event_data['mars_meta']['number'] = int(input_file['RunHeaders']['MRawRunHeader.fRunNumber'].array()[0])
-            event_data['mars_meta']['number_subrun'] = int(input_file['RunHeaders']['MRawRunHeader.fSubRunIndex'].array()[0])
-            event_data['mars_meta']['source_ra'] = input_file['RunHeaders']['MRawRunHeader.fSourceRA'].array()[0] / seconds_per_hour * degrees_per_hour * u.deg
-            event_data['mars_meta']['source_dec'] = input_file['RunHeaders']['MRawRunHeader.fSourceDEC'].array()[0] / seconds_per_hour * u.deg
-            event_data['mars_meta']['tel'] = int(input_file['RunHeaders']['MRawRunHeader.fTelescopeNumber'].array()[0])
 
             # Computing the event arrival time
             mjd = events[b'MTime.fMjd']
@@ -828,6 +853,7 @@ class MarsDataRun:
             event_data['charge'].append(charge)
             event_data['arrival_time'].append(arrival_time)
             event_data['badpixelinfo'].append(badpixelinfo)
+            event_data['mars_meta'].append(mars_meta)
             event_data['trigger_pattern'] = scipy.concatenate((event_data['trigger_pattern'], trigger_pattern))
             event_data['stereo_event_number'] = scipy.concatenate((event_data['stereo_event_number'], stereo_event_number))
             event_data['pointing_zd'] = scipy.concatenate((event_data['pointing_zd'], pointing_zd))
@@ -1073,7 +1099,8 @@ class MarsDataRun:
         event_data['mjd'] = self.event_data[telescope]['MJD'][event_id]
         event_data['air_pressure'] = self.event_data[telescope]['air_pressure'][event_id]
         event_data['air_humidity'] = self.event_data[telescope]['air_humidity'][event_id]
-        event_data['air_temperature'] = self.event_data[telescope]['air_temperature'][event_id]
+        event_data['air_temperature'] = self.event_data[telescope]['air_temperature'][event_id]               
+        event_data['mars_meta'] = self.event_data[telescope]['mars_meta'][file_num]
 
         return event_data
 
@@ -1148,6 +1175,7 @@ class MarsDataRun:
         event_data['air_pressure'] = self.event_data['M1']['air_pressure'][m1_id]
         event_data['air_humidity'] = self.event_data['M1']['air_humidity'][m1_id]
         event_data['air_temperature'] = self.event_data['M1']['air_temperature'][m1_id]
+        event_data['mars_meta'] = self.event_data['M1']['mars_meta'][m1_file_num]
 
         return event_data
 
@@ -1203,6 +1231,7 @@ class MarsDataRun:
         event_data['mjd'] = self.event_data[telescope]['MJD'][event_id]
         event_data['air_pressure'] = self.event_data[telescope]['air_pressure'][event_id]
         event_data['air_humidity'] = self.event_data[telescope]['air_humidity'][event_id]
-        event_data['air_temperature'] = self.event_data[telescope]['air_temperature'][event_id]
+        event_data['air_temperature'] = self.event_data[telescope]['air_temperature'][event_id]                
+        event_data['mars_meta'] = self.event_data[telescope]['mars_meta'][file_num]
 
         return event_data
