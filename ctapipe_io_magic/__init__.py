@@ -78,7 +78,7 @@ class MAGICEventSource(EventSource):
         # MAGIC telescope description
         optics = OpticsDescription.from_name('MAGIC')
         geom = CameraGeometry.from_name('MAGICCam')
-        self.magic_tel_description = TelescopeDescription(name='MAGIC', type='MAGIC', optics=optics, camera=geom)
+        self.magic_tel_description = TelescopeDescription(name='MAGIC', tel_type='MAGIC', optics=optics, camera=geom)
         self.magic_tel_descriptions = {1: self.magic_tel_description, 2: self.magic_tel_description}
         self.magic_subarray = SubarrayDescription('MAGIC', self.magic_tel_positions, self.magic_tel_descriptions)
 
