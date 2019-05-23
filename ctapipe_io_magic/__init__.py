@@ -254,8 +254,8 @@ class MAGICEventSource(EventSource):
                     pointing = TelescopePointingContainer()
                     pointing.azimuth = np.deg2rad(event_data['pointing_az']) * u.rad
                     pointing.altitude = np.deg2rad(90 - event_data['pointing_zd']) * u.rad
-                    pointing.ra = np.deg2rad(event_data['pointing_ra']) * u.rad
-                    pointing.dec = np.deg2rad(event_data['pointing_dec']) * u.rad
+                    # pointing.ra = np.deg2rad(event_data['pointing_ra']) * u.rad
+                    # pointing.dec = np.deg2rad(event_data['pointing_dec']) * u.rad
 
                     # Adding the pointing container to the event data
                     data.pointing[tel_i + 1] = pointing
