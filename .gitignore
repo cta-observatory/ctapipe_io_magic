@@ -1,0 +1,6 @@
+/build/
+/ctapipe_io_magic.egg-info/
+/dist/
+/.project
+/.pydevproject
+ctapipe_io_magic/__pycache__/__init__.cpython-36.pyc

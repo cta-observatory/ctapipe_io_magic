@@ -78,7 +78,7 @@ class MAGICEventSource(EventSource):
         # MAGIC telescope description
         optics = OpticsDescription.from_name('MAGIC')
         geom = CameraGeometry.from_name('MAGICCam')
-        self.magic_tel_description = TelescopeDescription(name='MAGIC', type='MAGIC', optics=optics, camera=geom)
+        self.magic_tel_description = TelescopeDescription(name='MAGIC', tel_type='MAGIC', optics=optics, camera=geom)
         self.magic_tel_descriptions = {1: self.magic_tel_description, 2: self.magic_tel_description}
         self.magic_subarray = SubarrayDescription('MAGIC', self.magic_tel_positions, self.magic_tel_descriptions)
 
@@ -539,6 +539,9 @@ class MAGICEventSourceMC(EventSource):
             msg = "The `uproot` python module is required to access the MAGIC data"
             self.log.error(msg)
             raise
+        
+        if len(glob.glob(kwargs['input_url'])) > 1:
+            raise ImportError('MC data can no be loaded with wildcards. Please load them run by run')  
 
         self.file_name = kwargs['input_url']
 
@@ -554,7 +557,7 @@ class MAGICEventSourceMC(EventSource):
         # MAGIC telescope description
         optics = OpticsDescription.from_name('MAGIC')
         geom = CameraGeometry.from_name('MAGICCam')
-        self.magic_tel_description = TelescopeDescription(name='MAGIC', type='MAGIC', optics=optics, camera=geom)
+        self.magic_tel_description = TelescopeDescription(name='MAGIC', tel_type='MAGIC', optics=optics, camera=geom)
         self.magic_tel_descriptions = {1: self.magic_tel_description, 2: self.magic_tel_description}
         self.magic_subarray = SubarrayDescription('MAGIC', self.magic_tel_positions, self.magic_tel_descriptions)
 
@@ -626,7 +629,7 @@ class MAGICEventSourceMC(EventSource):
         data = DataContainer()
         data.meta['origin'] = "MAGIC MC"
         data.meta['input_url'] = self.input_url
-        data.meta['is_simulation'] = False
+        data.meta['is_simulation'] = True
 
         tels_with_data = {self.mc_file.telescope, }
 
@@ -721,7 +724,7 @@ class MAGICEventSourceMC(EventSource):
         data = DataContainer()
         data.meta['origin'] = "MAGIC MC"
         data.meta['input_url'] = self.input_url
-        data.meta['is_simulation'] = False
+        data.meta['is_simulation'] = True
 
         tels_with_data = {self.mc_file.telescope, }
 
@@ -1384,8 +1387,13 @@ class MarsMCFile:
 
         self.mc_file = mc_file
         self.telescope = int(re.findall(r'.*_M(\d)_.*', mc_file)[0])
-        self.run_number = int(re.findall(r'.*_M\d_za\d+to\d+_\d_(\d+)_Y_.*', mc_file)[0])
-
+        try:
+            self.run_number = int(re.findall(r'.*_M\d_za\d+to\d+_\d_(\d+)_Y_.*', mc_file)[0])
+        except:
+            self.run_number = int(re.findall(r'.*_M\d_\d_(\d+)_.*', mc_file)[0])
+            msg = "WARNING: MAGIC MC file format is unusual."
+            print(msg)
+        
         # Reading the event data
         self.event_data = self.load_events(self.mc_file)
 
