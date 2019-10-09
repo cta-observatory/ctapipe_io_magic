@@ -701,6 +701,10 @@ class MAGICEventSourceMC(EventSource):
             data.mc.energy = event_data['true_energy'] * u.GeV
             data.mc.alt = (90 - event_data['true_zd']) * u.deg
             data.mc.az = event_data['true_az'] * u.deg
+            data.mc.shower_primary_id = 1 - event_data['true_shower_primary_id']
+            data.mc.h_first_int = event_data['true_h_first_int'] * u.cm
+            data.mc.core_x = event_data['true_core_x'] * u.cm
+            data.mc.core_y = event_data['true_core_y'] * u.cm
 
             yield data
             counter += 1
@@ -796,6 +800,10 @@ class MAGICEventSourceMC(EventSource):
             data.mc.energy = event_data['true_energy'] * u.GeV
             data.mc.alt = (90 - event_data['true_zd']) * u.deg
             data.mc.az = event_data['true_az'] * u.deg
+            data.mc.shower_primary_id = 1 - event_data['true_shower_primary_id']
+            data.mc.h_first_int = event_data['true_h_first_int'] * u.m
+            data.mc.core_x = event_data['true_core_x'] * u.cm
+            data.mc.core_y = event_data['true_core_y'] * u.cm
 
             yield data
             counter += 1
@@ -1444,7 +1452,8 @@ class MarsMCFile:
                       'MTriggerPattern.fPrescaled',
                       'MRawEvtHeader.fStereoEvtNumber', 'MRawEvtHeader.fDAQEvtNumber',
                       'MPointingPos.fZd', 'MPointingPos.fAz', 'MPointingPos.fRa', 'MPointingPos.fDec',
-                      'MMcEvt.fEnergy', 'MMcEvt.fTheta', 'MMcEvt.fPhi'
+                      'MMcEvt.fEnergy', 'MMcEvt.fTheta', 'MMcEvt.fPhi', 'MMcEvt.fPartId',
+                      'MMcEvt.fZFirstInteraction', 'MMcEvt.fCoreX', 'MMcEvt.fCoreY', 
                       ]
 
         names_mapping = {
@@ -1459,7 +1468,11 @@ class MarsMCFile:
             b'MPointingPos.fDec': 'pointing_dec',
             b'MMcEvt.fEnergy': 'true_energy',
             b'MMcEvt.fTheta': 'true_zd',
-            b'MMcEvt.fPhi': 'true_az'
+            b'MMcEvt.fPhi': 'true_az',
+            b'MMcEvt.fPartId': 'true_shower_primary_id',
+            b'MMcEvt.fZFirstInteraction': 'true_h_first_int',
+            b'MMcEvt.fCoreX': 'true_core_x',
+            b'MMcEvt.fCoreY': 'true_core_y'
         }
 
         with uproot.open(file_name) as input_file:
@@ -1547,6 +1560,10 @@ class MarsMCFile:
         event_true_energy = 0.0
         event_true_zd = 0.0
         event_true_az = 0.0
+        event_true_shower_primary_id = 0.0
+        event_true_h_first_int = 0.0
+        event_true_core_x = 0.0
+        event_true_core_y = 0.0
 
         event_data = dict()
         event_data['image'] = photon_content
@@ -1556,6 +1573,10 @@ class MarsMCFile:
         event_data['true_energy'] = event_true_energy
         event_data['true_az'] = event_true_az
         event_data['true_zd'] = event_true_zd
+        event_data['true_shower_primary_id'] = event_true_shower_primary_id
+        event_data['true_h_first_int'] = event_true_h_first_int
+        event_data['true_core_x'] = event_true_core_x
+        event_data['true_core_y'] = event_true_core_y
 
         return event_data
 
@@ -1589,6 +1610,10 @@ class MarsMCFile:
         event_true_energy = self.event_data['true_energy'][event_id]
         event_true_zd = self.event_data['true_zd'][event_id]
         event_true_az = self.event_data['true_az'][event_id]
+        event_true_shower_primary_id = self.event_data['true_shower_primary_id'][event_id]
+        event_true_h_first_int = self.event_data['true_h_first_int'][event_id]
+        event_true_core_x = self.event_data['true_core_x'][event_id]
+        event_true_core_y = self.event_data['true_core_y'][event_id]
 
         event_data = dict()
         event_data['image'] = photon_content
@@ -1598,5 +1623,9 @@ class MarsMCFile:
         event_data['true_energy'] = event_true_energy
         event_data['true_az'] = event_true_az
         event_data['true_zd'] = event_true_zd
+        event_data['true_shower_primary_id'] = event_true_shower_primary_id
+        event_data['true_h_first_int'] = event_true_h_first_int
+        event_data['true_core_x'] = event_true_core_x
+        event_data['true_core_y'] = event_true_core_y
 
         return event_data
