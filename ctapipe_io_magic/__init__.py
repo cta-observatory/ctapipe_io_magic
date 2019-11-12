@@ -11,7 +11,16 @@ import scipy.interpolate
 from astropy import units as u
 from astropy.time import Time
 from ctapipe.io.eventsource import EventSource
-from ctapipe.io.containers import DataContainer, TelescopePointingContainer
+from ctapipe.io.containers import (
+    DataContainer,
+    TelescopePointingContainer,
+    ImageParametersContainer,
+    HillasParametersContainer,
+    TimingParametersContainer,
+    LeakageContainer,
+    ConcentrationContainer,
+    MorphologyContainer,
+)
 from ctapipe.instrument import (
     TelescopeDescription,
     SubarrayDescription,
@@ -19,7 +28,21 @@ from ctapipe.instrument import (
     CameraGeometry,
 )
 
-__all__ = ["MAGICEventSource"]
+__all__ = ["MAGICEventSource", "MAGICSuperStarEventSource"]
+
+# MAGIC telescope positions in m wrt. to the center of CTA simulations
+magic_tel_positions = {
+    1: [-27.24, -146.66, 50.00] * u.m,
+    2: [-96.44, -96.77, 51.00] * u.m,
+}
+# MAGIC telescope description
+optics = OpticsDescription.from_name("MAGIC")
+geom = CameraGeometry.from_name("MAGICCam")
+magic_tel_description = TelescopeDescription(
+    name="MAGIC", tel_type="MAGIC", optics=optics, camera=geom
+)
+magic_tel_descriptions = {1: magic_tel_description, 2: magic_tel_description}
+SUBARRAY = SubarrayDescription("MAGIC", magic_tel_positions, magic_tel_descriptions)
 
 
 class MAGICEventSource(EventSource):
@@ -1193,3 +1216,155 @@ class MarsDataRun:
         event_data["mjd"] = self.event_data[telescope]["MJD"][event_id]
 
         return event_data
+
+
+class MAGICSuperStarEventSource(EventSource):
+    """EventSource for MAGIC SuperStar data."""
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        try:
+            import uproot
+        except ImportError:
+            msg = "The `uproot` python module is required to access the MAGIC data"
+            self.log.error(msg)
+            raise
+
+        self.data = uproot.open(self.input_url)
+        self.events = self.data["Events"].pandas.df()
+        self.header = self.data["RunHeaders"]
+
+    def _magic_time(self, mjd, ms, ns):
+        """Translates Root-tree MAGIC timestamps to astropy.time.Time"""
+        mjd = Time(mjd, scale="utc", format="mjd")
+        ms = u.Quantity(ms, u.millisecond)
+        ns = u.Quantity(ns, u.nanosecond)
+        return Time(mjd + ms + ns, format="isot", scale="utc")
+
+    def __len__(self):
+        return len(self.events)
+
+    def __getitem__(self, idx):
+        event_nums = self.events["MRawEvtHeader_1.fStereoEvtNumber"].to_numpy()
+
+        if idx not in event_nums:
+            raise IndexError(f"Event with index {idx} not in file {self.input_url}")
+
+        index = np.where(event_nums == idx)[0][0]
+
+        event = self.events.iloc[index]
+
+        return self._fill_container(event)
+
+    def _generator(self):
+        for i in range(len(self.events)):
+            event = self.events.iloc[i]
+            data = self._fill_container(event)
+            data.count = i
+            yield data
+
+    def _fill_container(self, event):
+        data = DataContainer()
+        data.event_type = "data"
+
+        data.index.event_id = event["MRawEvtHeader_1.fStereoEvtNumber"]
+        data.index.obs_id = self.header["MRawRunHeader_1.fRunNumber"].array()[0]
+
+        data.r0.event_id = data.index.event_id
+        data.r0.obs_id = data.index.obs_id
+        data.r0.tels_with_data = []
+
+        data.r1.event_id = data.index.event_id
+        data.r1.obs_id = data.index.obs_id
+        data.r1.tels_with_data = []
+
+        data.dl0.event_id = data.index.event_id
+        data.dl0.obs_id = data.index.obs_id
+        data.dl0.tels_with_data = []
+
+        data.dl1.tel = {}
+
+        data.trig.gps_time = self._magic_time(
+            event["MTime_1.fMjd"],
+            event["MTime_1.fTime.fMilliSec"],
+            event["MTime_1.fNanoSec"],
+        )
+        data.trig.tels_with_trigger = [1, 2]
+
+        data.inst.subarray = SUBARRAY
+
+        data.pointing = {
+            1: TelescopePointingContainer(
+                altitude=u.Quantity(90 - event["MPointingPos_1.fZd"], u.deg),
+                azimuth=u.Quantity(event["MPointingPos_1.fAz"], u.deg),
+            ),
+            2: TelescopePointingContainer(
+                altitude=u.Quantity(90 - event["MPointingPos_2.fZd"], u.deg),
+                azimuth=u.Quantity(event["MPointingPos_2.fAz"], u.deg),
+            ),
+        }
+
+        data.imageparameters = {
+            1: ImageParametersContainer(),
+            2: ImageParametersContainer(),
+        }
+
+        for tel_id in (1, 2):
+            data.imageparameters[tel_id].hillas = HillasParametersContainer(
+                intensity=event[f"MHillas_{tel_id}.fSize"],
+                x=u.Quantity(event[f"MHillas_{tel_id}.fMeanX"], unit=u.mm),
+                y=u.Quantity(event[f"MHillas_{tel_id}.fMeanY"], unit=u.mm),
+                r=u.Quantity(
+                    np.sqrt(
+                        event[f"MHillas_{tel_id}.fMeanY"] ** 2
+                        + event[f"MHillas_{tel_id}.fMeanX"] ** 2
+                    ),
+                    unit=u.mm,
+                ),
+                phi=u.Quantity(
+                    np.arctan2(
+                        event[f"MHillas_{tel_id}.fMeanY"],
+                        event[f"MHillas_{tel_id}.fMeanX"],
+                    ),
+                    unit=u.rad,
+                ),
+                length=u.Quantity(event[f"MHillas_{tel_id}.fLength"], unit=u.mm),
+                width=u.Quantity(event[f"MHillas_{tel_id}.fWidth"], unit=u.mm),
+                psi=u.Quantity(event[f"MHillas_{tel_id}.fDelta"], unit=u.rad),
+                skewness=event[f"MHillasExt_{tel_id}.fM3Long"],
+                kurtosis=3,  # according to wikipedia.org/wiki/Kurtosis for a univariate normal distribution
+            )
+
+            data.imageparameters[tel_id].timing = TimingParametersContainer(
+                slope=np.nan,
+                slope_err=np.nan,
+                intercept=np.nan,
+                intercept_err=np.nan,
+                deviation=np.nan,
+            )
+
+            data.imageparameters[tel_id].leakage = LeakageContainer(
+                pixels_width_1=np.nan,
+                pixels_width_2=np.nan,
+                intensity_width_1=np.nan,
+                intensity_width_2=np.nan,
+            )
+
+            data.imageparameters[tel_id].concentration = ConcentrationContainer(
+                cog=np.nan, core=np.nan, pixel=np.nan
+            )
+
+            data.imageparameters[tel_id].morphology = MorphologyContainer(
+                num_pixels=np.nan,
+                num_islands=np.nan,
+                num_small_islands=np.nan,
+                num_medium_islands=np.nan,
+                num_large_islands=np.nan,
+            )
+
+        return data
+
+    @classmethod
+    def is_compatible(cls, input_url):
+        raise NotImplementedError
