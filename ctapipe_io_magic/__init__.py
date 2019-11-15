@@ -28,6 +28,8 @@ from ctapipe.instrument import (
     CameraGeometry,
 )
 
+from utils import index_in_array
+
 __all__ = ["MAGICEventSource", "MAGICSuperStarEventSource"]
 
 # MAGIC telescope positions in m wrt. to the center of CTA simulations
@@ -1246,6 +1248,36 @@ class MAGICSuperStarEventSource(EventSource):
         return len(self.events)
 
     def __getitem__(self, idx):
+        if isinstance(idx, (int, np.int, np.int64)):
+            return self._getitem_single(idx)
+        elif isinstance(idx, (float, np.float, np.float64)):
+            print("Interpreting index type float as int")
+            return self._getitem_single(idx)
+        elif isinstance(idx, list):
+            return self._getitem_multi(idx)
+        else:
+            raise NotImplementedError(f"For type {type(idx)}")
+
+
+    def _getitem_multi(self, idx):
+        idx = np.asarray(idx)
+
+        event_nums = self.events["MRawEvtHeader_1.fStereoEvtNumber"].to_numpy()
+
+        notin = np.isin(idx, event_nums, invert=True)
+
+        if notin.sum() > 0:
+            raise IndexError(
+                f"Events with index {idx[notin]} not in file {self.input_url}"
+            )
+
+        index = index_in_array(idx, event_nums)
+
+        for i in index:
+            event = self.events.iloc[i]
+            yield self._fill_container(event)
+
+    def _getitem_single(self, idx):
         event_nums = self.events["MRawEvtHeader_1.fStereoEvtNumber"].to_numpy()
 
         if idx not in event_nums:
