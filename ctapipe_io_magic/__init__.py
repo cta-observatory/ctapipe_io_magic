@@ -34,8 +34,10 @@ __all__ = ["MAGICEventSource", "MAGICSuperStarEventSource"]
 
 # MAGIC telescope positions in m wrt. to the center of CTA simulations
 magic_tel_positions = {
-    1: [-27.24, -146.66, 50.00] * u.m,
-    2: [-96.44, -96.77, 51.00] * u.m,
+    # 1: [-27.24, -146.66, 50.00] * u.m,
+    # 2: [-96.44, -96.77, 51.00] * u.m,
+    1: [5326856.78942645, -1719508.40461048, 3051858.28939016] * u.m,
+    2: [5326875.08266384, -1719564.61276917, 3051795.11454195] * u.m,
 }
 # MAGIC telescope description
 optics = OpticsDescription.from_name("MAGIC")
@@ -1257,7 +1259,6 @@ class MAGICSuperStarEventSource(EventSource):
             return self._getitem_multi(idx)
         else:
             raise NotImplementedError(f"For type {type(idx)}")
-
 
     def _getitem_multi(self, idx):
         idx = np.asarray(idx)
