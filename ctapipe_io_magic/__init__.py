@@ -20,6 +20,9 @@ from ctapipe.io.containers import (
     LeakageContainer,
     ConcentrationContainer,
     MorphologyContainer,
+    ParticleClassificationContainer,
+    ReconstructedShowerContainer,
+    ReconstructedEnergyContainer,
 )
 from ctapipe.instrument import (
     TelescopeDescription,
@@ -1236,6 +1239,7 @@ class MAGICSuperStarEventSource(EventSource):
             raise
 
         self.data = uproot.open(self.input_url)
+        self.is_melibea = b"melibea.rc;1" in self.data.keys()
         self.events = self.data["Events"].pandas.df()
         self.header = self.data["RunHeaders"]
 
@@ -1395,6 +1399,60 @@ class MAGICSuperStarEventSource(EventSource):
                 num_medium_islands=np.nan,
                 num_large_islands=np.nan,
             )
+
+        data.dl2.shower["superstar"] = ReconstructedShowerContainer(
+            alt=90 - event["MStereoPar.fDirectionZd"],
+            alt_uncert=np.nan,
+            az=event["MStereoPar.fDirectionAz"],
+            az_uncert=np.nan,
+            core_x=event["MStereoPar.fCoreX"],
+            core_y=event["MStereoPar.fCoreY"],
+            core_uncert=np.nan,
+            h_max=event["MStereoPar.fXMax"],
+            h_max_uncert=np.nan,
+            is_valid=True,
+            tel_ids=[1, 2],
+            average_intensity=np.mean(
+                [data.imageparameters[i].hillas.intensity for i in (1, 2)]
+            ),
+            goodness_of_fit=np.nan,
+        )
+
+        if not self.is_melibea:
+            return data
+
+        data.dl2.shower["melibea"] = ReconstructedShowerContainer(
+            alt=90 - event["MStereoParDisp.fDirectionZd"],
+            alt_uncert=np.nan,
+            az=event["MStereoParDisp.fDirectionAz"],
+            az_uncert=np.nan,
+            core_x=event["MStereoParDisp.fCoreX"],
+            core_y=event["MStereoParDisp.fCoreY"],
+            core_uncert=np.nan,
+            h_max=event["MStereoParDisp.fXMax"],
+            h_max_uncert=np.nan,
+            is_valid=True,
+            tel_ids=[1, 2],
+            average_intensity=np.mean(
+                [data.imageparameters[i].hillas.intensity for i in (1, 2)]
+            ),
+            goodness_of_fit=np.nan,
+        )
+
+        data.dl2.classification["melibea"] = ParticleClassificationContainer(
+            prediction=event["MHadronness.fHadronness"],
+            is_valid=True,
+            tel_ids=[1, 2],
+            goodness_of_fit=np.nan,
+        )
+
+        data.dl2.energy["melibea"] = ReconstructedEnergyContainer(
+            energy=event["MEnergyEst.fEnergy"] / 1000,
+            energy_uncert=event["MEnergyEst.fEnergyRMS"] / 1000,
+            is_valid=True,
+            tel_ids=[1, 2],
+            goodness_of_fit=np.nan,
+        )
 
         return data
 
