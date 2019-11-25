@@ -14,7 +14,6 @@ from ctapipe.io.eventsource import EventSource
 from ctapipe.io.containers import (
     DataContainer,
     TelescopePointingContainer,
-    ImageParametersContainer,
     HillasParametersContainer,
     TimingParametersContainer,
     LeakageContainer,
@@ -37,10 +36,8 @@ __all__ = ["MAGICEventSource", "MAGICSuperStarEventSource"]
 
 # MAGIC telescope positions in m wrt. to the center of CTA simulations
 magic_tel_positions = {
-    # 1: [-27.24, -146.66, 50.00] * u.m,
-    # 2: [-96.44, -96.77, 51.00] * u.m,
-    1: [5326856.78942645, -1719508.40461048, 3051858.28939016] * u.m,
-    2: [5326875.08266384, -1719564.61276917, 3051795.11454195] * u.m,
+    1: [-27.24, -146.66, 50.00] * u.m,
+    2: [-96.44, -96.77, 51.00] * u.m,
 }
 # MAGIC telescope description
 optics = OpticsDescription.from_name("MAGIC")
@@ -1242,6 +1239,7 @@ class MAGICSuperStarEventSource(EventSource):
         self.is_melibea = b"melibea.rc;1" in self.data.keys()
         self.events = self.data["Events"].pandas.df()
         self.header = self.data["RunHeaders"]
+        self.magic_subarray = SUBARRAY
 
     def _magic_time(self, mjd, ms, ns):
         """Translates Root-tree MAGIC timestamps to astropy.time.Time"""
@@ -1329,25 +1327,14 @@ class MAGICSuperStarEventSource(EventSource):
         )
         data.trig.tels_with_trigger = [1, 2]
 
-        data.inst.subarray = SUBARRAY
-
-        data.pointing = {
-            1: TelescopePointingContainer(
-                altitude=u.Quantity(90 - event["MPointingPos_1.fZd"], u.deg),
-                azimuth=u.Quantity(event["MPointingPos_1.fAz"], u.deg),
-            ),
-            2: TelescopePointingContainer(
-                altitude=u.Quantity(90 - event["MPointingPos_2.fZd"], u.deg),
-                azimuth=u.Quantity(event["MPointingPos_2.fAz"], u.deg),
-            ),
-        }
-
-        data.imageparameters = {
-            1: ImageParametersContainer(),
-            2: ImageParametersContainer(),
-        }
+        data.inst.subarray = self.magic_subarray
 
         for tel_id in (1, 2):
+            data.pointing[tel_id] = TelescopePointingContainer(
+                altitude=u.Quantity(90 - event[f"MPointingPos_{tel_id}.fZd"], u.deg),
+                azimuth=u.Quantity(event[f"MPointingPos_{tel_id}.fAz"], u.deg),
+            )
+
             data.imageparameters[tel_id].hillas = HillasParametersContainer(
                 intensity=event[f"MHillas_{tel_id}.fSize"],
                 x=u.Quantity(event[f"MHillas_{tel_id}.fMeanX"], unit=u.mm),
@@ -1401,14 +1388,14 @@ class MAGICSuperStarEventSource(EventSource):
             )
 
         data.dl2.shower["superstar"] = ReconstructedShowerContainer(
-            alt=90 - event["MStereoPar.fDirectionZd"],
+            alt=u.Quantity(90 - event["MStereoPar.fDirectionZd"], u.deg),
             alt_uncert=np.nan,
-            az=event["MStereoPar.fDirectionAz"],
+            az=u.Quantity(event["MStereoPar.fDirectionAz"], u.deg),
             az_uncert=np.nan,
-            core_x=event["MStereoPar.fCoreX"],
-            core_y=event["MStereoPar.fCoreY"],
+            core_x=u.Quantity(event["MStereoPar.fCoreX"], u.cm),
+            core_y=u.Quantity(-event["MStereoPar.fCoreY"], u.cm),
             core_uncert=np.nan,
-            h_max=event["MStereoPar.fXMax"],
+            h_max=u.Quantity(event["MStereoPar.fMaxHeight"], u.cm),
             h_max_uncert=np.nan,
             is_valid=True,
             tel_ids=[1, 2],
@@ -1421,15 +1408,24 @@ class MAGICSuperStarEventSource(EventSource):
         if not self.is_melibea:
             return data
 
+        x, y, z = u.Quantity(
+            np.mean(
+                [self.magic_subarray.positions[1], self.magic_subarray.positions[2]],
+                axis=0,
+            ),
+            u.m,
+        )
+
+        # http://wiki.magic.pic.es/index.php/Stereo_reconstruction_(Theory)
         data.dl2.shower["melibea"] = ReconstructedShowerContainer(
-            alt=90 - event["MStereoParDisp.fDirectionZd"],
+            alt=u.Quantity(90 - event["MStereoParDisp.fDirectionZd"], u.deg),
             alt_uncert=np.nan,
-            az=event["MStereoParDisp.fDirectionAz"],
+            az=u.Quantity(event["MStereoParDisp.fDirectionAz"], u.deg),
             az_uncert=np.nan,
-            core_x=event["MStereoParDisp.fCoreX"],
-            core_y=event["MStereoParDisp.fCoreY"],
+            core_x=u.Quantity(event["MStereoParDisp.fCoreX"], u.cm),
+            core_y=u.Quantity(event["MStereoParDisp.fCoreY"], u.cm),
             core_uncert=np.nan,
-            h_max=event["MStereoParDisp.fXMax"],
+            h_max=u.Quantity(event["MStereoParDisp.fMaxHeight"], u.cm),
             h_max_uncert=np.nan,
             is_valid=True,
             tel_ids=[1, 2],
@@ -1447,8 +1443,8 @@ class MAGICSuperStarEventSource(EventSource):
         )
 
         data.dl2.energy["melibea"] = ReconstructedEnergyContainer(
-            energy=event["MEnergyEst.fEnergy"] / 1000,
-            energy_uncert=event["MEnergyEst.fEnergyRMS"] / 1000,
+            energy=u.Quantity(event["MEnergyEst.fEnergy"], u.GeV),
+            energy_uncert=u.Quantity(event["MEnergyEst.fEnergyRMS"], u.GeV),
             is_valid=True,
             tel_ids=[1, 2],
             goodness_of_fit=np.nan,
@@ -1456,6 +1452,8 @@ class MAGICSuperStarEventSource(EventSource):
 
         return data
 
-    @classmethod
     def is_compatible(cls, input_url):
         raise NotImplementedError
+
+    def subarray(self):
+        return self.magic_subarray
