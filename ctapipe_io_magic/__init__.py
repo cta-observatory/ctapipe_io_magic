@@ -80,7 +80,7 @@ class MAGICEventSource(EventSource):
         geom = CameraGeometry.from_name('MAGICCam')
         self.magic_tel_description = TelescopeDescription(name='MAGIC', tel_type='MAGIC', optics=optics, camera=geom)
         self.magic_tel_descriptions = {1: self.magic_tel_description, 2: self.magic_tel_description}
-        self.magic_subarray = SubarrayDescription('MAGIC', self.magic_tel_positions, self.magic_tel_descriptions)
+        self._subarray_info = SubarrayDescription('MAGIC', self.magic_tel_positions, self.magic_tel_descriptions)
 
     @staticmethod
     def is_compatible(file_mask):
@@ -174,6 +174,10 @@ class MAGICEventSource(EventSource):
         run['data'] = MarsDataRun(run_file_mask=this_run_mask, filter_list=self.file_list)
 
         return run
+
+    @property
+    def subarray(self):
+        return self._subarray_info
 
     def _generator(self):
         """
@@ -275,9 +279,6 @@ class MAGICEventSource(EventSource):
                 data.r1.tels_with_data = tels_with_data
                 data.dl0.tels_with_data = tels_with_data
                 data.trig.tels_with_trigger = tels_with_data
-
-                # Setting the instrument sub-array
-                data.inst.subarray = self.magic_subarray
 
                 yield data
                 counter += 1
@@ -387,9 +388,6 @@ class MAGICEventSource(EventSource):
                 data.dl0.tels_with_data = tels_with_data
                 data.trig.tels_with_trigger = tels_with_data
 
-                # Setting the instrument sub-array
-                data.inst.subarray = self.magic_subarray
-
                 yield data
                 counter += 1
 
@@ -498,9 +496,6 @@ class MAGICEventSource(EventSource):
                 data.dl0.tels_with_data = tels_with_data
                 data.trig.tels_with_trigger = tels_with_data
 
-                # Setting the instrument sub-array
-                data.inst.subarray = self.magic_subarray
-
                 yield data
                 counter += 1
 
@@ -559,7 +554,7 @@ class MAGICEventSourceMC(EventSource):
         geom = CameraGeometry.from_name('MAGICCam')
         self.magic_tel_description = TelescopeDescription(name='MAGIC', tel_type='MAGIC', optics=optics, camera=geom)
         self.magic_tel_descriptions = {1: self.magic_tel_description, 2: self.magic_tel_description}
-        self.magic_subarray = SubarrayDescription('MAGIC', self.magic_tel_positions, self.magic_tel_descriptions)
+        self._subarray_info = SubarrayDescription('MAGIC', self.magic_tel_positions, self.magic_tel_descriptions)
 
     @staticmethod
     def is_compatible(file_name):
@@ -599,6 +594,10 @@ class MAGICEventSourceMC(EventSource):
                 is_magic_root_file = False
 
         return is_magic_root_file
+
+    @property
+    def subarray(self):
+        return self._subarray_info
 
     def _generator(self):
         """
@@ -681,9 +680,6 @@ class MAGICEventSourceMC(EventSource):
             data.r1.tels_with_data = tels_with_data
             data.dl0.tels_with_data = tels_with_data
             data.trig.tels_with_trigger = tels_with_data
-
-            # Setting the instrument sub-array
-            data.inst.subarray = self.magic_subarray
 
             # mc = data.mc.tel[self.mc_file.telescope]
             # mc.dc_to_pe = array_event['laser_calibrations'][tel_id]['calib']
@@ -780,9 +776,6 @@ class MAGICEventSourceMC(EventSource):
             data.r1.tels_with_data = tels_with_data
             data.dl0.tels_with_data = tels_with_data
             data.trig.tels_with_trigger = tels_with_data
-
-            # Setting the instrument sub-array
-            data.inst.subarray = self.magic_subarray
 
             # mc = data.mc.tel[self.mc_file.telescope]
             # mc.dc_to_pe = array_event['laser_calibrations'][tel_id]['calib']
