@@ -1,6 +1,12 @@
+/.project
 /build/
-/ctapipe_io_magic.egg-info/
-/dist/
 /.project
 /.pydevproject
+/ctapipe_io_magic.egg-info/
+ctapipe_io_magic.egg-info/PKG-INFO
+ctapipe_io_magic.egg-info/dependency_links.txt
+ctapipe_io_magic.egg-info/requires.txt
+ctapipe_io_magic.egg-info/SOURCES.txt
+ctapipe_io_magic.egg-info/top_level.txt
+dist/
 ctapipe_io_magic/__pycache__/__init__.cpython-36.pyc
