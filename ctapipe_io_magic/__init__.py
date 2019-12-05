@@ -122,6 +122,9 @@ class MAGICEventSource(EventSource):
             "MAGIC", self.magic_tel_positions, self.magic_tel_descriptions
         )
 
+    def subarray(self):
+        return self.magic_subarray
+
     @staticmethod
     def is_compatible(file_mask):
         """
