@@ -75,8 +75,8 @@ def test_geom():
 
     with MAGICEventSource(input_url=dataset) as source:
         event = next(source._generator())
-        assert event.inst.subarray.tels[1].camera.pix_x.size == 1039
-        assert event.inst.subarray.tels[2].camera.pix_x.size == 1039
+        assert source.subarray.tels[1].camera.pix_x.size == 1039
+        assert source.subarray.tels[2].camera.pix_x.size == 1039
 
 
 def test_eventseeker():
@@ -87,8 +87,20 @@ def test_eventseeker():
         seeker = EventSeeker(source)
         event = seeker[0]
         assert event.count == 0
-        assert event.dl0.event_id == 29795.0
+        assert event.dl0.event_id == 29795
 
         event = seeker[2]
         assert event.count == 2
-        assert event.r1.event_id == 29798.0
+        assert event.r1.event_id == 29798
+
+def test_eventcontent():
+    dataset = get_dataset_path("20131004_M1_05029747.003_Y_MagicCrab-W0.40+035.root")
+    dataset = dataset.replace('_M1_', '_M*_')
+
+    with MAGICEventSource(input_url=dataset) as source:
+        seeker = EventSeeker(source)
+        event = seeker[0]
+        assert event.dl1.tel[1].image[0] == -0.53125
+        assert event.dl1.tel[2].image[0] == 2.2265625
+        assert event.dl1.tel[1].pulse_time[0] == 49.125
+        assert event.dl1.tel[2].pulse_time[0] == 23.5625

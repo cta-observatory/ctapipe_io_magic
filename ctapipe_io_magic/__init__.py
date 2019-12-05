@@ -1,5 +1,6 @@
 # Event source for MAGIC calibrated data files.
 # Requires uproot package (https://github.com/scikit-hep/uproot).
+import logging
 
 import glob
 import re
@@ -16,6 +17,7 @@ from ctapipe.instrument import TelescopeDescription, SubarrayDescription, Optics
 
 __all__ = ['MAGICEventSource']
 
+logger = logging.getLogger(__name__)
 
 class MAGICEventSource(EventSource):
     """
@@ -162,7 +164,8 @@ class MAGICEventSource(EventSource):
 
         Returns
         -------
-
+        MarsDataRun:
+            The run to use
         """
 
         input_path = '/'.join(self.input_url.split('/')[:-1])
@@ -218,7 +221,7 @@ class MAGICEventSource(EventSource):
                 if 'data' in self.current_run:
                     del self.current_run['data']
 
-            # Setting the new active run
+            # Setting the new active run (class MarsDataRun object)
             self.current_run = self._set_active_run(run_number)
 
             # Loop over the events
@@ -1016,39 +1019,44 @@ class MarsDataRun:
             stereo_event_number = events[b'MRawEvtHeader.fStereoEvtNumber']
 
             # Reading meta information:
-            meta_info = input_file['RunHeaders'].arrays(metainfo_array_list)
-            
-            mars_meta['origin'] = "MAGIC"
-            mars_meta['input_url'] = file_name
-
-            mars_meta['number'] = int(meta_info[b'MRawRunHeader.fRunNumber'][0])
-            #mars_meta['number_subrun'] = int(meta_info[b'MRawRunHeader.fSubRunIndex'][0])
-            mars_meta['source_ra'] = meta_info[b'MRawRunHeader.fSourceRA'][0] / seconds_per_hour * degrees_per_hour * u.deg
-            mars_meta['source_dec'] = meta_info[b'MRawRunHeader.fSourceDEC'][0] / seconds_per_hour * u.deg
-
-            is_simulation = int(meta_info[b'MRawRunHeader.fRunType'][0])
-            if is_simulation == 0:
-                is_simulation = False
-            elif is_simulation == 256:
-                is_simulation = True
-            else:
-                msg = "Run type (Data or MC) of MAGIC data file not recognised."
-                self.log.error(msg)
-                raise
-            mars_meta['is_simulation'] = is_simulation
-
-            # Reading the info only contained in real data
-            if is_simulation == False:
-                badpixelinfo = input_file['RunHeaders']['MBadPixelsCam.fArray.fInfo'].array(uproot.asjagged(uproot.asdtype(np.int32))).flatten().reshape((4, 1183), order='F')
-                # now we have 3 axes:
-                # 1st axis: Unsuitable pixels
-                # 2nd axis: Uncalibrated pixels (says why pixel is unsuitable)
-                # 3rd axis: Bad hardware pixels (says why pixel is unsuitable)
-                # Each axis cointains a 32bit integer encoding more information about the specific problem, see MARS software, MBADPixelsPix.h
-                # Here, we however discard this additional information and only grep the "unsuitable" axis.
-                badpixelinfo = badpixelinfo[1].astype(bool)
-            else:
+            try:
+                meta_info = input_file['RunHeaders'].arrays(metainfo_array_list)
+                
+                mars_meta['origin'] = "MAGIC"
+                mars_meta['input_url'] = file_name
+    
+                mars_meta['number'] = int(meta_info[b'MRawRunHeader.fRunNumber'][0])
+                #mars_meta['number_subrun'] = int(meta_info[b'MRawRunHeader.fSubRunIndex'][0])
+                mars_meta['source_ra'] = meta_info[b'MRawRunHeader.fSourceRA'][0] / seconds_per_hour * degrees_per_hour * u.deg
+                mars_meta['source_dec'] = meta_info[b'MRawRunHeader.fSourceDEC'][0] / seconds_per_hour * u.deg
+    
+                is_simulation = int(meta_info[b'MRawRunHeader.fRunType'][0])
+                if is_simulation == 0:
+                    is_simulation = False
+                elif is_simulation == 256:
+                    is_simulation = True
+                else:
+                    msg = "Run type (Data or MC) of MAGIC data file not recognised."
+                    self.log.error(msg)
+                    raise
+                mars_meta['is_simulation'] = is_simulation
+    
+                # Reading the info only contained in real data
+                if is_simulation == False:
+                    badpixelinfo = input_file['RunHeaders']['MBadPixelsCam.fArray.fInfo'].array(uproot.asjagged(uproot.asdtype(np.int32))).flatten().reshape((4, 1183), order='F')
+                    # now we have 3 axes:
+                    # 1st axis: Unsuitable pixels
+                    # 2nd axis: Uncalibrated pixels (says why pixel is unsuitable)
+                    # 3rd axis: Bad hardware pixels (says why pixel is unsuitable)
+                    # Each axis cointains a 32bit integer encoding more information about the specific problem, see MARS software, MBADPixelsPix.h
+                    # Here, we however discard this additional information and only grep the "unsuitable" axis.
+                    badpixelinfo = badpixelinfo[1].astype(bool)
+                else:
+                    badpixelinfo = np.zeros(1183)
+            except KeyError:
+                logger.warning("RunHeaders tree not present in file. Cannot read meta information and assume it is a real data run.")
                 badpixelinfo = np.zeros(1183)
+                is_simulation = False
 
             # Computing the event arrival time
             mjd = events[b'MTime.fMjd']
