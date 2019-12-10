@@ -167,7 +167,7 @@ class MAGICEventSource(EventSource):
 
         return run_number, is_mc
 
-    def _set_active_run(self, run_number, is_mc):
+    def _set_active_run(self, run_number):
         """
         This internal method sets the run that will be used for data loading.
 
@@ -190,7 +190,7 @@ class MAGICEventSource(EventSource):
         run = dict()
         run['number'] = run_number
         run['read_events'] = 0
-        run['data'] = MarsRun(run_file_mask=this_run_mask, filter_list=self.file_list, is_mc=is_mc)
+        run['data'] = MarsRun(run_file_mask=this_run_mask, filter_list=self.file_list)
 
         return run
 
@@ -238,7 +238,7 @@ class MAGICEventSource(EventSource):
                     del self.current_run['data']
 
             # Setting the new active run (class MarsRun object)
-            self.current_run = self._set_active_run(run_number, self.run_types[index])
+            self.current_run = self._set_active_run(run_number)
 
             # Loop over the events
             for event_i in range(self.current_run['data'].n_stereo_events):
@@ -360,7 +360,7 @@ class MAGICEventSource(EventSource):
                     del self.current_run['data']
 
             # Setting the new active run
-            self.current_run = self._set_active_run(run_number, self.run_types[index])
+            self.current_run = self._set_active_run(run_number)
 
             if telescope == 'M1':
                 n_events = self.current_run['data'].n_mono_events_m1
@@ -483,7 +483,7 @@ class MAGICEventSource(EventSource):
                     del self.current_run['data']
 
             # Setting the new active run
-            self.current_run = self._set_active_run(run_number, self.run_types[index])
+            self.current_run = self._set_active_run(run_number)
 
             if telescope == 'M1':
                 n_events = self.current_run['data'].n_pedestal_events_m1
@@ -566,7 +566,7 @@ class MarsRun:
     This class implements reading of the event data from a single MAGIC data run.
     """
 
-    def __init__(self, run_file_mask, filter_list=None, is_mc=False):
+    def __init__(self, run_file_mask, filter_list=None):
         """
         Constructor of the class. Defines the run to use and the camera pixel arrangement.
 
@@ -584,7 +584,6 @@ class MarsRun:
         """
 
         self.run_file_mask = run_file_mask
-        self.is_mc = is_mc
 
         # Preparing the lists of M1/2 data files
         file_list = glob.glob(run_file_mask)
@@ -599,13 +598,12 @@ class MarsRun:
         self.m2_file_list.sort()
 
         # Retrieving the list of run numbers corresponding to the data files
-        # N.B.: This info reading is redundant and only cross check, if MarsRun
-        # is not called from within MAGICEventSource. 'run_info' also extracts
-        # info whether run is MC or data, so is_mc info could also be extracted
-        # from here.
         run_info = list(map(MAGICEventSource._get_run_info_from_name, file_list))
         run_numbers = [i[0] for i in run_info]
-        run_numbers = scipy.unique(run_numbers)
+        run_types   = [i[1] for i in run_info]
+
+        run_numbers, indices = np.unique(run_numbers, return_index=True)
+        self.is_mc = run_types[0]
 
         # Checking if a single run is going to be read
         if len(run_numbers) > 1:
@@ -799,12 +797,12 @@ class MarsRun:
                     is_simulation = True
                 else:
                     msg = "Run type (Data or MC) of MAGIC data file not recognised."
-                    self.log.error(msg)
-                    raise
+                    logger.error(msg)
+                    raise ValueError(msg)
                 if is_simulation != is_mc:
                     msg = "Inconsistent run type (data or MC) between file name and runheader content."
-                    self.log.error(msg)
-                    raise
+                    logger.error(msg)
+                    raise ValueError(msg)
                 
                 # Reading the info only contained in real data
                 if is_simulation == False:
