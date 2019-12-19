@@ -50,8 +50,10 @@ Select a single run:
 run = event_source._set_active_run(event_source.run_numbers[0])
 for n in range(run['data'].n_stereo_events):
     run['data'].get_stereo_event_data(n)
+    
 for n in range(run['data'].n_mono_events_m1):
     run['data'].get_mono_event_data(n, 'M1')
+    
 for n in range(run['data'].n_pedestal_events_m1):
     run['data'].get_pedestal_event_data(n, 'M1')
 ```
@@ -61,6 +63,7 @@ Select mono/pedestal events over event generator:
 mono_event_generator = event_source._mono_event_generator(telescope='M1')
 for m1_mono_event in mono_event_generator:
      ...some processing...
+     
 pedestal_event_generator = event_source._pedestal_event_generator(telescope='M1')
 ...
 ```
