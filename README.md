@@ -30,3 +30,22 @@ with MAGICEventSource(input_url=file_name) as source:
         ...some processing...
 ```
 
+The reader also works with multiple files parsed as wildcards, e.g.,
+
+```python
+MAGICEventSource(input_url=data_dir/*.root)
+```
+
+This is necessary to load and match stereo events, which are automatically created if data files from M1 and M2 for the same run are loaded. 
+
+The reader is able to handle data or Monte Carlo files, which are automatically recognized. Note that the file names have to follow the convention:
+- `*_M[1-2]_RUNNUMBER.SUBRUNNR_Y_*.root` for data
+- `*_M[1-2]_za??to??_?_RUNNUMBER_Y_*.root` for Monte Carlos.
+
+Note that currently, when loading multiple runs at once, the event ID is not unique.
+
+
+#### Changelog
+
+- v0.1: Initial version
+- v0.2.0: Unification of data and MC reading

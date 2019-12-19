@@ -152,7 +152,7 @@ class MAGICEventSource(EventSource):
             A run number of the file.
         """
 
-        mask_data = r".*\d+_M\d+_(\d+)\.\d+_.*"
+        mask_data = r".*\d+_M\d+_(\d+)\.\d+_Y_.*"
         mask_mc = r".*_M\d_za\d+to\d+_\d_(\d+)_Y_.*"
         mask_mc_alt = r".*_M\d_\d_(\d+)_.*"
         if len(re.findall(mask_data, file_name)) > 0:

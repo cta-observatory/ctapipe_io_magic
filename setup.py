@@ -10,7 +10,7 @@ with open(path.join(this_directory, 'README.md'), encoding='utf-8') as f:
 setup(
     name='ctapipe_io_magic',
     packages=find_packages(),
-    version='0.1',
+    version='0.2.0',
     description='ctapipe plugin for reading of the calibrated MAGIC files',
     long_description=long_description,
     long_description_content_type='text/markdown',
