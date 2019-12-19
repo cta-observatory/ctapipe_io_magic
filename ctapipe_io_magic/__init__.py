@@ -67,10 +67,15 @@ class MAGICEventSource(EventSource):
         # Retrieving the list of run numbers corresponding to the data files
         run_info = list(map(self._get_run_info_from_name, self.file_list))
         run_numbers = [i[0] for i in run_info]
-        run_types = [i[1] for i in run_info]
+        is_mc_runs = [i[1] for i in run_info]
 
         self.run_numbers, indices = np.unique(run_numbers, return_index=True)
-        self.run_types = [run_types[i] for i in indices]
+        is_mc_runs = [is_mc_runs[i] for i in indices]
+        is_mc_runs = np.unique(is_mc_runs)
+        # Checking if runt type (data/MC) is consistent:
+        if len(is_mc_runs) > 1:
+            raise ValueError("Loaded files contain data and MC runs. Please load only data OR Monte Carlos.")
+        self.is_mc = is_mc_runs[0]
 
         # # Setting up the current run with the first run present in the data
         # self.current_run = self._set_active_run(run_number=0)
@@ -175,8 +180,6 @@ class MAGICEventSource(EventSource):
         ----------
         run_number: int
             The run number to use.
-        is_mc: Bool
-            Whether the run is MC or data
 
         Returns
         -------
@@ -230,7 +233,7 @@ class MAGICEventSource(EventSource):
         tels_with_data = {1, 2}
 
         # Loop over the available data runs
-        for index, run_number in enumerate(self.run_numbers):
+        for run_number in self.run_numbers:
 
             # Removing the previously read data run from memory
             if self.current_run is not None:
@@ -290,7 +293,7 @@ class MAGICEventSource(EventSource):
                     #     file['dl1/tel' + str(i_tel + 1) + '/badpixels'], dtype=np.bool)
 
 
-                if self.run_types[index] == False:
+                if self.is_mc == False:
                     # Adding the event arrival time
                     time_tmp = Time(event_data['mjd'], scale='utc', format='mjd')
                     data.trig.gps_time = Time(time_tmp, format='unix', scale='utc', precision=9)
@@ -352,7 +355,7 @@ class MAGICEventSource(EventSource):
         tels_with_data = {tel_i + 1, }
 
         # Loop over the available data runs
-        for index, run_number in enumerate(self.run_numbers):
+        for run_number in self.run_numbers:
 
             # Removing the previously read data run from memory
             if self.current_run is not None:
@@ -414,7 +417,7 @@ class MAGICEventSource(EventSource):
                 # data.dl1.tel[tel_i + 1].badpixels = np.array(
                 #     file['dl1/tel' + str(i_tel + 1) + '/badpixels'], dtype=np.bool)
 
-                if self.run_types[index] == False:
+                if self.is_mc == False:
                     # Adding the event arrival time
                     time_tmp = Time(event_data['mjd'], scale='utc', format='mjd')
                     data.trig.gps_time = Time(time_tmp, format='unix', scale='utc', precision=9)
@@ -475,7 +478,7 @@ class MAGICEventSource(EventSource):
         tels_with_data = {tel_i + 1, }
 
         # Loop over the available data runs
-        for index, run_number in enumerate(self.run_numbers):
+        for run_number in self.run_numbers:
 
             # Removing the previously read data run from memory
             if self.current_run is not None:
@@ -547,7 +550,7 @@ class MAGICEventSource(EventSource):
                 data.dl0.tels_with_data = tels_with_data
                 data.trig.tels_with_trigger = tels_with_data
                 
-                if self.run_types[index] == False:
+                if self.is_mc == False:
                     # Filling weather information
                     weather = WeatherContainer()
                     weather.air_temperature = event_data['air_temperature'] * u.deg_C
@@ -579,8 +582,6 @@ class MarsRun:
         filter_list: list, optional
             A list of files, to which the run_file_mask should be applied. If None, all the
             files satisfying run_file_mask will be used. Defaults to None.
-        is_mc: Bool
-            Specify whether the run is data or Monte Carlo simulation
         """
 
         self.run_file_mask = run_file_mask
@@ -600,10 +601,15 @@ class MarsRun:
         # Retrieving the list of run numbers corresponding to the data files
         run_info = list(map(MAGICEventSource._get_run_info_from_name, file_list))
         run_numbers = [i[0] for i in run_info]
-        run_types   = [i[1] for i in run_info]
+        is_mc_runs   = [i[1] for i in run_info]
 
-        run_numbers, indices = np.unique(run_numbers, return_index=True)
-        self.is_mc = run_types[0]
+        run_numbers = np.unique(run_numbers)
+        is_mc_runs = np.unique(is_mc_runs)
+        # Checking if runt type (data/MC) is consistent:
+        if len(is_mc_runs) > 1:
+            raise ValueError("Run type is not consistently data or MC: {}".format(is_mc))
+        
+        self.is_mc = is_mc_runs[0]
 
         # Checking if a single run is going to be read
         if len(run_numbers) > 1:
