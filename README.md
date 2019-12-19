@@ -33,7 +33,7 @@ with MAGICEventSource(input_url=file_name) as source:
 The reader also works with multiple files parsed as wildcards, e.g.,
 
 ```python
-MAGICEventSource(input_url=data_dir/*.root)
+MAGICEventSource(input_url='data_dir/*.root')
 ```
 
 This is necessary to load and match stereo events, which are automatically created if data files from M1 and M2 for the same run are loaded. 
