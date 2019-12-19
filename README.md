@@ -25,15 +25,15 @@ python setup.py install --user
 import ctapipe
 from ctapipe_io_magic import MAGICEventSource
 
-with MAGICEventSource(input_url=file_name) as source:
-    for event in source:
+with MAGICEventSource(input_url=file_name) as event_source:
+    for event in event_source:
         ...some processing...
 ```
 
 The reader also works with multiple files parsed as wildcards, e.g.,
 
 ```python
-MAGICEventSource(input_url='data_dir/*.root')
+event_source = MAGICEventSource(input_url='data_dir/*.root')
 ```
 
 This is necessary to load and match stereo events, which are automatically created if data files from M1 and M2 for the same run are loaded. 
@@ -43,6 +43,27 @@ The reader is able to handle data or Monte Carlo files, which are automatically 
 - `*_M[1-2]_za??to??_?_RUNNUMBER_Y_*.root` for Monte Carlos.
 
 Note that currently, when loading multiple runs at once, the event ID is not unique.
+
+##### More usage
+Select a single run:
+```python
+run = event_source._set_active_run(event_source.run_numbers[0])
+for n in range(run['data'].n_stereo_events):
+    run['data'].get_stereo_event_data(n)
+for n in range(run['data'].n_mono_events_m1):
+    run['data'].get_mono_event_data(n, 'M1')
+for n in range(run['data'].n_pedestal_events_m1):
+    run['data'].get_pedestal_event_data(n, 'M1')
+```
+
+Select mono/pedestal events over event generator:
+```python
+mono_event_generator = event_source._mono_event_generator(telescope='M1')
+for m1_mono_event in mono_event_generator:
+     ...some processing...
+pedestal_event_generator = event_source._pedestal_event_generator(telescope='M1')
+...
+```
 
 
 #### Changelog
