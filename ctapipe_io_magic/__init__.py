@@ -12,7 +12,7 @@ import scipy.interpolate
 from astropy import units as u
 from astropy.time import Time
 from ctapipe.io.eventsource import EventSource
-from ctapipe.io.containers import DataContainer, TelescopePointingContainer, WeatherContainer
+from ctapipe.io.containers import DataContainer, TelescopePointingContainer
 from ctapipe.instrument import TelescopeDescription, SubarrayDescription, OpticsDescription, CameraGeometry
 
 __all__ = ['MAGICEventSource']
@@ -298,12 +298,6 @@ class MAGICEventSource(EventSource):
                     # Adding the event arrival time
                     time_tmp = Time(event_data['mjd'], scale='utc', format='mjd')
                     data.trig.gps_time = Time(time_tmp, format='unix', scale='utc', precision=9)
-                    # Filling weather information
-                    weather = WeatherContainer()
-                    weather.air_temperature = event_data['air_temperature'] * u.deg_C
-                    weather.air_pressure = event_data['air_pressure'] * u.hPa
-                    weather.air_humidity = event_data['air_humidity']
-                    data.weather = weather
                 else:
                     data.mc.energy = event_data['true_energy'] * u.GeV
                     data.mc.alt = (90 - event_data['true_zd']) * u.deg
@@ -422,12 +416,6 @@ class MAGICEventSource(EventSource):
                     # Adding the event arrival time
                     time_tmp = Time(event_data['mjd'], scale='utc', format='mjd')
                     data.trig.gps_time = Time(time_tmp, format='unix', scale='utc', precision=9)
-                    # Filling weather information
-                    weather = WeatherContainer()
-                    weather.air_temperature = event_data['air_temperature'] * u.deg_C
-                    weather.air_pressure = event_data['air_pressure'] * u.hPa
-                    weather.air_humidity = event_data['air_humidity']
-                    data.weather = weather
                 else:
                     data.mc.energy = event_data['true_energy'] * u.GeV
                     data.mc.alt = (90 - event_data['true_zd']) * u.deg
@@ -550,14 +538,6 @@ class MAGICEventSource(EventSource):
                 data.r1.tels_with_data = tels_with_data
                 data.dl0.tels_with_data = tels_with_data
                 data.trig.tels_with_trigger = tels_with_data
-                
-                if self.is_mc == False:
-                    # Filling weather information
-                    weather = WeatherContainer()
-                    weather.air_temperature = event_data['air_temperature'] * u.deg_C
-                    weather.air_pressure = event_data['air_pressure'] * u.hPa
-                    weather.air_humidity = event_data['air_humidity']
-                    data.weather = weather
 
                 yield data
                 counter += 1
@@ -691,9 +671,6 @@ class MarsRun:
         event_data['pointing_ra'] = scipy.array([])
         event_data['pointing_dec'] = scipy.array([])
         event_data['MJD'] = scipy.array([])
-        event_data['air_pressure'] = scipy.array([])
-        event_data['air_humidity'] = scipy.array([])
-        event_data['air_temperature'] = scipy.array([])
         event_data['badpixelinfo'] = []
         event_data['mars_meta'] = []
 
@@ -740,15 +717,6 @@ class MarsRun:
             'MReportDrive.fCurrentAz',
             'MReportDrive.fRa',
             'MReportDrive.fDec'
-            ]
-        
-        weather_array_list = [
-            'MTimeWeather.fMjd',
-            'MTimeWeather.fTime.fMilliSec',
-            'MTimeWeather.fNanoSec',
-            'MReportWeather.fPressure',
-            'MReportWeather.fHumidity',
-            'MReportWeather.fTemperature'
             ]
 
         # Info only applicable for MC:
@@ -836,34 +804,6 @@ class MarsRun:
                 nanosec = event_times[b'MTime.fNanoSec']
     
                 mjd = mjd + (millisec / 1e3 + nanosec / 1e9) / seconds_per_day
-    
-                # Reading weather information:
-                try:
-                    weather_info = input_file['Weather'].arrays(weather_array_list)
-                    
-                    weather_time_day = weather_info[b'MTimeWeather.fMjd']
-                    weather_time_millisec = weather_info[b'MTimeWeather.fTime.fMilliSec']
-                    weather_time_nanosec = weather_info[b'MTimeWeather.fNanoSec']
-                    weather_mjd = weather_time_day + (weather_time_millisec/1e3 + weather_time_nanosec/1e9) / seconds_per_day
-                    weather_mjd, weather_indices = np.unique(weather_mjd, return_index = True)
-                    
-                    air_pressure_array = weather_info[b'MReportWeather.fPressure'][weather_indices] # hPa
-                    air_humidity_array = weather_info[b'MReportWeather.fHumidity'][weather_indices]
-                    air_temperature_array = weather_info[b'MReportWeather.fTemperature'][weather_indices] # degree celsius
-          
-                    air_pressure_interpolator = scipy.interpolate.interp1d(weather_mjd, air_pressure_array, fill_value="extrapolate")
-                    air_humidity_interpolator = scipy.interpolate.interp1d(weather_mjd, air_humidity_array, fill_value="extrapolate")
-                    air_temperature_interpolator = scipy.interpolate.interp1d(weather_mjd, air_temperature_array, fill_value="extrapolate")
-                      
-                    air_pressure = air_pressure_interpolator(mjd) #* u.hPa
-                    air_humidity = air_humidity_interpolator(mjd)
-                    air_temperature = air_temperature_interpolator(mjd) #* u.deg_C
-                except:
-                    print("Could not find weather information. "
-                                 "Set to 0 degree Celsius, 50% humidity, 790hPa ambient pressure.")
-                    air_pressure = scipy.full(len(mjd), 790.) #* u.hPa
-                    air_humidity = scipy.full(len(mjd), 0.5)
-                    air_temperature = scipy.zeros(len(mjd)) #* u.deg_C
 
             # Reading pointing information (in units of degrees):
             if 'MPointingPos.' in input_file['Events']:
@@ -929,10 +869,6 @@ class MarsRun:
             event_data['pointing_ra'] = scipy.concatenate((event_data['pointing_ra'], pointing_ra))
             event_data['pointing_dec'] = scipy.concatenate((event_data['pointing_dec'], pointing_dec))
             if is_simulation == False:
-                event_data['air_pressure'] = scipy.concatenate((event_data['air_pressure'], air_pressure))
-                event_data['air_humidity'] = scipy.concatenate((event_data['air_humidity'], air_humidity))
-                event_data['air_temperature'] = scipy.concatenate((event_data['air_temperature'], air_temperature))
-    
                 event_data['MJD'] = scipy.concatenate((event_data['MJD'], mjd))
             else:
                 mc_info = input_file['Events'].arrays(mc_list)
@@ -1198,9 +1134,6 @@ class MarsRun:
             'pointing_ra' - pointing right ascension [degrees]
             'pointing_dec' - pointing declination [degrees]
             'mjd' - event arrival time [MJD]
-            'air_humidity' - relative ambient air humidity
-            'air_pressure' - ambient air pressure [astropy units]
-            'air_temperature' - ambient air temperature [astropy units]
         """
 
         file_num = self._get_pedestal_file_num(pedestal_event_num, telescope)
@@ -1221,9 +1154,6 @@ class MarsRun:
         event_data['pointing_ra'] = self.event_data[telescope]['pointing_ra'][event_id]
         event_data['pointing_dec'] = self.event_data[telescope]['pointing_dec'][event_id]
         event_data['mjd'] = self.event_data[telescope]['MJD'][event_id]
-        event_data['air_pressure'] = self.event_data[telescope]['air_pressure'][event_id]
-        event_data['air_humidity'] = self.event_data[telescope]['air_humidity'][event_id]
-        event_data['air_temperature'] = self.event_data[telescope]['air_temperature'][event_id]               
         event_data['mars_meta'] = self.event_data[telescope]['mars_meta'][file_num]
 
         return event_data
@@ -1259,9 +1189,6 @@ class MarsRun:
             'm2_pointing_ra' - M2 pointing right ascension [degrees]
             'm2_pointing_dec' - M2 pointing declination [degrees]
             'mjd' - event arrival time [MJD]
-            'air_humidity' - relative ambient air humidity
-            'air_pressure' - ambient air pressure [astropy units]
-            'air_temperature' - ambient air temperature [astropy units]
         """
 
         m1_file_num, m2_file_num = self._get_stereo_file_num(stereo_event_num)
@@ -1300,9 +1227,6 @@ class MarsRun:
         
         if self.is_mc == False:
             event_data['mjd'] = self.event_data['M1']['MJD'][m1_id]
-            event_data['air_pressure'] = self.event_data['M1']['air_pressure'][m1_id]
-            event_data['air_humidity'] = self.event_data['M1']['air_humidity'][m1_id]
-            event_data['air_temperature'] = self.event_data['M1']['air_temperature'][m1_id]
         else:
             event_data['true_energy'] = self.event_data['M1']['true_energy'][m1_id]
             event_data['true_zd'] = self.event_data['M1']['true_zd'][m1_id]
@@ -1341,9 +1265,6 @@ class MarsRun:
             'pointing_ra' - pointing right ascension [degrees]
             'pointing_dec' - pointing declination [degrees]
             'mjd' - event arrival time [MJD]
-            'air_humidity' - relative ambient air humidity
-            'air_pressure' - ambient air pressure [astropy units]
-            'air_temperature' - ambient air temperature [astropy units]
         """
 
         file_num = self._get_mono_file_num(mono_event_num, telescope)
@@ -1368,9 +1289,6 @@ class MarsRun:
 
         if self.is_mc == False:
             event_data['mjd'] = self.event_data[telescope]['MJD'][event_id]
-            event_data['air_pressure'] = self.event_data[telescope]['air_pressure'][event_id]
-            event_data['air_humidity'] = self.event_data[telescope]['air_humidity'][event_id]
-            event_data['air_temperature'] = self.event_data[telescope]['air_temperature'][event_id]
         else:
             event_data['true_energy'] = self.event_data[telescope]['true_energy'][event_id]
             event_data['true_zd'] = self.event_data[telescope]['true_zd'][event_id]
