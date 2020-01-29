@@ -19,6 +19,7 @@ __all__ = ['MAGICEventSource']
 
 logger = logging.getLogger(__name__)
 
+
 class MAGICEventSource(EventSource):
     """
     EventSource for MAGIC calibrated data.
@@ -656,7 +657,6 @@ class MarsRun:
     @property
     def n_pedestal_events_m2(self):
         return len(self.pedestal_ids['M2'])
-
 
     @staticmethod
     def load_events(file_list, is_mc):
