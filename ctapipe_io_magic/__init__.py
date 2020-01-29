@@ -1071,10 +1071,12 @@ class MarsRun:
 
             # shortcut if only single file is loaded:
             if n_m1_events == 0:
-                mono_ids['M2'] = np.arange(0,n_m2_events)[m2_data_condition]
+                if n_m2_events > 0:
+                    mono_ids['M2'] = np.arange(0, n_m2_events)[m2_data_condition]
                 return mono_ids
             if n_m2_events == 0:
-                mono_ids['M1'] = np.arange(0,n_m1_events)[m1_data_condition]
+                if n_m1_events > 0:
+                    mono_ids['M1'] = np.arange(0, n_m1_events)[m1_data_condition]
                 return mono_ids
 
             for m1_id in range(0, n_m1_events):
