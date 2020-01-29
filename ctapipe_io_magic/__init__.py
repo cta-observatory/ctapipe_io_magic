@@ -983,39 +983,37 @@ class MarsRun:
         stereo_ids = []
 
         n_m1_events = len(self.event_data['M1']['stereo_event_number'])
-        if n_m1_events == 0:
-            return stereo_ids
         n_m2_events = len(self.event_data['M2']['stereo_event_number'])
-        if n_m2_events == 0:
+        if (n_m1_events == 0) or (n_m2_events == 0):
             return stereo_ids
 
-        if self.is_mc == False:
+        if not self.is_mc:
             data_trigger_pattern = 128
-    
+
             m2_data_condition = (self.event_data['M2']['trigger_pattern'] == data_trigger_pattern)
-    
+
             for m1_id in range(0, n_m1_events):
                 if self.event_data['M1']['trigger_pattern'][m1_id] == data_trigger_pattern:
                     m2_stereo_condition = (self.event_data['M2']['stereo_event_number'] ==
                                            self.event_data['M1']['stereo_event_number'][m1_id])
-    
+
                     m12_match = np.where(m2_data_condition & m2_stereo_condition)
-    
+
                     if len(m12_match[0]) > 0:
                         stereo_pair = (m1_id, m12_match[0][0])
                         stereo_ids.append(stereo_pair)
         else:
             data_trigger_pattern = 1
-    
+
             m2_data_condition = (self.event_data['M2']['trigger_pattern'] == data_trigger_pattern)
-    
+
             for m1_id in range(0, n_m1_events):
                 if self.event_data['M1']['trigger_pattern'][m1_id] == data_trigger_pattern and self.event_data['M1']['stereo_event_number'][m1_id] != 0:
                     m2_stereo_condition = (self.event_data['M2']['stereo_event_number'] ==
                                            self.event_data['M1']['stereo_event_number'][m1_id])
-    
+
                     m12_match = np.where(m2_data_condition & m2_stereo_condition)
-    
+
                     if len(m12_match[0]) > 0:
                         stereo_pair = (m1_id, m12_match[0][0])
                         stereo_ids.append(stereo_pair)
@@ -1040,7 +1038,7 @@ class MarsRun:
         n_m1_events = len(self.event_data['M1']['stereo_event_number'])
         n_m2_events = len(self.event_data['M2']['stereo_event_number'])
 
-        if self.is_mc == False:
+        if not self.is_mc:
             data_trigger_pattern = 128
     
             m1_data_condition = self.event_data['M1']['trigger_pattern'] == data_trigger_pattern
