@@ -11,10 +11,8 @@ before_script:
     - apt-get -t testing install -y -qq python3-pip
     - apt-get -t testing install -y -qq python3-pytest
     
-    - export CTAPIPE_VERSION=master
-    - pip3 install https://github.com/cta-observatory/ctapipe/archive/$CTAPIPE_VERSION.tar.gz
-    # - pip3 install https://github.com/cta-observatory/ctapipe-extra/archive/$CTAPIPE_VERSION.tar.gz
-    - pip3 install https://github.com/IevgenVovk/ctapipe-extra/archive/$CTAPIPE_VERSION.tar.gz
+    - pip3 install https://gitlab.mpcdf.mpg.de/ievo/ctapipe-mpp/-/archive/master/ctapipe-mpp-master.tar.gz
+    - pip3 install https://github.com/cta-observatory/ctapipe-extra/archive/master.tar.gz
     - pip3 install -e .
     
 run_tests:
