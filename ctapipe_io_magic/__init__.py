@@ -19,6 +19,7 @@ __all__ = ['MAGICEventSource']
 
 logger = logging.getLogger(__name__)
 
+
 class MAGICEventSource(EventSource):
     """
     EventSource for MAGIC calibrated data.
@@ -657,7 +658,6 @@ class MarsRun:
     def n_pedestal_events_m2(self):
         return len(self.pedestal_ids['M2'])
 
-
     @staticmethod
     def load_events(file_list, is_mc):
         """
@@ -979,40 +979,41 @@ class MarsRun:
         list:
             A list of pairs (M1_id, M2_id) corresponding to stereo events in the run.
         """
-        
-        if self.event_data['M1']['mars_meta'][0]['is_simulation'] == False:
+
+        stereo_ids = []
+
+        n_m1_events = len(self.event_data['M1']['stereo_event_number'])
+        n_m2_events = len(self.event_data['M2']['stereo_event_number'])
+        if (n_m1_events == 0) or (n_m2_events == 0):
+            return stereo_ids
+
+        if not self.is_mc:
             data_trigger_pattern = 128
-    
+
             m2_data_condition = (self.event_data['M2']['trigger_pattern'] == data_trigger_pattern)
-    
-            stereo_ids = []
-            n_m1_events = len(self.event_data['M1']['stereo_event_number'])
-    
+
             for m1_id in range(0, n_m1_events):
                 if self.event_data['M1']['trigger_pattern'][m1_id] == data_trigger_pattern:
                     m2_stereo_condition = (self.event_data['M2']['stereo_event_number'] ==
                                            self.event_data['M1']['stereo_event_number'][m1_id])
-    
+
                     m12_match = np.where(m2_data_condition & m2_stereo_condition)
-    
+
                     if len(m12_match[0]) > 0:
                         stereo_pair = (m1_id, m12_match[0][0])
                         stereo_ids.append(stereo_pair)
         else:
             data_trigger_pattern = 1
-    
+
             m2_data_condition = (self.event_data['M2']['trigger_pattern'] == data_trigger_pattern)
-    
-            stereo_ids = []
-            n_m1_events = len(self.event_data['M1']['stereo_event_number'])
-    
+
             for m1_id in range(0, n_m1_events):
                 if self.event_data['M1']['trigger_pattern'][m1_id] == data_trigger_pattern and self.event_data['M1']['stereo_event_number'][m1_id] != 0:
                     m2_stereo_condition = (self.event_data['M2']['stereo_event_number'] ==
                                            self.event_data['M1']['stereo_event_number'][m1_id])
-    
+
                     m12_match = np.where(m2_data_condition & m2_stereo_condition)
-    
+
                     if len(m12_match[0]) > 0:
                         stereo_pair = (m1_id, m12_match[0][0])
                         stereo_ids.append(stereo_pair)
@@ -1036,14 +1037,12 @@ class MarsRun:
         
         n_m1_events = len(self.event_data['M1']['stereo_event_number'])
         n_m2_events = len(self.event_data['M2']['stereo_event_number'])
-            
-        if self.event_data['M1']['mars_meta'][0]['is_simulation'] == False:
+
+        if not self.is_mc:
             data_trigger_pattern = 128
     
             m1_data_condition = self.event_data['M1']['trigger_pattern'] == data_trigger_pattern
             m2_data_condition = self.event_data['M2']['trigger_pattern'] == data_trigger_pattern
-    
-
     
             for m1_id in range(0, n_m1_events):
                 if m1_data_condition[m1_id]:
@@ -1067,10 +1066,19 @@ class MarsRun:
         else:
 
             data_trigger_pattern = 1
-    
             m1_data_condition = self.event_data['M1']['trigger_pattern'] == data_trigger_pattern
             m2_data_condition = self.event_data['M2']['trigger_pattern'] == data_trigger_pattern
-            
+
+            # shortcut if only single file is loaded:
+            if n_m1_events == 0:
+                if n_m2_events > 0:
+                    mono_ids['M2'] = np.arange(0, n_m2_events)[m2_data_condition]
+                return mono_ids
+            if n_m2_events == 0:
+                if n_m1_events > 0:
+                    mono_ids['M1'] = np.arange(0, n_m1_events)[m1_data_condition]
+                return mono_ids
+
             for m1_id in range(0, n_m1_events):
                 if m1_data_condition[m1_id]:
                     if self.event_data['M1']['stereo_event_number'][m1_id] == 0:
