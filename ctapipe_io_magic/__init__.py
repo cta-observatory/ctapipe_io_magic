@@ -300,8 +300,8 @@ class MAGICEventSource(EventSource):
                     data.trig.gps_time = Time(time_tmp, format='unix', scale='utc', precision=9)
                 else:
                     data.mc.energy = event_data['true_energy'] * u.GeV
-                    data.mc.alt = (90 - event_data['true_zd']) * u.deg
-                    data.mc.az = event_data['true_az'] * u.deg
+                    data.mc.alt = (np.pi/2 - event_data['true_zd']) * u.rad
+                    data.mc.az = -1 * (event_data['true_az'] - np.deg2rad(180 - 7)) * u.rad
                     data.mc.shower_primary_id = 1 - event_data['true_shower_primary_id']
                     data.mc.h_first_int = event_data['true_h_first_int'] * u.cm
                     data.mc.core_x = event_data['true_core_x'] * u.cm
@@ -418,8 +418,8 @@ class MAGICEventSource(EventSource):
                     data.trig.gps_time = Time(time_tmp, format='unix', scale='utc', precision=9)
                 else:
                     data.mc.energy = event_data['true_energy'] * u.GeV
-                    data.mc.alt = (90 - event_data['true_zd']) * u.deg
-                    data.mc.az = event_data['true_az'] * u.deg
+                    data.mc.alt = (np.pi/2 - event_data['true_zd']) * u.rad
+                    data.mc.az = -1 * (event_data['true_az'] - np.deg2rad(180 - 7)) * u.rad
                     data.mc.shower_primary_id = 1 - event_data['true_shower_primary_id']
                     data.mc.h_first_int = event_data['true_h_first_int'] * u.cm
                     data.mc.core_x = event_data['true_core_x'] * u.cm
