@@ -57,6 +57,8 @@ class MAGICEventSource(EventSource):
             raise
 
         self.file_list = glob.glob(kwargs['input_url'])
+        if len(self.file_list) == 0:
+            raise ValueError("Unreadable or wrong wildcard file path given.")
         self.file_list.sort()
 
         # EventSource can not handle file wild cards as input_url
