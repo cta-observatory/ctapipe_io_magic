@@ -870,8 +870,6 @@ class MarsRun:
                             monitoring_data['PedestalFundamental'][quantity].append(pedestal_info['MPedPhotFundamental.fArray.f{:s}'.format(quantity).encode()][i_pedestal][:n_camera_pixels])
                             monitoring_data['PedestalFromExtractor'][quantity].append(pedestal_info['MPedPhotFromExtractor.fArray.f{:s}'.format(quantity).encode()][i_pedestal][:n_camera_pixels])
                             monitoring_data['PedestalFromExtractorRndm'][quantity].append(pedestal_info['MPedPhotFromExtractorRndm.fArray.f{:s}'.format(quantity).encode()][i_pedestal][:n_camera_pixels])
-                            print(pedestal_info['MPedPhotFromExtractorRndm.fArray.f{:s}'.format('Mean').encode()][i_pedestal])
-                            print(pedestal_info['MPedPhotFundamental.fArray.f{:s}'.format('Mean').encode()][i_pedestal])
                 
                 except KeyError:
                     logger.warning("Pedestals tree not present in file.")
