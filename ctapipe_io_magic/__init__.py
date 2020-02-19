@@ -272,9 +272,11 @@ class MAGICEventSource(EventSource):
                     pedestal_info.charge_std.append(monitoring_data['M{:d}'.format(tel_i + 1)]['PedestalFromExtractorRndm']['Rms'])
                     
                     badpixel_info.hardware_failing_pixels = monitoring_data['M{:d}'.format(tel_i + 1)]['badpixelinfo']
-                    
+
                     monitoring_camera.pedestal = pedestal_info
                     monitoring_camera.pixel_status = badpixel_info
+
+                    data.mon.tels_with_data = {1, 2}
                     data.mon.tel[tel_i + 1] = monitoring_camera
 
             # Loop over the events
@@ -588,7 +590,8 @@ class MarsRun:
             files satisfying run_file_mask will be used. Defaults to None.
         """
 
-        self.n_camera_pixels = 1039
+        geom = CameraGeometry.from_name('MAGICCam')
+        self.n_camera_pixels = geom.n_pixels
 
         self.run_file_mask = run_file_mask
 
@@ -1368,6 +1371,4 @@ class MarsRun:
         
 
         return event_data
-
-
 
