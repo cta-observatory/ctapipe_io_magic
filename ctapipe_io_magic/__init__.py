@@ -252,14 +252,14 @@ class MAGICEventSource(EventSource):
 
             # Set monitoring data:
             if not self.is_mc:
-                
+
                 monitoring_data = self.current_run['data'].monitoring_data
-                
+
                 for tel_i, tel_id in enumerate(tels_in_file):
                     monitoring_camera = MonitoringCameraContainer()
                     pedestal_info = PedestalContainer()
                     badpixel_info = PixelStatusContainer()
-                    
+
                     time_tmp = Time(monitoring_data['M{:d}'.format(tel_i + 1)]['PedestalMJD'], scale='utc', format='mjd')
                     pedestal_info.sample_time = Time(time_tmp, format='unix', scale='utc', precision=9)
                     pedestal_info.n_events = 500 # hardcoded number of pedestal events averaged over
@@ -271,9 +271,8 @@ class MAGICEventSource(EventSource):
                     pedestal_info.charge_std.append(monitoring_data['M{:d}'.format(tel_i + 1)]['PedestalFundamental']['Rms'])
                     pedestal_info.charge_std.append(monitoring_data['M{:d}'.format(tel_i + 1)]['PedestalFromExtractor']['Rms'])
                     pedestal_info.charge_std.append(monitoring_data['M{:d}'.format(tel_i + 1)]['PedestalFromExtractorRndm']['Rms'])
-                    
+
                     t_range = Time(monitoring_data['M{:d}'.format(tel_i + 1)]['badpixelinfoMJDrange'], scale='utc', format='mjd')
-                    #t_max = Time(monitoring_data['M{:d}'.format(tel_i + 1)]['badpixelinfoMJDrange'][1], scale='utc', format='mjd')
 
                     badpixel_info.hardware_failing_pixels = monitoring_data['M{:d}'.format(tel_i + 1)]['badpixelinfo']
                     badpixel_info.sample_time_range = t_range
@@ -401,13 +400,13 @@ class MAGICEventSource(EventSource):
 
             # Set monitoring data:
             if not self.is_mc:
-                
+
                 monitoring_data = self.current_run['data'].monitoring_data
-                
+
                 monitoring_camera = MonitoringCameraContainer()
                 pedestal_info = PedestalContainer()
                 badpixel_info = PixelStatusContainer()
-                
+
                 time_tmp = Time(monitoring_data['M{:d}'.format(tel_i + 1)]['PedestalMJD'], scale='utc', format='mjd')
                 pedestal_info.sample_time = Time(time_tmp, format='unix', scale='utc', precision=9)
                 pedestal_info.n_events = 500 # hardcoded number of pedestal events averaged over
@@ -419,19 +418,17 @@ class MAGICEventSource(EventSource):
                 pedestal_info.charge_std.append(monitoring_data['M{:d}'.format(tel_i + 1)]['PedestalFundamental']['Rms'])
                 pedestal_info.charge_std.append(monitoring_data['M{:d}'.format(tel_i + 1)]['PedestalFromExtractor']['Rms'])
                 pedestal_info.charge_std.append(monitoring_data['M{:d}'.format(tel_i + 1)]['PedestalFromExtractorRndm']['Rms'])
-                
+
                 t_range = Time(monitoring_data['M{:d}'.format(tel_i + 1)]['badpixelinfoMJDrange'], scale='utc', format='mjd')
-                #t_max = Time(monitoring_data['M{:d}'.format(tel_i + 1)]['badpixelinfoMJDrange'][1], scale='utc', format='mjd')
 
                 badpixel_info.hardware_failing_pixels = monitoring_data['M{:d}'.format(tel_i + 1)]['badpixelinfo']
                 badpixel_info.sample_time_range = t_range
-                    
+
                 monitoring_camera.pedestal = pedestal_info
                 monitoring_camera.pixel_status = badpixel_info
 
                 data.mon.tels_with_data = tels_with_data
                 data.mon.tel[tel_i + 1] = monitoring_camera
-
 
             if telescope == 'M1':
                 n_events = self.current_run['data'].n_mono_events_m1
@@ -548,11 +545,11 @@ class MAGICEventSource(EventSource):
             self.current_run = self._set_active_run(run_number)
 
             monitoring_data = self.current_run['data'].monitoring_data
-            
+
             monitoring_camera = MonitoringCameraContainer()
             pedestal_info = PedestalContainer()
             badpixel_info = PixelStatusContainer()
-            
+
             time_tmp = Time(monitoring_data['M{:d}'.format(tel_i + 1)]['PedestalMJD'], scale='utc', format='mjd')
             pedestal_info.sample_time = Time(time_tmp, format='unix', scale='utc', precision=9)
             pedestal_info.n_events = 500 # hardcoded number of pedestal events averaged over
@@ -564,19 +561,17 @@ class MAGICEventSource(EventSource):
             pedestal_info.charge_std.append(monitoring_data['M{:d}'.format(tel_i + 1)]['PedestalFundamental']['Rms'])
             pedestal_info.charge_std.append(monitoring_data['M{:d}'.format(tel_i + 1)]['PedestalFromExtractor']['Rms'])
             pedestal_info.charge_std.append(monitoring_data['M{:d}'.format(tel_i + 1)]['PedestalFromExtractorRndm']['Rms'])
-            
+
             t_range = Time(monitoring_data['M{:d}'.format(tel_i + 1)]['badpixelinfoMJDrange'], scale='utc', format='mjd')
-            #t_max = Time(monitoring_data['M{:d}'.format(tel_i + 1)]['badpixelinfoMJDrange'][1], scale='utc', format='mjd')
 
             badpixel_info.hardware_failing_pixels = monitoring_data['M{:d}'.format(tel_i + 1)]['badpixelinfo']
             badpixel_info.sample_time_range = t_range
-                    
+
             monitoring_camera.pedestal = pedestal_info
             monitoring_camera.pixel_status = badpixel_info
 
             data.mon.tels_with_data = tels_with_data
             data.mon.tel[tel_i + 1] = monitoring_camera
-
 
             if telescope == 'M1':
                 n_events = self.current_run['data'].n_pedestal_events_m1
@@ -886,9 +881,9 @@ class MarsRun:
 
             # Reading run-wise meta information (same for all events in subrun):
             mars_meta = dict()
-            
+
             mars_meta['is_simulation'] = is_mc
-            
+
             # Reading event timing information:
             if not is_mc:
                 event_times = input_file['Events'].arrays(time_array_list)
@@ -897,39 +892,38 @@ class MarsRun:
                 event_mjd = event_times[b'MTime.fMjd']
                 event_millisec = event_times[b'MTime.fTime.fMilliSec']
                 event_nanosec = event_times[b'MTime.fNanoSec']
-    
+
                 event_mjd = event_mjd + (event_millisec / 1e3 + event_nanosec / 1e9) / seconds_per_day
                 event_data['MJD'] = scipy.concatenate((event_data['MJD'], event_mjd))
 
-            # try to read RunHeaders tree (soft fail if not present)
+            # try to read RunHeaders tree (soft fail if not present, to pass current tests)
             try:
                 meta_info = input_file['RunHeaders'].arrays(metainfo_array_list)
                 
                 mars_meta['origin'] = "MAGIC"
                 mars_meta['input_url'] = file_name
-    
+
                 mars_meta['number'] = int(meta_info[b'MRawRunHeader.fRunNumber'][0])
                 mars_meta['number_subrun'] = int(meta_info[b'MRawRunHeader.fSubRunIndex'][0])
-                mars_meta['subrun_start_unixtime'] = Time(event_mjd[0], scale='utc', format='mjd', precision=9).unix
                 mars_meta['source_ra'] = meta_info[b'MRawRunHeader.fSourceRA'][0] / seconds_per_hour * degrees_per_hour * u.deg
                 mars_meta['source_dec'] = meta_info[b'MRawRunHeader.fSourceDEC'][0] / seconds_per_hour * u.deg
-    
-                is_simulation = int(meta_info[b'MRawRunHeader.fRunType'][0])
-                if is_simulation == 0:
-                    is_simulation = False
-                elif is_simulation == 256:
-                    is_simulation = True
+
+                is_mc_check = int(meta_info[b'MRawRunHeader.fRunType'][0])
+                if is_mc_check == 0:
+                    is_mc_check = False
+                elif is_mc_check == 256:
+                    is_mc_check = True
                 else:
                     msg = "Run type (Data or MC) of MAGIC data file not recognised."
                     logger.error(msg)
                     raise ValueError(msg)
-                if is_simulation != is_mc:
+                if is_mc_check != is_mc:
                     msg = "Inconsistent run type (data or MC) between file name and runheader content."
                     logger.error(msg)
                     raise ValueError(msg)
-                
+
                 # Reading the info only contained in real data
-                if not is_simulation:
+                if not is_mc:
                     badpixelinfo = input_file['RunHeaders']['MBadPixelsCam.fArray.fInfo'].array(uproot.asjagged(uproot.asdtype(np.int32))).flatten().reshape((4, 1183), order='F')
                     # now we have 4 axes:
                     # 0st axis: empty (?)
@@ -937,8 +931,7 @@ class MarsRun:
                     # 2nd axis: Uncalibrated pixels (says why pixel is unsuitable)
                     # 3rd axis: Bad hardware pixels (says why pixel is unsuitable)
                     # Each axis cointains a 32bit integer encoding more information about the specific problem, see MARS software, MBADPixelsPix.h
-                    # Here, we however discard this additional information and only grep the "unsuitable" axis.
-                    unsuitable_pix_bitinfo = badpixelinfo[1][:n_camera_pixels]
+                    unsuitable_pix_bitinfo = badpixelinfo[1][:n_camera_pixels] # take first axis
                     # extract unsuitable bit:
                     unsuitable_pix = np.zeros(n_camera_pixels, dtype = np.bool)
                     for i in range(n_camera_pixels):
@@ -949,13 +942,13 @@ class MarsRun:
 
             except KeyError:
                 logger.warning("RunHeaders tree not present in file. Cannot read meta information - will assume it is a real data run.")
-                is_simulation = False
+                is_mc = False
 
             # try to read Pedestals tree (soft fail if not present)
-            if not is_simulation:
+            if not is_mc:
                 try:
                     pedestal_info = input_file['Pedestals'].arrays(pedestal_array_list)
-                    
+
                     pedestal_mjd = pedestal_info[b'MTimePedestals.fMjd']
                     pedestal_millisec = pedestal_info[b'MTimePedestals.fTime.fMilliSec']
                     pedestal_nanosec = pedestal_info[b'MTimePedestals.fNanoSec']
@@ -967,9 +960,9 @@ class MarsRun:
                             monitoring_data['PedestalFundamental'][quantity].append(pedestal_info['MPedPhotFundamental.fArray.f{:s}'.format(quantity).encode()][i_pedestal][:n_camera_pixels])
                             monitoring_data['PedestalFromExtractor'][quantity].append(pedestal_info['MPedPhotFromExtractor.fArray.f{:s}'.format(quantity).encode()][i_pedestal][:n_camera_pixels])
                             monitoring_data['PedestalFromExtractorRndm'][quantity].append(pedestal_info['MPedPhotFromExtractorRndm.fArray.f{:s}'.format(quantity).encode()][i_pedestal][:n_camera_pixels])
-                
+
                 except KeyError:
-                    logger.warning("Pedestals tree not present in file.")
+                    logger.warning("Pedestals tree not present in file. Cleaning algorithm may fail.")
 
             # Reading pointing information (in units of degrees):
             if 'MPointingPos.' in input_file['Events']:
@@ -1035,9 +1028,9 @@ class MarsRun:
             event_data['pointing_dec'] = scipy.concatenate((event_data['pointing_dec'], pointing_dec))
 
             # Reading MC only information:
-            if is_simulation:
+            if is_mc:
                 mc_info = input_file['Events'].arrays(mc_list)
-                # N.B.: For MC, there is only one subrun
+                # N.B.: For MC, there is only one subrun, so do not need to 'append'
                 event_data['true_energy'] = mc_info[b'MMcEvt.fEnergy']
                 event_data['true_zd'] = mc_info[b'MMcEvt.fTheta']
                 event_data['true_az'] = mc_info[b'MMcEvt.fPhi']
@@ -1048,15 +1041,21 @@ class MarsRun:
 
             event_data['file_edges'].append(len(event_data['trigger_pattern']))
 
-        # sort monitoring data:
-        order = np.argsort(monitoring_data['PedestalMJD'])
-        monitoring_data['PedestalMJD'] = monitoring_data['PedestalMJD'][order]
-        #for quantity in ['Mean', 'Rms']:
-        #    monitoring_data['PedestalFundamental'][quantity] = np.array(monitoring_data['PedestalFundamental'][quantity])[order]
-        #    monitoring_data['PedestalFromExtractor'][quantity] = np.array(monitoring_data['PedestalFromExtractor'][quantity])[order]
-        #    monitoring_data['PedestalFromExtractorRndm'][quantity] = np.array(monitoring_data['PedestalFromExtractorRndm'][quantity])[order]
-            
+        if not is_mc:
+            try:
+                monitoring_data['badpixelinfo'] = np.array(monitoring_data['badpixelinfo'])
+                monitoring_data['badpixelinfoMJDrange'] = np.array(monitoring_data['badpixelinfoMJDrange'])
+                # sort monitoring data:
+                order = np.argsort(monitoring_data['PedestalMJD'])
+                monitoring_data['PedestalMJD'] = monitoring_data['PedestalMJD'][order]
+                
+                for quantity in ['Mean', 'Rms']:
+                    monitoring_data['PedestalFundamental'][quantity] = np.array(monitoring_data['PedestalFundamental'][quantity])
+                    monitoring_data['PedestalFromExtractor'][quantity] = np.array(monitoring_data['PedestalFromExtractor'][quantity])
+                    monitoring_data['PedestalFromExtractorRndm'][quantity] = np.array(monitoring_data['PedestalFromExtractorRndm'][quantity])
 
+            except:
+                pass
 
         return event_data, monitoring_data
 
