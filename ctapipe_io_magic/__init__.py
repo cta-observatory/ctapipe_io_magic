@@ -1485,12 +1485,6 @@ class PedestalContainer(Container):
     charge_std_outliers = Field(
         None, "Boolean np array of the pedestal std outliers (n_chan, n_pix)"
     )
-    charge_std_outliers_hot = Field(
-        None, "Boolean np array of the pedestal std outliers (n_chan, n_pix)"
-    )
-    charge_std_outliers_cold = Field(
-        None, "Boolean np array of the pedestal std outliers (n_chan, n_pix)"
-    )
 
 class PixelStatusContainer(Container):
     """
