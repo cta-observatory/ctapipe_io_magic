@@ -933,10 +933,18 @@ class MarsRun:
                     # Each axis cointains a 32bit integer encoding more information about the specific problem, see MARS software, MBADPixelsPix.h
                     unsuitable_pix_bitinfo = badpixelinfo[1][:n_camera_pixels] # take first axis
                     # extract unsuitable bit:
-                    unsuitable_pix = np.zeros(n_camera_pixels, dtype = np.bool)
+                    unsuitable_evt = np.zeros(n_camera_pixels, dtype = np.bool)
+                    unsuitable_run = np.zeros(n_camera_pixels, dtype = np.bool)
+                    unsuitable_dt = np.zeros(n_camera_pixels, dtype = np.bool)
+                    unsuitable_dc = np.zeros(n_camera_pixels, dtype = np.bool)
+                    unsuitable_hv = np.zeros(n_camera_pixels, dtype = np.bool)
                     for i in range(n_camera_pixels):
-                        unsuitable_pix[i] = int('\t{0:08b}'.format(unsuitable_pix_bitinfo[i]&0xff)[-2])
-                    monitoring_data['badpixelinfo'].append(unsuitable_pix)
+                        unsuitable_run[i] = int('\t{0:08b}'.format(unsuitable_pix_bitinfo[i]&0xff)[-1])
+                        unsuitable_evt[i] = int('\t{0:08b}'.format(unsuitable_pix_bitinfo[i]&0xff)[-2])
+                        unsuitable_dt[i] = int('\t{0:08b}'.format(unsuitable_pix_bitinfo[i]&0xff)[-4])
+                        unsuitable_dc[i] = int('\t{0:08b}'.format(unsuitable_pix_bitinfo[i]&0xff)[-5])
+                        unsuitable_hv[i] = int('\t{0:08b}'.format(unsuitable_pix_bitinfo[i]&0xff)[-3])
+                    monitoring_data['badpixelinfo'].append(np.logical_or(np.logical_or(np.logical_or(np.logical_or(unsuitable_run, unsuitable_evt), unsuitable_dt),unsuitable_dc),unsuitable_hv))
                     # save time interval of badpixel info:
                     monitoring_data['badpixelinfoMJDrange'].append([event_mjd[0], event_mjd[-1]])
 
