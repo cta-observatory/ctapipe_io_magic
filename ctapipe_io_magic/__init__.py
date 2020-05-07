@@ -313,10 +313,6 @@ class MAGICEventSource(EventSource):
                 data.dl0.event_id = event_id
                 data.dl0.tel.clear()
 
-                # Setting up the DL1 container
-                data.dl1.tel[1] = DL1CameraContainer()
-                data.dl1.tel[2] = DL1CameraContainer()
-
                 # Filling the DL1 container with the event data
                 for tel_i, tel_id in enumerate(tels_in_file):
                     # Creating the telescope pointing container
@@ -331,8 +327,6 @@ class MAGICEventSource(EventSource):
 
                     # Adding event charge and peak positions per pixel
                     data.dl1.tel[tel_i + 1].image = event_data['{:s}_image'.format(tel_id)]
-                    data.dl1.tel[tel_i + 1].image_err = event_data['{:s}_image_err'.format(tel_id)]
-                    data.dl1.tel[tel_i + 1].image_chi2 = event_data['{:s}_image_chi2'.format(tel_id)]
                     data.dl1.tel[tel_i + 1].pulse_time = event_data['{:s}_pulse_time'.format(tel_id)]
 
                 if self.is_mc == False:
@@ -471,9 +465,6 @@ class MAGICEventSource(EventSource):
                 data.dl0.event_id = event_id
                 data.dl0.tel.clear()
 
-                # Setting up the DL1 container
-                data.dl1.tel[tel_i + 1] = DL1CameraContainer()
-
                 # Creating the telescope pointing container
                 pointing = TelescopePointingContainer()
                 pointing.azimuth = np.deg2rad(event_data['pointing_az']) * u.rad
@@ -486,8 +477,6 @@ class MAGICEventSource(EventSource):
 
                 # Adding event charge and peak positions per pixel
                 data.dl1.tel[tel_i + 1].image = event_data['image']
-                data.dl1.tel[tel_i + 1].image_err = event_data['image_err']
-                data.dl1.tel[tel_i + 1].image_chi2 = event_data['image_chi2']
                 data.dl1.tel[tel_i + 1].pulse_time = event_data['pulse_time']
 
                 if self.is_mc == False:
@@ -619,9 +608,6 @@ class MAGICEventSource(EventSource):
                 data.dl0.event_id = event_id
                 data.dl0.tel.clear()
 
-                # Setting up the DL1 container
-                data.dl1.tel[tel_i + 1] = DL1CameraContainer()
-
                 # Creating the telescope pointing container
                 pointing = TelescopePointingContainer()
                 pointing.azimuth = np.deg2rad(event_data['pointing_az']) * u.rad
@@ -634,8 +620,6 @@ class MAGICEventSource(EventSource):
 
                 # Adding event charge and peak positions per pixel
                 data.dl1.tel[tel_i + 1].image = event_data['image']
-                data.dl1.tel[tel_i + 1].image_err = event_data['image_err']
-                data.dl1.tel[tel_i + 1].image_chi2 = event_data['image_chi2']
                 data.dl1.tel[tel_i + 1].pulse_time = event_data['pulse_time']
 
                 # Adding the event arrival time
@@ -783,8 +767,6 @@ class MarsRun:
         event_data = dict()
 
         event_data['charge'] = []
-        event_data['charge_err'] = []
-        event_data['charge_chi2'] = []
         event_data['arrival_time'] = []
         event_data['trigger_pattern'] = scipy.array([])
         event_data['stereo_event_number'] = scipy.array([])
@@ -818,12 +800,10 @@ class MarsRun:
         seconds_per_hour = 3600.
 
         evt_common_list = [
-            'MCerPhotEvt.fPixels.fPhot',
-            'MCerPhotEvt.fPixels.fErrPhot',
-            'MCerPhotEvt.fPixels.fChisquare',
+            'MCerPhotEvt.fPixels.fPhot', 
             'MArrivalTime.fData',
             'MTriggerPattern.fPrescaled',
-            'MRawEvtHeader.fStereoEvtNumber',
+            'MRawEvtHeader.fStereoEvtNumber', 
             'MRawEvtHeader.fDAQEvtNumber',
             ]
         
@@ -895,8 +875,6 @@ class MarsRun:
 
             # Reading the info common to MC and real data
             charge = events[b'MCerPhotEvt.fPixels.fPhot']
-            charge_err = events[b'MCerPhotEvt.fPixels.fErrPhot']
-            charge_chi2 = events[b'MCerPhotEvt.fPixels.fChisquare']
             arrival_time = events[b'MArrivalTime.fData']
             trigger_pattern = events[b'MTriggerPattern.fPrescaled']
             stereo_event_number = events[b'MRawEvtHeader.fStereoEvtNumber']
@@ -1040,8 +1018,6 @@ class MarsRun:
                     pointing_dec = scipy.repeat(-1, len(event_mjd))
 
             event_data['charge'].append(charge)
-            event_data['charge_err'].append(charge_err)
-            event_data['charge_chi2'].append(charge_chi2)
             event_data['arrival_time'].append(arrival_time)
             event_data['mars_meta'].append(mars_meta)
             event_data['trigger_pattern'] = scipy.concatenate((event_data['trigger_pattern'], trigger_pattern))
@@ -1325,8 +1301,6 @@ class MarsRun:
         dict:
             The output has the following structure:
             'image' - photon_content in requested telescope
-            'image_err' - ???
-            'image_chi2' - ???
             'pulse_time' - arrival_times in requested telescope
             'pointing_az' - pointing azimuth [degrees]
             'pointing_zd' - pointing zenith angle [degrees]
@@ -1341,14 +1315,10 @@ class MarsRun:
         id_in_file = event_id - self.event_data[telescope]['file_edges'][file_num]
 
         photon_content = self.event_data[telescope]['charge'][file_num][id_in_file][:self.n_camera_pixels]
-        photon_err = self.event_data[telescope]['charge_err'][file_num][id_in_file][:self.n_camera_pixels]
-        photon_chi2 = self.event_data[telescope]['charge_chi2'][file_num][id_in_file][:self.n_camera_pixels]
         arrival_times = self.event_data[telescope]['arrival_time'][file_num][id_in_file][:self.n_camera_pixels]
 
         event_data = dict()
         event_data['image'] = photon_content
-        event_data['image_err'] = photon_err
-        event_data['image_chi2'] = photon_chi2
         event_data['pulse_time'] = arrival_times
         event_data['pointing_az'] = self.event_data[telescope]['pointing_az'][event_id]
         event_data['pointing_zd'] = self.event_data[telescope]['pointing_zd'][event_id]
@@ -1376,12 +1346,8 @@ class MarsRun:
         dict:
             The output has the following structure:
             'm1_image' - M1 photon_content
-            'm1_image_err' - ???
-            'm1_image_chi2' - ???
             'm1_pulse_time' - M1 arrival_times
             'm2_image' - M2 photon_content
-            'm2_image_err' - ???
-            'm2_image_chi2' - ???
             'm2_peak_pos' - M2 arrival_times
             'm1_pointing_az' - M1 pointing azimuth [degrees]
             'm1_pointing_zd' - M1 pointing zenith angle [degrees]
@@ -1402,23 +1368,15 @@ class MarsRun:
         m2_id_in_file = m2_id - self.event_data['M2']['file_edges'][m2_file_num]
 
         m1_photon_content = self.event_data['M1']['charge'][m1_file_num][m1_id_in_file][:self.n_camera_pixels]
-        m1_photon_err = self.event_data['M1']['charge_err'][file_num][id_in_file][:self.n_camera_pixels]
-        m1_photon_chi2 = self.event_data['M1']['charge_chi2'][file_num][id_in_file][:self.n_camera_pixels]
         m1_arrival_times = self.event_data['M1']['arrival_time'][m1_file_num][m1_id_in_file][:self.n_camera_pixels]
 
         m2_photon_content = self.event_data['M2']['charge'][m2_file_num][m2_id_in_file][:self.n_camera_pixels]
-        m2_photon_err = self.event_data['M2']['charge_err'][file_num][id_in_file][:self.n_camera_pixels]
-        m2_photon_chi2 = self.event_data['M2']['charge_chi2'][file_num][id_in_file][:self.n_camera_pixels]
         m2_arrival_times = self.event_data['M2']['arrival_time'][m2_file_num][m2_id_in_file][:self.n_camera_pixels]
 
         event_data = dict()
         event_data['m1_image'] = m1_photon_content
-        event_data['m1_image_err'] = m1_photon_err
-        event_data['m1_image_chi2'] = m1_photon_chi2
         event_data['m1_pulse_time'] = m1_arrival_times
         event_data['m2_image'] = m2_photon_content
-        event_data['m2_image_err'] = m2_photon_err
-        event_data['m2_image_chi2'] = m2_photon_chi2
         event_data['m2_pulse_time'] = m2_arrival_times
         event_data['m1_pointing_az'] = self.event_data['M1']['pointing_az'][m1_id]
         event_data['m1_pointing_zd'] = self.event_data['M1']['pointing_zd'][m1_id]
@@ -1465,8 +1423,6 @@ class MarsRun:
         dict:
             The output has the following structure:
             'image' - photon_content in requested telescope
-            'image_err' - ???
-            'image_chi2' - ???
             'pulse_time' - arrival_times in requested telescope
             'pointing_az' - pointing azimuth [degrees]
             'pointing_zd' - pointing zenith angle [degrees]
@@ -1481,14 +1437,10 @@ class MarsRun:
         id_in_file = event_id - self.event_data[telescope]['file_edges'][file_num]
 
         photon_content = self.event_data[telescope]['charge'][file_num][id_in_file][:self.n_camera_pixels]
-        photon_err = self.event_data[telescope]['charge_err'][file_num][id_in_file][:self.n_camera_pixels]
-        photon_chi2 = self.event_data[telescope]['charge_chi2'][file_num][id_in_file][:self.n_camera_pixels]
         arrival_times = self.event_data[telescope]['arrival_time'][file_num][id_in_file][:self.n_camera_pixels]
 
         event_data = dict()
         event_data['image'] = photon_content
-        event_data['image_err'] = photon_err
-        event_data['image_chi2'] = photon_chi2
         event_data['pulse_time'] = arrival_times
         event_data['pointing_az'] = self.event_data[telescope]['pointing_az'][event_id]
         event_data['pointing_zd'] = self.event_data[telescope]['pointing_zd'][event_id]
@@ -1561,31 +1513,4 @@ class PixelStatusContainer(Container):
         None,
         "Boolean np array (True = failing pixel) from the flat-field data analysis ("
         "n_chan, n_pix)",
-    )
-
-class DL1CameraContainer(Container):
-    """
-    Storage of output of camera calibration e.g the final calibrated
-    image in intensity units and the pulse time.
-    """
-
-    image = Field(
-        None,
-        "Numpy array of camera image, after waveform extraction." "Shape: (n_pixel)",
-    )
-    image_err = Field(
-        None,
-        "???"
-        "Shape: (n_pixel, n_samples)",
-    )
-    image_chi2 = Field(
-        None,
-        "???"
-        "Shape: (n_pixel, n_samples)",
-    )
-    pulse_time = Field(
-        None,
-        "Numpy array containing position of the pulse as determined by "
-        "the extractor."
-        "Shape: (n_pixel, n_samples)",
     )
