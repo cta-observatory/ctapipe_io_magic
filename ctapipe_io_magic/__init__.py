@@ -265,19 +265,16 @@ class MAGICEventSource(EventSource):
                 data.r0.obs_id = obs_id
                 data.r0.event_id = event_id
                 data.r0.tel.clear()
-                data.r0.tel[tel_i + 1].trigger_type = self.current_run['data'].event_data['M1']['trigger_pattern'][event_order_number]
 
                 # Setting up the R1 container
                 data.r1.obs_id = obs_id
                 data.r1.event_id = event_id
                 data.r1.tel.clear()
-                data.r1.tel[tel_i + 1].trigger_type = self.current_run['data'].event_data['M1']['trigger_pattern'][event_order_number]
 
                 # Setting up the DL0 container
                 data.dl0.obs_id = obs_id
                 data.dl0.event_id = event_id
                 data.dl0.tel.clear()
-                data.dl0.tel[tel_i + 1].trigger_type = self.current_run['data'].event_data['M1']['trigger_pattern'][event_order_number]
 
                 # Filling the DL1 container with the event data
                 for tel_i, tel_id in enumerate(tels_in_file):
@@ -290,6 +287,11 @@ class MAGICEventSource(EventSource):
 
                     # Adding the pointing container to the event data
                     data.pointing[tel_i + 1] = pointing
+
+                    # Adding trigger id (MAGIC nomenclature)
+                    data.r0.tel[tel_i + 1].trigger_type = self.current_run['data'].event_data['M1']['trigger_pattern'][event_order_number]
+                    data.r1.tel[tel_i + 1].trigger_type = self.current_run['data'].event_data['M1']['trigger_pattern'][event_order_number]
+                    data.dl0.tel[tel_i + 1].trigger_type = self.current_run['data'].event_data['M1']['trigger_pattern'][event_order_number]
 
                     # Adding event charge and peak positions per pixel
                     data.dl1.tel[tel_i + 1].image = event_data['{:s}_image'.format(tel_id)]
