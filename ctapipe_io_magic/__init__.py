@@ -860,6 +860,14 @@ class MarsRun:
                     pointing_ra = scipy.repeat(-1, len(mjd))
                     pointing_dec = scipy.repeat(-1, len(mjd))
 
+            # check for bit flips in the stereo event ID:
+            dx = np.diff(stereo_event_number)
+            for i in range(len(stereo_event_number)-1):
+                if (dx[i] > 1):
+                    print(i, stereo_event_number[i], dx[i])
+            dx_id_flip = np.where(dx < 0)[0]
+#            print("bit flips", len(dx_id_flip))
+
             event_data['charge'].append(charge)
             event_data['arrival_time'].append(arrival_time)
             event_data['badpixelinfo'].append(badpixelinfo)
