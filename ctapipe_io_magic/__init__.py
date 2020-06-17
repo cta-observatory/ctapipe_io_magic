@@ -863,7 +863,7 @@ class MarsRun:
             # check for bit flips in the stereo event ID:
             dx = np.diff(stereo_event_number.astype(np.int))
             dx_id_flip = np.where(dx < 0)[0]
-            if len(dx_id_flip > 0):
+            if len(dx_id_flip) > 0:
                 logger.warning("Warning: detected %d bitflips. Flag affected events as unsuitable" %len(dx_id_flip))
                 for i in dx_id_flip:
                     trigger_pattern[i] = -1
