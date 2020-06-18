@@ -325,6 +325,11 @@ class MAGICEventSource(EventSource):
                     # Adding the pointing container to the event data
                     data.pointing[tel_i + 1] = pointing
 
+                    # Adding trigger id (MAGIC nomenclature)
+                    data.r0.tel[tel_i + 1].trigger_type = self.current_run['data'].event_data['M1']['trigger_pattern'][event_order_number]
+                    data.r1.tel[tel_i + 1].trigger_type = self.current_run['data'].event_data['M1']['trigger_pattern'][event_order_number]
+                    data.dl0.tel[tel_i + 1].trigger_type = self.current_run['data'].event_data['M1']['trigger_pattern'][event_order_number]
+
                     # Adding event charge and peak positions per pixel
                     data.dl1.tel[tel_i + 1].image = event_data['{:s}_image'.format(tel_id)]
                     data.dl1.tel[tel_i + 1].pulse_time = event_data['{:s}_pulse_time'.format(tel_id)]
@@ -454,16 +459,19 @@ class MAGICEventSource(EventSource):
                 data.r0.obs_id = obs_id
                 data.r0.event_id = event_id
                 data.r0.tel.clear()
+                data.r0.tel[tel_i + 1].trigger_type = self.current_run['data'].event_data[telescope]['trigger_pattern'][event_order_number]
 
                 # Setting up the R1 container
                 data.r1.obs_id = obs_id
                 data.r1.event_id = event_id
                 data.r1.tel.clear()
+                data.r1.tel[tel_i + 1].trigger_type = self.current_run['data'].event_data[telescope]['trigger_pattern'][event_order_number]
 
                 # Setting up the DL0 container
                 data.dl0.obs_id = obs_id
                 data.dl0.event_id = event_id
                 data.dl0.tel.clear()
+                data.dl0.tel[tel_i + 1].trigger_type = self.current_run['data'].event_data[telescope]['trigger_pattern'][event_order_number]
 
                 # Creating the telescope pointing container
                 pointing = TelescopePointingContainer()
@@ -597,16 +605,19 @@ class MAGICEventSource(EventSource):
                 data.r0.obs_id = obs_id
                 data.r0.event_id = event_id
                 data.r0.tel.clear()
+                data.r0.tel[tel_i + 1].trigger_type = self.current_run['data'].event_data[telescope]['trigger_pattern'][event_order_number]
 
                 # Setting up the R1 container
                 data.r1.obs_id = obs_id
                 data.r1.event_id = event_id
                 data.r1.tel.clear()
+                data.r1.tel[tel_i + 1].trigger_type = self.current_run['data'].event_data[telescope]['trigger_pattern'][event_order_number]
 
                 # Setting up the DL0 container
                 data.dl0.obs_id = obs_id
                 data.dl0.event_id = event_id
                 data.dl0.tel.clear()
+                data.dl0.tel[tel_i + 1].trigger_type = self.current_run['data'].event_data[telescope]['trigger_pattern'][event_order_number]
 
                 # Creating the telescope pointing container
                 pointing = TelescopePointingContainer()
@@ -768,8 +779,8 @@ class MarsRun:
 
         event_data['charge'] = []
         event_data['arrival_time'] = []
-        event_data['trigger_pattern'] = scipy.array([])
-        event_data['stereo_event_number'] = scipy.array([])
+        event_data['trigger_pattern'] = scipy.array([], dtype=np.int32)
+        event_data['stereo_event_number'] = scipy.array([], dtype=np.int32)
         event_data['pointing_zd'] = scipy.array([])
         event_data['pointing_az'] = scipy.array([])
         event_data['pointing_ra'] = scipy.array([])
@@ -1017,11 +1028,20 @@ class MarsRun:
                     pointing_ra = scipy.repeat(-1, len(event_mjd))
                     pointing_dec = scipy.repeat(-1, len(event_mjd))
 
+            # check for bit flips in the stereo event ID:
+            dx = np.diff(stereo_event_number.astype(np.int))
+            dx_id_flip = np.where(dx < 0)[0]
+            if len(dx_id_flip) > 0:
+                logger.warning("Warning: detected %d bitflips. Flag affected events as unsuitable" %len(dx_id_flip))
+                for i in dx_id_flip:
+                    trigger_pattern[i] = -1
+                    trigger_pattern[i+1] = -1
+
             event_data['charge'].append(charge)
             event_data['arrival_time'].append(arrival_time)
             event_data['mars_meta'].append(mars_meta)
             event_data['trigger_pattern'] = scipy.concatenate((event_data['trigger_pattern'], trigger_pattern))
-            event_data['stereo_event_number'] = scipy.concatenate((event_data['stereo_event_number'], stereo_event_number)).astype(dtype='int')
+            event_data['stereo_event_number'] = scipy.concatenate((event_data['stereo_event_number'], stereo_event_number))
             event_data['pointing_zd'] = scipy.concatenate((event_data['pointing_zd'], pointing_zd))
             event_data['pointing_az'] = scipy.concatenate((event_data['pointing_az'], pointing_az))
             event_data['pointing_ra'] = scipy.concatenate((event_data['pointing_ra'], pointing_ra))
