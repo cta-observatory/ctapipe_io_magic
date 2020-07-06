@@ -21,6 +21,18 @@ __all__ = ['MAGICEventSource']
 logger = logging.getLogger(__name__)
 
 
+# MAGIC telescope positions in m wrt. to the center of CTA simulations
+magic_tel_positions = {
+    1: [-27.24, -146.66, 50.00] * u.m,
+    2: [-96.44, -96.77, 51.00] * u.m
+}
+# MAGIC telescope description
+optics = OpticsDescription.from_name('MAGIC')
+geom = CameraGeometry.from_name('MAGICCam')
+magic_tel_description = TelescopeDescription(name='MAGIC', tel_type='MAGIC', optics=optics, camera=geom)
+magic_tel_descriptions = {1: magic_tel_description, 2: magic_tel_description}
+
+
 class MAGICEventSource(EventSource):
     """
     EventSource for MAGIC calibrated data.
@@ -85,17 +97,7 @@ class MAGICEventSource(EventSource):
         # self.current_run = self._set_active_run(run_number=0)
         self.current_run = None
 
-        # MAGIC telescope positions in m wrt. to the center of CTA simulations
-        self.magic_tel_positions = {
-            1: [-27.24, -146.66, 50.00] * u.m,
-            2: [-96.44, -96.77, 51.00] * u.m
-        }
-        # MAGIC telescope description
-        optics = OpticsDescription.from_name('MAGIC')
-        geom = CameraGeometry.from_name('MAGICCam')
-        self.magic_tel_description = TelescopeDescription(name='MAGIC', tel_type='MAGIC', optics=optics, camera=geom)
-        self.magic_tel_descriptions = {1: self.magic_tel_description, 2: self.magic_tel_description}
-        self._subarray_info = SubarrayDescription('MAGIC', self.magic_tel_positions, self.magic_tel_descriptions)
+        self._subarray_info = SubarrayDescription('MAGIC', magic_tel_positions, magic_tel_descriptions)
 
     @staticmethod
     def is_compatible(file_mask):
@@ -669,7 +671,6 @@ class MarsRun:
             files satisfying run_file_mask will be used. Defaults to None.
         """
 
-        geom = CameraGeometry.from_name('MAGICCam')
         self.n_camera_pixels = geom.n_pixels
 
         self.run_file_mask = run_file_mask
