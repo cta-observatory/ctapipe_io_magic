@@ -13,7 +13,7 @@ from astropy import units as u
 from astropy.time import Time
 from ctapipe.io.eventsource import EventSource
 from ctapipe.core import Container, Field
-from ctapipe.io.containers import DataContainer, EventAndMonDataContainer, TelescopePointingContainer, MonitoringCameraContainer
+from ctapipe.io.containers import DataContainer, EventAndMonDataContainer, TelescopePointingContainer, MonitoringCameraContainer, PedestalContainer
 from ctapipe.instrument import TelescopeDescription, SubarrayDescription, OpticsDescription, CameraGeometry
 
 __all__ = ['MAGICEventSource']
@@ -1483,29 +1483,6 @@ class MarsRun:
         
 
         return event_data
-
-class PedestalContainer(Container):
-    """
-    Container for pedestal parameters obtained from a set of
-    [n_pedestal] pedestal events
-    """
-
-    n_events = Field(0, "Number of events used for statistics")
-    sample_time = Field(0, "Time associated to the pedestal event set", unit=u.s)
-    sample_time_range = Field(
-        [], "Range of time of the pedestal events [t_min, t_max]", unit=u.s
-    )
-    charge_mean = Field(None, "np array of pedestal average (n_chan, n_pix)")
-    charge_median = Field(None, "np array of the pedestal  median (n_chan, n_pix)")
-    charge_std = Field(
-        None, "np array of the pedestal standard deviation (n_chan, n_pix)"
-    )
-    charge_median_outliers = Field(
-        None, "Boolean np array of the pedestal median outliers (n_chan, n_pix)"
-    )
-    charge_std_outliers = Field(
-        None, "Boolean np array of the pedestal std outliers (n_chan, n_pix)"
-    )
 
 class PixelStatusContainer(Container):
     """
