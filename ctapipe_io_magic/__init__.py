@@ -12,12 +12,25 @@ import scipy.interpolate
 from astropy import units as u
 from astropy.time import Time
 from ctapipe.io.eventsource import EventSource
-from ctapipe.io.containers import DataContainer, TelescopePointingContainer
+from ctapipe.core import Container, Field
+from ctapipe.io.containers import DataContainer, EventAndMonDataContainer, TelescopePointingContainer, MonitoringCameraContainer, PedestalContainer
 from ctapipe.instrument import TelescopeDescription, SubarrayDescription, OpticsDescription, CameraGeometry
 
 __all__ = ['MAGICEventSource']
 
 logger = logging.getLogger(__name__)
+
+
+# MAGIC telescope positions in m wrt. to the center of CTA simulations
+magic_tel_positions = {
+    1: [-27.24, -146.66, 50.00] * u.m,
+    2: [-96.44, -96.77, 51.00] * u.m
+}
+# MAGIC telescope description
+optics = OpticsDescription.from_name('MAGIC')
+geom = CameraGeometry.from_name('MAGICCam')
+magic_tel_description = TelescopeDescription(name='MAGIC', tel_type='MAGIC', optics=optics, camera=geom)
+magic_tel_descriptions = {1: magic_tel_description, 2: magic_tel_description}
 
 
 class MAGICEventSource(EventSource):
@@ -84,17 +97,7 @@ class MAGICEventSource(EventSource):
         # self.current_run = self._set_active_run(run_number=0)
         self.current_run = None
 
-        # MAGIC telescope positions in m wrt. to the center of CTA simulations
-        self.magic_tel_positions = {
-            1: [-27.24, -146.66, 50.00] * u.m,
-            2: [-96.44, -96.77, 51.00] * u.m
-        }
-        # MAGIC telescope description
-        optics = OpticsDescription.from_name('MAGIC')
-        geom = CameraGeometry.from_name('MAGICCam')
-        self.magic_tel_description = TelescopeDescription(name='MAGIC', tel_type='MAGIC', optics=optics, camera=geom)
-        self.magic_tel_descriptions = {1: self.magic_tel_description, 2: self.magic_tel_description}
-        self._subarray_info = SubarrayDescription('MAGIC', self.magic_tel_positions, self.magic_tel_descriptions)
+        self._subarray_info = SubarrayDescription('MAGIC', magic_tel_positions, magic_tel_descriptions)
 
     @staticmethod
     def is_compatible(file_mask):
@@ -229,7 +232,10 @@ class MAGICEventSource(EventSource):
         counter = 0
 
         # Data container - is initialized once, and data is replaced within it after each yield
-        data = DataContainer()
+        if not self.is_mc:
+            data = EventAndMonDataContainer()
+        else:
+            data = DataContainer()
 
         # Telescopes with data:
         tels_in_file = ["m1", "m2"]
@@ -245,6 +251,39 @@ class MAGICEventSource(EventSource):
 
             # Setting the new active run (class MarsRun object)
             self.current_run = self._set_active_run(run_number)
+
+            # Set monitoring data:
+            if not self.is_mc:
+
+                monitoring_data = self.current_run['data'].monitoring_data
+
+                for tel_i, tel_id in enumerate(tels_in_file):
+                    monitoring_camera = MonitoringCameraContainer()
+                    pedestal_info = PedestalContainer()
+                    badpixel_info = PixelStatusContainer()
+
+                    time_tmp = Time(monitoring_data['M{:d}'.format(tel_i + 1)]['PedestalMJD'], scale='utc', format='mjd')
+                    pedestal_info.sample_time = Time(time_tmp, format='unix', scale='utc', precision=9)
+                    pedestal_info.n_events = 500 # hardcoded number of pedestal events averaged over
+                    pedestal_info.charge_mean = []
+                    pedestal_info.charge_mean.append(monitoring_data['M{:d}'.format(tel_i + 1)]['PedestalFundamental']['Mean'])
+                    pedestal_info.charge_mean.append(monitoring_data['M{:d}'.format(tel_i + 1)]['PedestalFromExtractor']['Mean'])
+                    pedestal_info.charge_mean.append(monitoring_data['M{:d}'.format(tel_i + 1)]['PedestalFromExtractorRndm']['Mean'])
+                    pedestal_info.charge_std = []
+                    pedestal_info.charge_std.append(monitoring_data['M{:d}'.format(tel_i + 1)]['PedestalFundamental']['Rms'])
+                    pedestal_info.charge_std.append(monitoring_data['M{:d}'.format(tel_i + 1)]['PedestalFromExtractor']['Rms'])
+                    pedestal_info.charge_std.append(monitoring_data['M{:d}'.format(tel_i + 1)]['PedestalFromExtractorRndm']['Rms'])
+
+                    t_range = Time(monitoring_data['M{:d}'.format(tel_i + 1)]['badpixelinfoMJDrange'], scale='utc', format='mjd')
+
+                    badpixel_info.hardware_failing_pixels = monitoring_data['M{:d}'.format(tel_i + 1)]['badpixelinfo']
+                    badpixel_info.sample_time_range = t_range
+
+                    monitoring_camera.pedestal = pedestal_info
+                    monitoring_camera.pixel_status = badpixel_info
+
+                    data.mon.tels_with_data = {1, 2}
+                    data.mon.tel[tel_i + 1] = monitoring_camera
 
             # Loop over the events
             for event_i in range(self.current_run['data'].n_stereo_events):
@@ -296,10 +335,6 @@ class MAGICEventSource(EventSource):
                     # Adding event charge and peak positions per pixel
                     data.dl1.tel[tel_i + 1].image = event_data['{:s}_image'.format(tel_id)]
                     data.dl1.tel[tel_i + 1].pulse_time = event_data['{:s}_pulse_time'.format(tel_id)]
-                    data.dl1.tel[tel_i + 1].badpixels = event_data['{:s}_bad_pixels'.format(tel_id)]
-                    # data.dl1.tel[i_tel + 1].badpixels = np.array(
-                    #     file['dl1/tel' + str(i_tel + 1) + '/badpixels'], dtype=np.bool)
-
 
                 if self.is_mc == False:
                     # Adding the event arrival time
@@ -345,7 +380,10 @@ class MAGICEventSource(EventSource):
         telescope = telescope.upper()
 
         # Data container - is initialized once, and data is replaced within it after each yield
-        data = DataContainer()
+        if not self.is_mc:
+            data = EventAndMonDataContainer()
+        else:
+            data = DataContainer()
 
         # Telescopes with data:
         tels_in_file = ["M1", "M2"]
@@ -366,6 +404,38 @@ class MAGICEventSource(EventSource):
 
             # Setting the new active run
             self.current_run = self._set_active_run(run_number)
+
+            # Set monitoring data:
+            if not self.is_mc:
+
+                monitoring_data = self.current_run['data'].monitoring_data
+
+                monitoring_camera = MonitoringCameraContainer()
+                pedestal_info = PedestalContainer()
+                badpixel_info = PixelStatusContainer()
+
+                time_tmp = Time(monitoring_data['M{:d}'.format(tel_i + 1)]['PedestalMJD'], scale='utc', format='mjd')
+                pedestal_info.sample_time = Time(time_tmp, format='unix', scale='utc', precision=9)
+                pedestal_info.n_events = 500 # hardcoded number of pedestal events averaged over
+                pedestal_info.charge_mean = []
+                pedestal_info.charge_mean.append(monitoring_data['M{:d}'.format(tel_i + 1)]['PedestalFundamental']['Mean'])
+                pedestal_info.charge_mean.append(monitoring_data['M{:d}'.format(tel_i + 1)]['PedestalFromExtractor']['Mean'])
+                pedestal_info.charge_mean.append(monitoring_data['M{:d}'.format(tel_i + 1)]['PedestalFromExtractorRndm']['Mean'])
+                pedestal_info.charge_std = []
+                pedestal_info.charge_std.append(monitoring_data['M{:d}'.format(tel_i + 1)]['PedestalFundamental']['Rms'])
+                pedestal_info.charge_std.append(monitoring_data['M{:d}'.format(tel_i + 1)]['PedestalFromExtractor']['Rms'])
+                pedestal_info.charge_std.append(monitoring_data['M{:d}'.format(tel_i + 1)]['PedestalFromExtractorRndm']['Rms'])
+
+                t_range = Time(monitoring_data['M{:d}'.format(tel_i + 1)]['badpixelinfoMJDrange'], scale='utc', format='mjd')
+
+                badpixel_info.hardware_failing_pixels = monitoring_data['M{:d}'.format(tel_i + 1)]['badpixelinfo']
+                badpixel_info.sample_time_range = t_range
+
+                monitoring_camera.pedestal = pedestal_info
+                monitoring_camera.pixel_status = badpixel_info
+
+                data.mon.tels_with_data = tels_with_data
+                data.mon.tel[tel_i + 1] = monitoring_camera
 
             if telescope == 'M1':
                 n_events = self.current_run['data'].n_mono_events_m1
@@ -418,9 +488,6 @@ class MAGICEventSource(EventSource):
                 # Adding event charge and peak positions per pixel
                 data.dl1.tel[tel_i + 1].image = event_data['image']
                 data.dl1.tel[tel_i + 1].pulse_time = event_data['pulse_time']
-                data.dl1.tel[tel_i + 1].badpixels = event_data['bad_pixels']
-                # data.dl1.tel[tel_i + 1].badpixels = np.array(
-                #     file['dl1/tel' + str(i_tel + 1) + '/badpixels'], dtype=np.bool)
 
                 if self.is_mc == False:
                     # Adding the event arrival time
@@ -465,7 +532,7 @@ class MAGICEventSource(EventSource):
         telescope = telescope.upper()
 
         # Data container - is initialized once, and data is replaced within it after each yield
-        data = DataContainer()
+        data = EventAndMonDataContainer()
 
         # Telescopes with data:
         tels_in_file = ["M1", "M2"]
@@ -486,6 +553,35 @@ class MAGICEventSource(EventSource):
 
             # Setting the new active run
             self.current_run = self._set_active_run(run_number)
+
+            monitoring_data = self.current_run['data'].monitoring_data
+
+            monitoring_camera = MonitoringCameraContainer()
+            pedestal_info = PedestalContainer()
+            badpixel_info = PixelStatusContainer()
+
+            time_tmp = Time(monitoring_data['M{:d}'.format(tel_i + 1)]['PedestalMJD'], scale='utc', format='mjd')
+            pedestal_info.sample_time = Time(time_tmp, format='unix', scale='utc', precision=9)
+            pedestal_info.n_events = 500 # hardcoded number of pedestal events averaged over
+            pedestal_info.charge_mean = []
+            pedestal_info.charge_mean.append(monitoring_data['M{:d}'.format(tel_i + 1)]['PedestalFundamental']['Mean'])
+            pedestal_info.charge_mean.append(monitoring_data['M{:d}'.format(tel_i + 1)]['PedestalFromExtractor']['Mean'])
+            pedestal_info.charge_mean.append(monitoring_data['M{:d}'.format(tel_i + 1)]['PedestalFromExtractorRndm']['Mean'])
+            pedestal_info.charge_std = []
+            pedestal_info.charge_std.append(monitoring_data['M{:d}'.format(tel_i + 1)]['PedestalFundamental']['Rms'])
+            pedestal_info.charge_std.append(monitoring_data['M{:d}'.format(tel_i + 1)]['PedestalFromExtractor']['Rms'])
+            pedestal_info.charge_std.append(monitoring_data['M{:d}'.format(tel_i + 1)]['PedestalFromExtractorRndm']['Rms'])
+
+            t_range = Time(monitoring_data['M{:d}'.format(tel_i + 1)]['badpixelinfoMJDrange'], scale='utc', format='mjd')
+
+            badpixel_info.hardware_failing_pixels = monitoring_data['M{:d}'.format(tel_i + 1)]['badpixelinfo']
+            badpixel_info.sample_time_range = t_range
+
+            monitoring_camera.pedestal = pedestal_info
+            monitoring_camera.pixel_status = badpixel_info
+
+            data.mon.tels_with_data = tels_with_data
+            data.mon.tel[tel_i + 1] = monitoring_camera
 
             if telescope == 'M1':
                 n_events = self.current_run['data'].n_pedestal_events_m1
@@ -538,9 +634,6 @@ class MAGICEventSource(EventSource):
                 # Adding event charge and peak positions per pixel
                 data.dl1.tel[tel_i + 1].image = event_data['image']
                 data.dl1.tel[tel_i + 1].pulse_time = event_data['pulse_time']
-                data.dl1.tel[tel_i + 1].badpixels = event_data['bad_pixels']
-                # data.dl1.tel[tel_i + 1].badpixels = np.array(
-                #     file['dl1/tel' + str(i_tel + 1) + '/badpixels'], dtype=np.bool)
 
                 # Adding the event arrival time
                 time_tmp = Time(event_data['mjd'], scale='utc', format='mjd')
@@ -578,6 +671,8 @@ class MarsRun:
             files satisfying run_file_mask will be used. Defaults to None.
         """
 
+        self.n_camera_pixels = geom.n_pixels
+
         self.run_file_mask = run_file_mask
 
         # Preparing the lists of M1/2 data files
@@ -609,10 +704,19 @@ class MarsRun:
         if len(run_numbers) > 1:
             raise ValueError("Run mask corresponds to more than one run: {}".format(run_numbers))
 
-        # Reading the event data
+        # Reading the data
+        m1_data = self.load_events(self.m1_file_list, self.is_mc, self.n_camera_pixels)
+        m2_data = self.load_events(self.m2_file_list, self.is_mc, self.n_camera_pixels)
+        
+        # Getting the event data
         self.event_data = dict()
-        self.event_data['M1'] = self.load_events(self.m1_file_list, self.is_mc)
-        self.event_data['M2'] = self.load_events(self.m2_file_list, self.is_mc)
+        self.event_data['M1'] = m1_data[0]
+        self.event_data['M2'] = m2_data[0]
+
+        # Getting the monitoring data
+        self.monitoring_data = dict()
+        self.monitoring_data['M1'] = m1_data[1]
+        self.monitoring_data['M2'] = m2_data[1]
 
         # Detecting pedestal events
         self.pedestal_ids = self._find_pedestal_events()
@@ -621,7 +725,6 @@ class MarsRun:
         # Detecting mono events
         self.mono_ids = self._find_mono_events()
 
-        self.n_camera_pixels = 1039
 
     @property
     def n_events_m1(self):
@@ -652,14 +755,18 @@ class MarsRun:
         return len(self.pedestal_ids['M2'])
 
     @staticmethod
-    def load_events(file_list, is_mc):
+    def load_events(file_list, is_mc, n_camera_pixels):
         """
-        This method loads events from the pre-defiled file and returns them as a dictionary.
+        This method loads events and monitoring data from the pre-defiled file and returns them as a dictionary.
 
         Parameters
         ----------
         file_name: str
             Name of the MAGIC calibrated file to use.
+        is_mc: boolean
+            Specify whether Monte Carlo (True) or data (False) events are read
+        n_camera_pixels: int
+            Number of MAGIC camera pixels (not hardcoded, but specified solely via ctapipe.instrument.CameraGeometry)
 
         Returns
         -------
@@ -684,12 +791,24 @@ class MarsRun:
         event_data['pointing_ra'] = scipy.array([])
         event_data['pointing_dec'] = scipy.array([])
         event_data['MJD'] = scipy.array([])
-        event_data['badpixelinfo'] = []
         event_data['mars_meta'] = []
 
-        # run-wise meta information (same for all events)
-        mars_meta = dict()
+        # monitoring information (updated from time to time)
+        monitoring_data = dict()
         
+        monitoring_data['badpixelinfo'] = []
+        monitoring_data['badpixelinfoMJDrange'] = []
+        monitoring_data['PedestalMJD'] = scipy.array([])
+        monitoring_data['PedestalFundamental'] = dict()
+        monitoring_data['PedestalFundamental']['Mean'] = []
+        monitoring_data['PedestalFundamental']['Rms'] = []
+        monitoring_data['PedestalFromExtractor'] = dict()
+        monitoring_data['PedestalFromExtractor']['Mean'] = []
+        monitoring_data['PedestalFromExtractor']['Rms'] = []
+        monitoring_data['PedestalFromExtractorRndm'] = dict()
+        monitoring_data['PedestalFromExtractorRndm']['Mean'] = []
+        monitoring_data['PedestalFromExtractorRndm']['Rms'] = []
+
         event_data['file_edges'] = [0]
 
         degrees_per_hour = 15.0
@@ -732,6 +851,18 @@ class MarsRun:
             'MReportDrive.fDec'
             ]
 
+        pedestal_array_list = [
+            'MTimePedestals.fMjd',
+            'MTimePedestals.fTime.fMilliSec',
+            'MTimePedestals.fNanoSec',
+            'MPedPhotFundamental.fArray.fMean',
+            'MPedPhotFundamental.fArray.fRms',
+            'MPedPhotFromExtractor.fArray.fMean',
+            'MPedPhotFromExtractor.fArray.fRms',
+            'MPedPhotFromExtractorRndm.fArray.fMean',
+            'MPedPhotFromExtractorRndm.fArray.fRms'
+            ]
+
         # Info only applicable for MC:
         mc_list = [
             'MMcEvt.fEnergy',
@@ -764,59 +895,90 @@ class MarsRun:
             trigger_pattern = events[b'MTriggerPattern.fPrescaled']
             stereo_event_number = events[b'MRawEvtHeader.fStereoEvtNumber']
 
-            # Reading meta information:
+            # Reading run-wise meta information (same for all events in subrun):
+            mars_meta = dict()
+
             mars_meta['is_simulation'] = is_mc
+
+            # Reading event timing information:
+            if not is_mc:
+                event_times = input_file['Events'].arrays(time_array_list)
+                # Computing the event arrival time
+                
+                event_mjd = event_times[b'MTime.fMjd']
+                event_millisec = event_times[b'MTime.fTime.fMilliSec']
+                event_nanosec = event_times[b'MTime.fNanoSec']
+
+                event_mjd = event_mjd + (event_millisec / 1e3 + event_nanosec / 1e9) / seconds_per_day
+                event_data['MJD'] = scipy.concatenate((event_data['MJD'], event_mjd))
+
+            # try to read RunHeaders tree (soft fail if not present, to pass current tests)
             try:
                 meta_info = input_file['RunHeaders'].arrays(metainfo_array_list)
                 
                 mars_meta['origin'] = "MAGIC"
                 mars_meta['input_url'] = file_name
-    
+
                 mars_meta['number'] = int(meta_info[b'MRawRunHeader.fRunNumber'][0])
-                #mars_meta['number_subrun'] = int(meta_info[b'MRawRunHeader.fSubRunIndex'][0])
+                mars_meta['number_subrun'] = int(meta_info[b'MRawRunHeader.fSubRunIndex'][0])
                 mars_meta['source_ra'] = meta_info[b'MRawRunHeader.fSourceRA'][0] / seconds_per_hour * degrees_per_hour * u.deg
                 mars_meta['source_dec'] = meta_info[b'MRawRunHeader.fSourceDEC'][0] / seconds_per_hour * u.deg
-    
-                is_simulation = int(meta_info[b'MRawRunHeader.fRunType'][0])
-                if is_simulation == 0:
-                    is_simulation = False
-                elif is_simulation == 256:
-                    is_simulation = True
+
+                is_mc_check = int(meta_info[b'MRawRunHeader.fRunType'][0])
+                if is_mc_check == 0:
+                    is_mc_check = False
+                elif is_mc_check == 256:
+                    is_mc_check = True
                 else:
                     msg = "Run type (Data or MC) of MAGIC data file not recognised."
                     logger.error(msg)
                     raise ValueError(msg)
-                if is_simulation != is_mc:
+                if is_mc_check != is_mc:
                     msg = "Inconsistent run type (data or MC) between file name and runheader content."
                     logger.error(msg)
                     raise ValueError(msg)
-                
+
                 # Reading the info only contained in real data
-                if is_simulation == False:
+                if not is_mc:
                     badpixelinfo = input_file['RunHeaders']['MBadPixelsCam.fArray.fInfo'].array(uproot.asjagged(uproot.asdtype(np.int32))).flatten().reshape((4, 1183), order='F')
-                    # now we have 3 axes:
+                    # now we have 4 axes:
+                    # 0st axis: empty (?)
                     # 1st axis: Unsuitable pixels
                     # 2nd axis: Uncalibrated pixels (says why pixel is unsuitable)
                     # 3rd axis: Bad hardware pixels (says why pixel is unsuitable)
                     # Each axis cointains a 32bit integer encoding more information about the specific problem, see MARS software, MBADPixelsPix.h
-                    # Here, we however discard this additional information and only grep the "unsuitable" axis.
-                    badpixelinfo = badpixelinfo[1].astype(bool)
-                else:
-                    badpixelinfo = np.zeros(1183).astype(bool)
-            except KeyError:
-                logger.warning("RunHeaders tree not present in file. Cannot read meta information and assume it is a real data run.")
-                badpixelinfo = np.zeros(1183)
-                is_simulation = False
+                    unsuitable_pix_bitinfo = badpixelinfo[1][:n_camera_pixels] # take first axis
+                    # extract unsuitable bit:
+                    unsuitable_pix = np.zeros(n_camera_pixels, dtype = np.bool)
+                    for i in range(n_camera_pixels):
+                        unsuitable_pix[i] = int('\t{0:08b}'.format(unsuitable_pix_bitinfo[i]&0xff)[-2])
+                    monitoring_data['badpixelinfo'].append(unsuitable_pix)
+                    # save time interval of badpixel info:
+                    monitoring_data['badpixelinfoMJDrange'].append([event_mjd[0], event_mjd[-1]])
 
-            if is_simulation == False:
-                event_times = input_file['Events'].arrays(time_array_list)
-                # Computing the event arrival time
-                
-                mjd = event_times[b'MTime.fMjd']
-                millisec = event_times[b'MTime.fTime.fMilliSec']
-                nanosec = event_times[b'MTime.fNanoSec']
-    
-                mjd = mjd + (millisec / 1e3 + nanosec / 1e9) / seconds_per_day
+            except KeyError:
+                logger.warning("RunHeaders tree not present in file. Cannot read meta information - will assume it is a real data run.")
+                is_mc = False
+
+            # try to read Pedestals tree (soft fail if not present)
+            if not is_mc:
+                try:
+                    pedestal_info = input_file['Pedestals'].arrays(pedestal_array_list)
+
+                    pedestal_mjd = pedestal_info[b'MTimePedestals.fMjd']
+                    pedestal_millisec = pedestal_info[b'MTimePedestals.fTime.fMilliSec']
+                    pedestal_nanosec = pedestal_info[b'MTimePedestals.fNanoSec']
+                    n_pedestals = len(pedestal_mjd)
+                    pedestal_mjd = pedestal_mjd + (pedestal_millisec / 1e3 + pedestal_nanosec / 1e9) / seconds_per_day
+                    monitoring_data['PedestalMJD'] = scipy.concatenate((monitoring_data['PedestalMJD'], pedestal_mjd))
+                    for quantity in ['Mean', 'Rms']:
+                        for i_pedestal in range(n_pedestals):
+                            monitoring_data['PedestalFundamental'][quantity].append(pedestal_info['MPedPhotFundamental.fArray.f{:s}'.format(quantity).encode()][i_pedestal][:n_camera_pixels])
+                            monitoring_data['PedestalFromExtractor'][quantity].append(pedestal_info['MPedPhotFromExtractor.fArray.f{:s}'.format(quantity).encode()][i_pedestal][:n_camera_pixels])
+                            monitoring_data['PedestalFromExtractorRndm'][quantity].append(pedestal_info['MPedPhotFromExtractorRndm.fArray.f{:s}'.format(quantity).encode()][i_pedestal][:n_camera_pixels])
+
+                except KeyError:
+                    logger.warning("Pedestals tree not present in file. Cleaning algorithm may fail.")
 
             # Reading pointing information (in units of degrees):
             if 'MPointingPos.' in input_file['Events']:
@@ -859,17 +1021,17 @@ class MarsRun:
                     drive_dec_pointing_interpolator = scipy.interpolate.interp1d(drive_mjd, drive_dec, fill_value="extrapolate")
 
                     # Interpolating the drive pointing to the event time stamps
-                    pointing_zd = drive_zd_pointing_interpolator(mjd)
-                    pointing_az = drive_az_pointing_interpolator(mjd)
-                    pointing_ra = drive_ra_pointing_interpolator(mjd)
-                    pointing_dec = drive_dec_pointing_interpolator(mjd)
+                    pointing_zd = drive_zd_pointing_interpolator(event_mjd)
+                    pointing_az = drive_az_pointing_interpolator(event_mjd)
+                    pointing_ra = drive_ra_pointing_interpolator(event_mjd)
+                    pointing_dec = drive_dec_pointing_interpolator(event_mjd)
 
                 else:
                     # Not enough data to interpolate the pointing direction.
-                    pointing_zd = scipy.repeat(-1, len(mjd))
-                    pointing_az = scipy.repeat(-1, len(mjd))
-                    pointing_ra = scipy.repeat(-1, len(mjd))
-                    pointing_dec = scipy.repeat(-1, len(mjd))
+                    pointing_zd = scipy.repeat(-1, len(event_mjd))
+                    pointing_az = scipy.repeat(-1, len(event_mjd))
+                    pointing_ra = scipy.repeat(-1, len(event_mjd))
+                    pointing_dec = scipy.repeat(-1, len(event_mjd))
 
             # check for bit flips in the stereo event ID:
             dx = np.diff(stereo_event_number.astype(np.int))
@@ -882,7 +1044,6 @@ class MarsRun:
 
             event_data['charge'].append(charge)
             event_data['arrival_time'].append(arrival_time)
-            event_data['badpixelinfo'].append(badpixelinfo)
             event_data['mars_meta'].append(mars_meta)
             event_data['trigger_pattern'] = scipy.concatenate((event_data['trigger_pattern'], trigger_pattern))
             event_data['stereo_event_number'] = scipy.concatenate((event_data['stereo_event_number'], stereo_event_number))
@@ -890,11 +1051,11 @@ class MarsRun:
             event_data['pointing_az'] = scipy.concatenate((event_data['pointing_az'], pointing_az))
             event_data['pointing_ra'] = scipy.concatenate((event_data['pointing_ra'], pointing_ra))
             event_data['pointing_dec'] = scipy.concatenate((event_data['pointing_dec'], pointing_dec))
-            if is_simulation == False:
-                event_data['MJD'] = scipy.concatenate((event_data['MJD'], mjd))
-            else:
+
+            # Reading MC only information:
+            if is_mc:
                 mc_info = input_file['Events'].arrays(mc_list)
-                # N.B.: For MC, there is only one subrun
+                # N.B.: For MC, there is only one subrun, so do not need to 'append'
                 event_data['true_energy'] = mc_info[b'MMcEvt.fEnergy']
                 event_data['true_zd'] = mc_info[b'MMcEvt.fTheta']
                 event_data['true_az'] = mc_info[b'MMcEvt.fPhi']
@@ -905,7 +1066,23 @@ class MarsRun:
 
             event_data['file_edges'].append(len(event_data['trigger_pattern']))
 
-        return event_data
+        if not is_mc:
+            try:
+                monitoring_data['badpixelinfo'] = np.array(monitoring_data['badpixelinfo'])
+                monitoring_data['badpixelinfoMJDrange'] = np.array(monitoring_data['badpixelinfoMJDrange'])
+                # sort monitoring data:
+                order = np.argsort(monitoring_data['PedestalMJD'])
+                monitoring_data['PedestalMJD'] = monitoring_data['PedestalMJD'][order]
+                
+                for quantity in ['Mean', 'Rms']:
+                    monitoring_data['PedestalFundamental'][quantity] = np.array(monitoring_data['PedestalFundamental'][quantity])
+                    monitoring_data['PedestalFromExtractor'][quantity] = np.array(monitoring_data['PedestalFromExtractor'][quantity])
+                    monitoring_data['PedestalFromExtractorRndm'][quantity] = np.array(monitoring_data['PedestalFromExtractorRndm'][quantity])
+
+            except:
+                pass
+
+        return event_data, monitoring_data
 
     def _find_pedestal_events(self):
         """
@@ -1150,7 +1327,6 @@ class MarsRun:
             The output has the following structure:
             'image' - photon_content in requested telescope
             'pulse_time' - arrival_times in requested telescope
-            'bad_pixels' - boolean array indicating problematic pixels
             'pointing_az' - pointing azimuth [degrees]
             'pointing_zd' - pointing zenith angle [degrees]
             'pointing_ra' - pointing right ascension [degrees]
@@ -1165,12 +1341,10 @@ class MarsRun:
 
         photon_content = self.event_data[telescope]['charge'][file_num][id_in_file][:self.n_camera_pixels]
         arrival_times = self.event_data[telescope]['arrival_time'][file_num][id_in_file][:self.n_camera_pixels]
-        bad_pixels = self.event_data[telescope]['badpixelinfo'][file_num][:self.n_camera_pixels]
 
         event_data = dict()
         event_data['image'] = photon_content
         event_data['pulse_time'] = arrival_times
-        event_data['bad_pixels'] = bad_pixels
         event_data['pointing_az'] = self.event_data[telescope]['pointing_az'][event_id]
         event_data['pointing_zd'] = self.event_data[telescope]['pointing_zd'][event_id]
         event_data['pointing_ra'] = self.event_data[telescope]['pointing_ra'][event_id]
@@ -1198,10 +1372,8 @@ class MarsRun:
             The output has the following structure:
             'm1_image' - M1 photon_content
             'm1_pulse_time' - M1 arrival_times
-            'm1_bad_pixels' - boolean array indicating problematic M1 pixels
             'm2_image' - M2 photon_content
             'm2_peak_pos' - M2 arrival_times
-            'm2_bad_pixels' - boolean array indicating problematic M2 pixels
             'm1_pointing_az' - M1 pointing azimuth [degrees]
             'm1_pointing_zd' - M1 pointing zenith angle [degrees]
             'm1_pointing_ra' - M1 pointing right ascension [degrees]
@@ -1222,19 +1394,15 @@ class MarsRun:
 
         m1_photon_content = self.event_data['M1']['charge'][m1_file_num][m1_id_in_file][:self.n_camera_pixels]
         m1_arrival_times = self.event_data['M1']['arrival_time'][m1_file_num][m1_id_in_file][:self.n_camera_pixels]
-        m1_bad_pixels = self.event_data['M1']['badpixelinfo'][m1_file_num][:self.n_camera_pixels]
 
         m2_photon_content = self.event_data['M2']['charge'][m2_file_num][m2_id_in_file][:self.n_camera_pixels]
         m2_arrival_times = self.event_data['M2']['arrival_time'][m2_file_num][m2_id_in_file][:self.n_camera_pixels]
-        m2_bad_pixels = self.event_data['M2']['badpixelinfo'][m2_file_num][:self.n_camera_pixels]
 
         event_data = dict()
         event_data['m1_image'] = m1_photon_content
         event_data['m1_pulse_time'] = m1_arrival_times
-        event_data['m1_bad_pixels'] = m1_bad_pixels
         event_data['m2_image'] = m2_photon_content
         event_data['m2_pulse_time'] = m2_arrival_times
-        event_data['m2_bad_pixels'] = m2_bad_pixels
         event_data['m1_pointing_az'] = self.event_data['M1']['pointing_az'][m1_id]
         event_data['m1_pointing_zd'] = self.event_data['M1']['pointing_zd'][m1_id]
         event_data['m1_pointing_ra'] = self.event_data['M1']['pointing_ra'][m1_id]
@@ -1281,7 +1449,6 @@ class MarsRun:
             The output has the following structure:
             'image' - photon_content in requested telescope
             'pulse_time' - arrival_times in requested telescope
-            'bad_pixels' - boolean array indicating problematic pixels
             'pointing_az' - pointing azimuth [degrees]
             'pointing_zd' - pointing zenith angle [degrees]
             'pointing_ra' - pointing right ascension [degrees]
@@ -1296,12 +1463,10 @@ class MarsRun:
 
         photon_content = self.event_data[telescope]['charge'][file_num][id_in_file][:self.n_camera_pixels]
         arrival_times = self.event_data[telescope]['arrival_time'][file_num][id_in_file][:self.n_camera_pixels]
-        bad_pixels = self.event_data[telescope]['badpixelinfo'][file_num][:self.n_camera_pixels]
 
         event_data = dict()
         event_data['image'] = photon_content
         event_data['pulse_time'] = arrival_times
-        event_data['bad_pixels'] = bad_pixels
         event_data['pointing_az'] = self.event_data[telescope]['pointing_az'][event_id]
         event_data['pointing_zd'] = self.event_data[telescope]['pointing_zd'][event_id]
         event_data['pointing_ra'] = self.event_data[telescope]['pointing_ra'][event_id]
@@ -1323,5 +1488,31 @@ class MarsRun:
 
         return event_data
 
+class PixelStatusContainer(Container):
+    """
+    Container for pixel status information
+    It contains masks obtained by several data analysis steps
+    At r0/r1 level only the hardware_mask is initialized
+    """
 
+    sample_time_range = Field(
+        [], "Range of time of the pedestal events [t_min, t_max]", unit=u.s
+    )
 
+    hardware_failing_pixels = Field(
+        None,
+        "Boolean np array (True = failing pixel) from the hardware pixel status data ("
+        "n_chan, n_pix)",
+    )
+
+    pedestal_failing_pixels = Field(
+        None,
+        "Boolean np array (True = failing pixel) from the pedestal data analysis ("
+        "n_chan, n_pix)",
+    )
+
+    flatfield_failing_pixels = Field(
+        None,
+        "Boolean np array (True = failing pixel) from the flat-field data analysis ("
+        "n_chan, n_pix)",
+    )
