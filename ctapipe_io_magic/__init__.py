@@ -763,6 +763,10 @@ class MarsRun:
         ----------
         file_name: str
             Name of the MAGIC calibrated file to use.
+        is_mc: boolean
+            Specify whether Monte Carlo (True) or data (False) events are read
+        n_camera_pixels: int
+            Number of MAGIC camera pixels (not hardcoded, but specified solely via ctapipe.instrument.CameraGeometry)
 
         Returns
         -------
