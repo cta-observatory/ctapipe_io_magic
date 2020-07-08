@@ -74,12 +74,14 @@ pedestal_event_generator = event_source._pedestal_event_generator(telescope='M1'
 
 ##### Monitoring data
 
-Monitoring data are saved in `run['data'].monitoring_data` and can also accessed event-wise via the `event.mon` container. Even if they can be accessed event-wise, they are saved only once per run, i.e., identical for all events in a run. If monitoring data is taken several times during a run, the `run['data'].monitoring_data`/`event.mon` sub-containers contain array of the quantities taken at the different times together with an array of the time stamps. So far, we have
-- Bad pixel information (MARS `RunHeaders.MBadPixelsCam.fArray.fInfo` tree), once per sub-run in `run['data'].monitoring_data['MX']['badpixelinfo']` (with X=1 or X=2)/`event.mon.tel[tel_id].pixel_status`
-- Pedestal information from MARS `Pedestals` tree to calculate hot pixels.
-	- dfdf 
-
-
+Monitoring data are saved in `run['data'].monitoring_data` and can also accessed event-wise via the `event.mon` container. Even if they can be accessed event-wise, they are saved only once per run, i.e., identical for all events in a run. If monitoring data is taken several times during a run, the `run['data'].monitoring_data`/`event.mon` sub-containers contain arrays of the quantities taken at the different times together with an array of the time stamps. So far, we have
+- Dead pixel information (MARS `RunHeaders.MBadPixelsCam.fArray.fInfo` tree), once per sub-run in `run['data'].monitoring_data['MX']['badpixelinfo']` (with X=1 or X=2) or `event.mon.tel[tel_id].pixel_status`
+- Pedestal information from MARS `Pedestals` tree to calculate hot pixels:
+	- `run['data'].monitoring_data['MX']['PedestalFundamental']`
+	- `run['data'].monitoring_data['MX']['PedestalFromExtractor']`
+	- `run['data'].monitoring_data['MX']['PedestalFromExtractorRndm']`
+  or everyting also in `event.mon.tel[tel_id].pedestal`
+Dead pixel and pedestal information are read by `magic-cta-pipe` `MAGIC_Badpixels.py` class.
 
 #### Changelog
 
