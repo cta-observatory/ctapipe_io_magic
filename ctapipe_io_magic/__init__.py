@@ -32,6 +32,10 @@ geom = CameraGeometry.from_name('MAGICCam')
 magic_tel_description = TelescopeDescription(name='MAGIC', tel_type='MAGIC', optics=optics, camera=geom)
 magic_tel_descriptions = {1: magic_tel_description, 2: magic_tel_description}
 
+# trigger patterns:
+mc_trigger_pattern       =   1
+pedestal_trigger_pattern =   8
+data_trigger_pattern     = 128
 
 class MAGICEventSource(EventSource):
     """
@@ -1035,10 +1039,23 @@ class MarsRun:
 
             # check for bit flips in the stereo event ID:
             dx = np.diff(stereo_event_number.astype(np.int))
-            dx_id_flip = np.where(dx < 0)[0]
-            if len(dx_id_flip) > 0:
-                logger.warning("Warning: detected %d bitflips. Flag affected events as unsuitable" %len(dx_id_flip))
-                for i in dx_id_flip:
+            dx_flip_ids_before = np.where(dx < 0)[0]
+            dx_flip_ids_after = dx_flip_ids_before + 1
+            dx_flipzero_ids_first = np.where(dx == 0)[0]
+            dx_flipzero_ids_second = dx_flipzero_ids_first + 1
+            if not is_mc:
+                pedestal_ids = np.where(trigger_pattern == pedestal_trigger_pattern)[0]
+                # sort out pedestals events from zero-difference steps:
+                dx_flipzero_ids_second = np.array(list(set(dx_flipzero_ids_second) - set(pedestal_ids)))
+                dx_flip_ids_after = np.array(np.union1d(dx_flip_ids_after, dx_flipzero_ids_second), dtype=np.int)
+            else:
+                # for MC, sort out stereo_event_number = 0:
+                orphan_ids = np.where(stereo_event_number == 0)[0]
+                dx_flip_ids_after = np.array(list(set(dx_flip_ids_after) - set(orphan_ids)))
+            dx_flip_ids_before = dx_flip_ids_after - 1
+            if len(dx_flip_ids_before) > 0:
+                logger.warning("Warning: detected %d bitflips in file %s. Flag affected events as unsuitable" %(len(dx_flip_ids_before), file_name))
+                for i in dx_flip_ids_before:
                     trigger_pattern[i] = -1
                     trigger_pattern[i+1] = -1
 
@@ -1097,8 +1114,6 @@ class MarsRun:
 
         pedestal_ids = dict()
 
-        pedestal_trigger_pattern = 8
-
         for telescope in self.event_data:
             ped_triggers = np.where(self.event_data[telescope]['trigger_pattern'] == pedestal_trigger_pattern)
             pedestal_ids[telescope] = ped_triggers[0]
@@ -1123,7 +1138,6 @@ class MarsRun:
             return stereo_ids
 
         if not self.is_mc:
-            data_trigger_pattern = 128
 
             m2_data_condition = (self.event_data['M2']['trigger_pattern'] == data_trigger_pattern)
 
@@ -1138,12 +1152,11 @@ class MarsRun:
                         stereo_pair = (m1_id, m12_match[0][0])
                         stereo_ids.append(stereo_pair)
         else:
-            data_trigger_pattern = 1
 
-            m2_data_condition = (self.event_data['M2']['trigger_pattern'] == data_trigger_pattern)
+            m2_data_condition = (self.event_data['M2']['trigger_pattern'] == mc_trigger_pattern)
 
             for m1_id in range(0, n_m1_events):
-                if self.event_data['M1']['trigger_pattern'][m1_id] == data_trigger_pattern and self.event_data['M1']['stereo_event_number'][m1_id] != 0:
+                if self.event_data['M1']['trigger_pattern'][m1_id] == mc_trigger_pattern and self.event_data['M1']['stereo_event_number'][m1_id] != 0:
                     m2_stereo_condition = (self.event_data['M2']['stereo_event_number'] ==
                                            self.event_data['M1']['stereo_event_number'][m1_id])
 
@@ -1174,7 +1187,6 @@ class MarsRun:
         n_m2_events = len(self.event_data['M2']['stereo_event_number'])
 
         if not self.is_mc:
-            data_trigger_pattern = 128
     
             m1_data_condition = self.event_data['M1']['trigger_pattern'] == data_trigger_pattern
             m2_data_condition = self.event_data['M2']['trigger_pattern'] == data_trigger_pattern
@@ -1199,10 +1211,8 @@ class MarsRun:
                     if len(m12_match[0]) == 0:
                         mono_ids['M2'].append(m2_id)
         else:
-
-            data_trigger_pattern = 1
-            m1_data_condition = self.event_data['M1']['trigger_pattern'] == data_trigger_pattern
-            m2_data_condition = self.event_data['M2']['trigger_pattern'] == data_trigger_pattern
+            m1_data_condition = self.event_data['M1']['trigger_pattern'] == mc_trigger_pattern
+            m2_data_condition = self.event_data['M2']['trigger_pattern'] == mc_trigger_pattern
 
             # shortcut if only single file is loaded:
             if n_m1_events == 0:
