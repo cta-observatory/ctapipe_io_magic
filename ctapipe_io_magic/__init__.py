@@ -1039,13 +1039,17 @@ class MarsRun:
 
             # check for bit flips in the stereo event ID:
             dx = np.diff(stereo_event_number.astype(np.int))
-            dx_flip_ids_before = np.where(dx <= 0)[0]
+            dx_flip_ids_before = np.where(dx < 0)[0]
             dx_flip_ids_after = dx_flip_ids_before + 1
-            # sort out (possible) pedestals, we do not care:
-            pedestal_ids = np.where(trigger_pattern == pedestal_trigger_pattern)[0]
-            dx_flip_ids_after = np.array(list(set(dx_flip_ids_after) - set(pedestal_ids)))
-            # for MC, sort out stereo_event_number = 0:
-            if is_mc:
+            dx_flipzero_ids_first = np.where(dx == 0)[0]
+            dx_flipzero_ids_second = dx_flipzero_ids_first + 1
+            if not is_mc:
+                pedestal_ids = np.where(trigger_pattern == pedestal_trigger_pattern)[0]
+                # sort out pedestals events from zero-difference steps:
+                dx_flipzero_ids_second = np.array(list(set(dx_flipzero_ids_second) - set(pedestal_ids)))
+                dx_flip_ids_after = np.array(np.union1d(dx_flip_ids_after, dx_flipzero_ids_second), dtype=np.int)
+            else:
+                # for MC, sort out stereo_event_number = 0:
                 orphan_ids = np.where(stereo_event_number == 0)[0]
                 dx_flip_ids_after = np.array(list(set(dx_flip_ids_after) - set(orphan_ids)))
             dx_flip_ids_before = dx_flip_ids_after - 1
