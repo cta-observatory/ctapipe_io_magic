@@ -794,6 +794,10 @@ class MarsRun:
         event_data['pointing_az'] = scipy.array([])
         event_data['pointing_ra'] = scipy.array([])
         event_data['pointing_dec'] = scipy.array([])
+        # === added here ===
+        event_data['millisec'] = scipy.array([])
+        event_data['nanosec'] = scipy.array([])
+        # === added here ===
         event_data['MJD'] = scipy.array([])
         event_data['mars_meta'] = []
 
@@ -885,7 +889,10 @@ class MarsRun:
             'MRawRunHeader.fSubRunIndex',
             'MRawRunHeader.fSourceRA',
             'MRawRunHeader.fSourceDEC',
-            'MRawRunHeader.fTelescopeNumber']
+            'MRawRunHeader.fTelescopeNumber',
+            # === added here === 
+            'MRawRunHeader.fRunStart.fMjd']
+            # === added here === 
 
         for file_name in file_list:
 
@@ -916,6 +923,11 @@ class MarsRun:
                 event_mjd = event_mjd + (event_millisec / 1e3 + event_nanosec / 1e9) / seconds_per_day
                 event_data['MJD'] = scipy.concatenate((event_data['MJD'], event_mjd))
 
+                # === added here ===
+                event_data['millisec'] = scipy.concatenate((event_data['millisec'], event_millisec))
+                event_data['nanosec'] = scipy.concatenate((event_data['nanosec'], event_nanosec))
+                # === added here ===
+
             # try to read RunHeaders tree (soft fail if not present, to pass current tests)
             try:
                 meta_info = input_file['RunHeaders'].arrays(metainfo_array_list)
@@ -927,6 +939,10 @@ class MarsRun:
                 mars_meta['number_subrun'] = int(meta_info[b'MRawRunHeader.fSubRunIndex'][0])
                 mars_meta['source_ra'] = meta_info[b'MRawRunHeader.fSourceRA'][0] / seconds_per_hour * degrees_per_hour * u.deg
                 mars_meta['source_dec'] = meta_info[b'MRawRunHeader.fSourceDEC'][0] / seconds_per_hour * u.deg
+
+                # === added here ===
+                mars_meta['mjd'] = int(meta_info[b'MRawRunHeader.fRunStart.fMjd'][0])
+                # === added here ===
 
                 is_mc_check = int(meta_info[b'MRawRunHeader.fRunType'][0])
                 if is_mc_check == 0:
@@ -1427,6 +1443,12 @@ class MarsRun:
         
         if self.is_mc == False:
             event_data['mjd'] = self.event_data['M1']['MJD'][m1_id]
+            # === added here ===
+            event_data['m1_millisec'] = self.event_data['M1']['millisec'][m1_id]
+            event_data['m1_nanosec'] = self.event_data['M1']['nanosec'][m1_id]
+            event_data['m2_millisec'] =self.event_data['M2']['millisec'][m1_id]
+            event_data['m2_nanosec'] = self.event_data['M2']['nanosec'][m1_id]
+            # === added here ===
         else:
             event_data['true_energy'] = self.event_data['M1']['true_energy'][m1_id]
             event_data['true_zd'] = self.event_data['M1']['true_zd'][m1_id]
