@@ -1440,7 +1440,10 @@ class MarsRun:
         
         # get information identical for both telescopes from M1:
         event_data['mars_meta'] = self.event_data['M1']['mars_meta'][m1_file_num]
-        
+        # === added here ===
+        event_data['stereo_event_number'] = self.event_data['M1']['stereo_event_number'][m1_id]
+        # === added here ===
+
         if self.is_mc == False:
             event_data['mjd'] = self.event_data['M1']['MJD'][m1_id]
             # === added here ===
