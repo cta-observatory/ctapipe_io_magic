@@ -217,7 +217,9 @@ class MAGICEventSource(EventSource):
         MarsRun:
             The run to use
         """
-        this_run_mask = os.path.join(self.input_url.parents[0], '/*{:d}*root'.format(run_number))
+
+        this_run_mask = os.path.join(self.input_url.parents[0], 
+                                     '*{:d}*root'.format(run_number))
 
         run = dict()
         run['number'] = run_number
@@ -347,20 +349,16 @@ class MAGICEventSource(EventSource):
 
                 # Event counter
                 data.count = counter
+                data.index.obs_id = obs_id
+                data.index.event_id = event_id
 
                 # Setting up the R0 container
-                data.r0.obs_id = obs_id
-                data.r0.event_id = event_id
                 data.r0.tel.clear()
 
                 # Setting up the R1 container
-                data.r1.obs_id = obs_id
-                data.r1.event_id = event_id
                 data.r1.tel.clear()
 
                 # Setting up the DL0 container
-                data.dl0.obs_id = obs_id
-                data.dl0.event_id = event_id
                 data.dl0.tel.clear()
 
                 # Filling the DL1 container with the event data
@@ -371,13 +369,13 @@ class MAGICEventSource(EventSource):
                         event_data['{:s}_pointing_az'.format(tel_id)]) * u.rad
                     pointing.altitude = np.deg2rad(
                         90 - event_data['{:s}_pointing_zd'.format(tel_id)]) * u.rad
-                    pointing.ra = np.deg2rad(
-                        event_data['{:s}_pointing_ra'.format(tel_id)]) * u.rad
-                    pointing.dec = np.deg2rad(
-                        event_data['{:s}_pointing_dec'.format(tel_id)]) * u.rad
+                    #pointing.ra = np.deg2rad(
+                    #    event_data['{:s}_pointing_ra'.format(tel_id)]) * u.rad
+                    #pointing.dec = np.deg2rad(
+                    #    event_data['{:s}_pointing_dec'.format(tel_id)]) * u.rad
 
                     # Adding the pointing container to the event data
-                    data.pointing[tel_i + 1] = pointing
+                    data.pointing.tel[tel_i + 1] = pointing
 
                     # Adding trigger id (MAGIC nomenclature)
                     data.r0.tel[tel_i + 1].trigger_type = self.current_run['data'].event_data['M1']['trigger_pattern'][event_order_number]
@@ -388,13 +386,13 @@ class MAGICEventSource(EventSource):
                     data.dl1.tel[tel_i +
                                  1].image = event_data['{:s}_image'.format(tel_id)]
                     data.dl1.tel[tel_i +
-                                 1].pulse_time = event_data['{:s}_pulse_time'.format(tel_id)]
+                                 1].peak_time = event_data['{:s}_pulse_time'.format(tel_id)]
 
                 if not self.is_mc:
                     # Adding the event arrival time
                     time_tmp = Time(
                         event_data['mjd'], scale='utc', format='mjd')
-                    data.trig.gps_time = Time(
+                    data.trigger.time = Time(
                         time_tmp, format='unix', scale='utc', precision=9)
                 else:
                     data.mc.energy = event_data['true_energy'] * u.GeV
@@ -412,7 +410,7 @@ class MAGICEventSource(EventSource):
                 data.r0.tels_with_data = tels_with_data
                 data.r1.tels_with_data = tels_with_data
                 data.dl0.tels_with_data = tels_with_data
-                data.trig.tels_with_trigger = tels_with_data
+                data.trigger.tels_with_trigger = tels_with_data
 
                 yield data
                 counter += 1
@@ -526,22 +524,18 @@ class MAGICEventSource(EventSource):
 
                 # Event counter
                 data.count = counter
+                data.index.obs_id = obs_id
+                data.index.event_id = event_id
 
                 # Setting up the R0 container
-                data.r0.obs_id = obs_id
-                data.r0.event_id = event_id
                 data.r0.tel.clear()
                 data.r0.tel[tel_i + 1].trigger_type = self.current_run['data'].event_data[telescope]['trigger_pattern'][event_order_number]
 
                 # Setting up the R1 container
-                data.r1.obs_id = obs_id
-                data.r1.event_id = event_id
                 data.r1.tel.clear()
                 data.r1.tel[tel_i + 1].trigger_type = self.current_run['data'].event_data[telescope]['trigger_pattern'][event_order_number]
 
                 # Setting up the DL0 container
-                data.dl0.obs_id = obs_id
-                data.dl0.event_id = event_id
                 data.dl0.tel.clear()
                 data.dl0.tel[tel_i + 1].trigger_type = self.current_run['data'].event_data[telescope]['trigger_pattern'][event_order_number]
 
@@ -551,21 +545,21 @@ class MAGICEventSource(EventSource):
                     event_data['pointing_az']) * u.rad
                 pointing.altitude = np.deg2rad(
                     90 - event_data['pointing_zd']) * u.rad
-                pointing.ra = np.deg2rad(event_data['pointing_ra']) * u.rad
-                pointing.dec = np.deg2rad(event_data['pointing_dec']) * u.rad
+                #pointing.ra = np.deg2rad(event_data['pointing_ra']) * u.rad
+                #pointing.dec = np.deg2rad(event_data['pointing_dec']) * u.rad
 
                 # Adding the pointing container to the event data
-                data.pointing[tel_i + 1] = pointing
+                data.pointing.tel[tel_i + 1] = pointing
 
                 # Adding event charge and peak positions per pixel
                 data.dl1.tel[tel_i + 1].image = event_data['image']
-                data.dl1.tel[tel_i + 1].pulse_time = event_data['pulse_time']
+                data.dl1.tel[tel_i + 1].peak_time = event_data['pulse_time']
 
                 if not self.is_mc:
                     # Adding the event arrival time
                     time_tmp = Time(
                         event_data['mjd'], scale='utc', format='mjd')
-                    data.trig.gps_time = Time(
+                    data.trigger.time = Time(
                         time_tmp, format='unix', scale='utc', precision=9)
                 else:
                     data.mc.energy = event_data['true_energy'] * u.GeV
@@ -583,7 +577,7 @@ class MAGICEventSource(EventSource):
                 data.r0.tels_with_data = tels_with_data
                 data.r1.tels_with_data = tels_with_data
                 data.dl0.tels_with_data = tels_with_data
-                data.trig.tels_with_trigger = tels_with_data
+                data.trigger.tels_with_trigger = tels_with_data
 
                 yield data
                 counter += 1
@@ -691,22 +685,18 @@ class MAGICEventSource(EventSource):
 
                 # Event counter
                 data.count = counter
-
+                data.index.obs_id = obs_id
+                data.index.event_id = event_id
+                
                 # Setting up the R0 container
-                data.r0.obs_id = obs_id
-                data.r0.event_id = event_id
                 data.r0.tel.clear()
                 data.r0.tel[tel_i + 1].trigger_type = self.current_run['data'].event_data[telescope]['trigger_pattern'][event_order_number]
 
                 # Setting up the R1 container
-                data.r1.obs_id = obs_id
-                data.r1.event_id = event_id
                 data.r1.tel.clear()
                 data.r1.tel[tel_i + 1].trigger_type = self.current_run['data'].event_data[telescope]['trigger_pattern'][event_order_number]
 
                 # Setting up the DL0 container
-                data.dl0.obs_id = obs_id
-                data.dl0.event_id = event_id
                 data.dl0.tel.clear()
                 data.dl0.tel[tel_i + 1].trigger_type = self.current_run['data'].event_data[telescope]['trigger_pattern'][event_order_number]
 
@@ -716,26 +706,26 @@ class MAGICEventSource(EventSource):
                     event_data['pointing_az']) * u.rad
                 pointing.altitude = np.deg2rad(
                     90 - event_data['pointing_zd']) * u.rad
-                pointing.ra = np.deg2rad(event_data['pointing_ra']) * u.rad
-                pointing.dec = np.deg2rad(event_data['pointing_dec']) * u.rad
+                #pointing.ra = np.deg2rad(event_data['pointing_ra']) * u.rad
+                #pointing.dec = np.deg2rad(event_data['pointing_dec']) * u.rad
 
                 # Adding the pointing container to the event data
-                data.pointing[tel_i + 1] = pointing
+                data.pointing.tel[tel_i + 1] = pointing
 
                 # Adding event charge and peak positions per pixel
                 data.dl1.tel[tel_i + 1].image = event_data['image']
-                data.dl1.tel[tel_i + 1].pulse_time = event_data['pulse_time']
+                data.dl1.tel[tel_i + 1].peak_time = event_data['pulse_time']
 
                 # Adding the event arrival time
                 time_tmp = Time(event_data['mjd'], scale='utc', format='mjd')
-                data.trig.gps_time = Time(
+                data.trigger.time = Time(
                     time_tmp, format='unix', scale='utc', precision=9)
 
                 # Setting the telescopes with data
                 data.r0.tels_with_data = tels_with_data
                 data.r1.tels_with_data = tels_with_data
                 data.dl0.tels_with_data = tels_with_data
-                data.trig.tels_with_trigger = tels_with_data
+                data.trigger.tels_with_trigger = tels_with_data
 
                 yield data
                 counter += 1
