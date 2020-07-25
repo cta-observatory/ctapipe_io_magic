@@ -9,8 +9,9 @@ import glob
 import re
 import os.path
 
-import scipy
 import numpy as np
+
+import scipy
 import scipy.interpolate
 
 from astropy import units as u
@@ -87,7 +88,7 @@ class MAGICEventSource(EventSource):
         """
 
         self.file_list = glob.glob(kwargs['input_url'])
-        if len(self.file_list) == 0:
+        if not self.file_list:
             raise ValueError("Unreadable or wrong wildcard file path given.")
         self.file_list.sort()
 
@@ -98,7 +99,7 @@ class MAGICEventSource(EventSource):
         super().__init__(input_url=self.file_list[0], **kwargs)
 
         # Retrieving the list of run numbers corresponding to the data files
-        run_info = list(map(self._get_run_info_from_name, self.file_list))
+        run_info = list(map(self.get_run_info_from_name, self.file_list))
         run_numbers = [i[0] for i in run_info]
         is_mc_runs = [i[1] for i in run_info]
 
@@ -156,7 +157,6 @@ class MAGICEventSource(EventSource):
                 except ValueError:
                     # uproot raises ValueError if the file is not a ROOT file
                     is_magic_root_file = False
-                    pass
 
             except ImportError:
                 if re.match(r'.+_m\d_.+root', file_path.lower()) is None:
@@ -165,7 +165,7 @@ class MAGICEventSource(EventSource):
         return is_magic_root_file
 
     @staticmethod
-    def _get_run_info_from_name(file_name):
+    def get_run_info_from_name(file_name):
         """
         This internal method extracts the run number and
         type (data/MC) from the specified file name.
@@ -184,10 +184,10 @@ class MAGICEventSource(EventSource):
         mask_data = r".*\d+_M\d+_(\d+)\.\d+_Y_.*"
         mask_mc = r".*_M\d_za\d+to\d+_\d_(\d+)_Y_.*"
         mask_mc_alt = r".*_M\d_\d_(\d+)_.*"
-        if len(re.findall(mask_data, file_name)) > 0:
+        if re.findall(mask_data, file_name):
             parsed_info = re.findall(mask_data, file_name)
             is_mc = False
-        elif len(re.findall(mask_mc, file_name)) > 0:
+        elif re.findall(mask_mc, file_name):
             parsed_info = re.findall(mask_mc, file_name)
             is_mc = True
         else:
@@ -218,7 +218,7 @@ class MAGICEventSource(EventSource):
             The run to use
         """
 
-        this_run_mask = os.path.join(self.input_url.parents[0], 
+        this_run_mask = os.path.join(self.input_url.parents[0],
                                      '*{:d}*root'.format(run_number))
 
         run = dict()
@@ -369,9 +369,9 @@ class MAGICEventSource(EventSource):
                         event_data['{:s}_pointing_az'.format(tel_id)]) * u.rad
                     pointing.altitude = np.deg2rad(
                         90 - event_data['{:s}_pointing_zd'.format(tel_id)]) * u.rad
-                    #pointing.ra = np.deg2rad(
+                    # pointing.ra = np.deg2rad(
                     #    event_data['{:s}_pointing_ra'.format(tel_id)]) * u.rad
-                    #pointing.dec = np.deg2rad(
+                    # pointing.dec = np.deg2rad(
                     #    event_data['{:s}_pointing_dec'.format(tel_id)]) * u.rad
 
                     # Adding the pointing container to the event data
@@ -687,7 +687,7 @@ class MAGICEventSource(EventSource):
                 data.count = counter
                 data.index.obs_id = obs_id
                 data.index.event_id = event_id
-                
+
                 # Setting up the R0 container
                 data.r0.tel.clear()
                 data.r0.tel[tel_i + 1].trigger_type = self.current_run['data'].event_data[telescope]['trigger_pattern'][event_order_number]
@@ -773,7 +773,7 @@ class MarsRun:
 
         # Retrieving the list of run numbers corresponding to the data files
         run_info = list(
-            map(MAGICEventSource._get_run_info_from_name, file_list))
+            map(MAGICEventSource.get_run_info_from_name, file_list))
         run_numbers = [i[0] for i in run_info]
         is_mc_runs = [i[1] for i in run_info]
 
@@ -1151,10 +1151,10 @@ class MarsRun:
                     pointing_dec = scipy.repeat(-1, len(event_mjd))
 
             # check for bit flips in the stereo event ID:
-            dx = np.diff(stereo_event_number.astype(np.int))
-            dx_flip_ids_before = np.where(dx < 0)[0]
+            d_x = np.diff(stereo_event_number.astype(np.int))
+            dx_flip_ids_before = np.where(d_x < 0)[0]
             dx_flip_ids_after = dx_flip_ids_before + 1
-            dx_flipzero_ids_first = np.where(dx == 0)[0]
+            dx_flipzero_ids_first = np.where(d_x == 0)[0]
             dx_flipzero_ids_second = dx_flipzero_ids_first + 1
             if not is_mc:
                 pedestal_ids = np.where(
@@ -1170,7 +1170,7 @@ class MarsRun:
                 dx_flip_ids_after = np.array(
                     list(set(dx_flip_ids_after) - set(orphan_ids)))
             dx_flip_ids_before = dx_flip_ids_after - 1
-            if len(dx_flip_ids_before) > 0:
+            if dx_flip_ids_before:
                 LOGGER.warning("Warning: detected %d bitflips in file %s. Flag affected events as unsuitable" % (
                     len(dx_flip_ids_before), file_name))
                 for i in dx_flip_ids_before:
@@ -1276,7 +1276,7 @@ class MarsRun:
                     m12_match = np.where(
                         m2_data_condition & m2_stereo_condition)
 
-                    if len(m12_match[0]) > 0:
+                    if m12_match[0]:
                         stereo_pair = (m1_id, m12_match[0][0])
                         stereo_ids.append(stereo_pair)
         else:
@@ -1292,7 +1292,7 @@ class MarsRun:
                     m12_match = np.where(
                         m2_data_condition & m2_stereo_condition)
 
-                    if len(m12_match[0]) > 0:
+                    if m12_match[0]:
                         stereo_pair = (m1_id, m12_match[0][0])
                         stereo_ids.append(stereo_pair)
 
@@ -1329,7 +1329,7 @@ class MarsRun:
                     m12_match = np.where(
                         m2_data_condition & m2_stereo_condition)
 
-                    if len(m12_match[0]) == 0:
+                    if not m12_match[0]:
                         mono_ids['M1'].append(m1_id)
 
             for m2_id in range(0, n_m2_events):
@@ -1340,7 +1340,7 @@ class MarsRun:
                     m12_match = np.where(
                         m1_data_condition & m1_stereo_condition)
 
-                    if len(m12_match[0]) == 0:
+                    if not m12_match[0]:
                         mono_ids['M2'].append(m2_id)
         else:
             m1_data_condition = self.event_data['M1']['trigger_pattern'] == MC_TRIGGER_PATTERN
