@@ -1170,7 +1170,7 @@ class MarsRun:
                 dx_flip_ids_after = np.array(
                     list(set(dx_flip_ids_after) - set(orphan_ids)))
             dx_flip_ids_before = dx_flip_ids_after - 1
-            if dx_flip_ids_before:
+            if len(dx_flip_ids_before) > 0:
                 LOGGER.warning("Warning: detected %d bitflips in file %s. Flag affected events as unsuitable" % (
                     len(dx_flip_ids_before), file_name))
                 for i in dx_flip_ids_before:
@@ -1276,7 +1276,7 @@ class MarsRun:
                     m12_match = np.where(
                         m2_data_condition & m2_stereo_condition)
 
-                    if m12_match[0]:
+                    if len(m12_match[0]) > 0:
                         stereo_pair = (m1_id, m12_match[0][0])
                         stereo_ids.append(stereo_pair)
         else:
@@ -1292,7 +1292,7 @@ class MarsRun:
                     m12_match = np.where(
                         m2_data_condition & m2_stereo_condition)
 
-                    if m12_match[0]:
+                    if len(m12_match[0]) > 0:
                         stereo_pair = (m1_id, m12_match[0][0])
                         stereo_ids.append(stereo_pair)
 
@@ -1329,7 +1329,7 @@ class MarsRun:
                     m12_match = np.where(
                         m2_data_condition & m2_stereo_condition)
 
-                    if not m12_match[0]:
+                    if len(m12_match[0]) == 0:
                         mono_ids['M1'].append(m1_id)
 
             for m2_id in range(0, n_m2_events):
@@ -1340,7 +1340,7 @@ class MarsRun:
                     m12_match = np.where(
                         m1_data_condition & m1_stereo_condition)
 
-                    if not m12_match[0]:
+                    if len(m12_match[0]) == 0:
                         mono_ids['M2'].append(m2_id)
         else:
             m1_data_condition = self.event_data['M1']['trigger_pattern'] == MC_TRIGGER_PATTERN
