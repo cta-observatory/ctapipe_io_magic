@@ -48,7 +48,7 @@ def test_that_event_is_not_modified_after_loop():
         # Unfortunately this does not work:
         #      assert last_event == event
         # So for the moment we just compare event ids
-        assert event.r0.event_id == last_event.r0.event_id
+        assert event.index.event_id == last_event.index.event_id
 
 
 def test_len():
@@ -87,11 +87,11 @@ def test_eventseeker():
         seeker = EventSeeker(source)
         event = seeker[0]
         assert event.count == 0
-        assert event.dl0.event_id == 29795
+        assert event.index.event_id == 29795
 
         event = seeker[2]
         assert event.count == 2
-        assert event.r1.event_id == 29798
+        assert event.index.event_id == 29798
 
 def test_eventcontent():
     dataset = get_dataset_path("20131004_M1_05029747.003_Y_MagicCrab-W0.40+035.root")
@@ -102,5 +102,5 @@ def test_eventcontent():
         event = seeker[0]
         assert event.dl1.tel[1].image[0] == -0.53125
         assert event.dl1.tel[2].image[0] == 2.2265625
-        assert event.dl1.tel[1].pulse_time[0] == 49.125
-        assert event.dl1.tel[2].pulse_time[0] == 23.5625
+        assert event.dl1.tel[1].peak_time[0] == 49.125
+        assert event.dl1.tel[2].peak_time[0] == 23.5625
