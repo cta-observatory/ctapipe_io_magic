@@ -504,6 +504,22 @@ class MAGICEventSource(EventSource):
                 data.mon.tels_with_data = tels_with_data
                 data.mon.tel[tel_i + 1] = monitoring_camera
 
+             #fdp start 
+            else:
+                data.mcheader.num_showers = self.current_run['data'].mcheader_data[telescope]['sim_nevents'] # total, including reuse
+                data.mcheader.energy_range_min = (self.current_run['data'].mcheader_data[telescope]['sim_emin']).to(u.TeV) # GeV->TeV
+                data.mcheader.energy_range_max = (self.current_run['data'].mcheader_data[telescope]['sim_emax']).to(u.TeV) # GeV->TeV
+                data.mcheader.spectral_index = self.current_run['data'].mcheader_data[telescope]['sim_eslope'] 
+                data.mcheader.max_scatter_range = (self.current_run['data'].mcheader_data[telescope]['sim_max_impact']).to(u.m) # cm->m
+                data.mcheader.max_viewcone_radius = (self.current_run['data'].mcheader_data[telescope]['sim_conesemiangle']).to(u.deg) # deg->deg
+                #mcheader_data['sim_nevents']=int(mc_header_info[b'MMcRunHeader.fNumEvents']) #std: 5000
+            	#mcheader_data['sim_emin']=mc_header_info[b'MMcCorsikaRunHeader.fELowLim'] #std: 10 GeV
+            	#mcheader_data['sim_emax']=mc_header_info[b'MMcCorsikaRunHeader.fEUppLim'] #std: 30000 GeV
+            	#mcheader_data['sim_eslope']=mc_header_info[b'MMcCorsikaRunHeader.fSlopeSpec'] #std: -1.6
+            	#mcheader_data['sim_max_impact']=mc_header_info[b'MMcRunHeader.fImpactMax'] #std: 35000 cm
+            	#mcheader_data['sim_conesemiangle']=mc_header_info[b'MMcRunHeader.fRandomPointingConeSemiAngle'] #std: 2.5 deg
+            #fdp stop
+
             if telescope == 'M1':
                 n_events = self.current_run['data'].n_mono_events_m1
             else:
@@ -807,6 +823,13 @@ class MarsRun:
         self.monitoring_data['M1'] = m1_data[1]
         self.monitoring_data['M2'] = m2_data[1]
 
+        #fdp start
+        # Getting the run-wise MC header data
+        self.mcheader_data = dict()
+        self.mcheader_data['M1'] = m1_data[2]
+        self.mcheader_data['M2'] = m2_data[2]
+        #fdp stop
+
         # Detecting pedestal events
         self.pedestal_ids = self._find_pedestal_events()
         # Detecting stereo events
@@ -897,6 +920,10 @@ class MarsRun:
         monitoring_data['PedestalFromExtractorRndm']['Mean'] = []
         monitoring_data['PedestalFromExtractorRndm']['Rms'] = []
 
+        #fdp start
+        mcheader_data = dict()
+        #fdp stop
+
         event_data['file_edges'] = [0]
 
         degrees_per_hour = 15.0
@@ -959,8 +986,21 @@ class MarsRun:
             'MMcEvt.fPartId',
             'MMcEvt.fZFirstInteraction',
             'MMcEvt.fCoreX',
-            'MMcEvt.fCoreY',
+            'MMcEvt.fCoreY'
         ]
+        
+        #fdp-start
+        mcheader_list = [
+            #'MMcRunHeader.fNumSimulatedShowers',
+            'MMcRunHeader.fNumEvents',
+            'MMcCorsikaRunHeader.fELowLim', #GeV
+            'MMcCorsikaRunHeader.fEUppLim', #GeV
+            'MMcCorsikaRunHeader.fSlopeSpec',
+            'MMcRunHeader.fImpactMax', #cm
+            #'MMcCorsikaRunHeader.fViewconeAngles',
+            'MMcRunHeader.fRandomPointingConeSemiAngle' # deg
+        ]
+		#fdp-end
 
         # Metadata, currently not strictly required
         metainfo_array_list = [
@@ -987,6 +1027,17 @@ class MarsRun:
             mars_meta = dict()
 
             mars_meta['is_simulation'] = is_mc
+
+            #fdp-start
+            if is_mc:
+            	mc_header_info = input_file['RunHeaders'].arrays(mcheader_list)
+            	mcheader_data['sim_nevents']=int(mc_header_info[b'MMcRunHeader.fNumEvents']) #std: 5000
+            	mcheader_data['sim_emin']=mc_header_info[b'MMcCorsikaRunHeader.fELowLim']*u.GeV
+            	mcheader_data['sim_emax']=mc_header_info[b'MMcCorsikaRunHeader.fEUppLim']*u.GeV
+            	mcheader_data['sim_eslope']=mc_header_info[b'MMcCorsikaRunHeader.fSlopeSpec'] #std: -1.6
+            	mcheader_data['sim_max_impact']=mc_header_info[b'MMcRunHeader.fImpactMax']*u.cm
+            	mcheader_data['sim_conesemiangle']=mc_header_info[b'MMcRunHeader.fRandomPointingConeSemiAngle']*u.deg #std: 2.5 deg, also corsika viewcone is defined by "half of the cone angle".
+            #fdp-end
 
             # Reading event timing information:
             if not is_mc:
@@ -1223,8 +1274,8 @@ class MarsRun:
                     monitoring_data['PedestalFromExtractor'][quantity])
                 monitoring_data['PedestalFromExtractorRndm'][quantity] = np.array(
                     monitoring_data['PedestalFromExtractorRndm'][quantity])
-
-        return event_data, monitoring_data
+        #fdp: added mcheader_data
+        return event_data, monitoring_data, mcheader_data 
 
     def _find_pedestal_events(self):
         """
