@@ -333,7 +333,15 @@ class MAGICEventSource(EventSource):
 
                     data.mon.tels_with_data = {1, 2}
                     data.mon.tel[tel_i + 1] = monitoring_camera
-
+            #fdp-start
+            else:
+                data.mcheader.num_showers = self.current_run['data'].mcheader_data['M1']['sim_nevents'] # total, including reuse
+                data.mcheader.energy_range_min = (self.current_run['data'].mcheader_data['M1']['sim_emin']).to(u.TeV) # GeV->TeV
+                data.mcheader.energy_range_max = (self.current_run['data'].mcheader_data['M1']['sim_emax']).to(u.TeV) # GeV->TeV
+                data.mcheader.spectral_index = self.current_run['data'].mcheader_data['M1']['sim_eslope'] 
+                data.mcheader.max_scatter_range = (self.current_run['data'].mcheader_data['M1']['sim_max_impact']).to(u.m) # cm->m
+                data.mcheader.max_viewcone_radius = (self.current_run['data'].mcheader_data['M1']['sim_conesemiangle']).to(u.deg) # deg->deg
+            #fdp-stop
             # Loop over the events
             for event_i in range(self.current_run['data'].n_stereo_events):
                 # Event and run ids
@@ -825,9 +833,10 @@ class MarsRun:
 
         #fdp start
         # Getting the run-wise MC header data
-        self.mcheader_data = dict()
-        self.mcheader_data['M1'] = m1_data[2]
-        self.mcheader_data['M2'] = m2_data[2]
+        if self.is_mc:
+        	self.mcheader_data = dict()
+        	self.mcheader_data['M1'] = m1_data[2]
+        	self.mcheader_data['M2'] = m2_data[2]
         #fdp stop
 
         # Detecting pedestal events
@@ -921,7 +930,8 @@ class MarsRun:
         monitoring_data['PedestalFromExtractorRndm']['Rms'] = []
 
         #fdp start
-        mcheader_data = dict()
+        if is_mc:
+        	mcheader_data = dict()
         #fdp stop
 
         event_data['file_edges'] = [0]
@@ -1275,7 +1285,10 @@ class MarsRun:
                 monitoring_data['PedestalFromExtractorRndm'][quantity] = np.array(
                     monitoring_data['PedestalFromExtractorRndm'][quantity])
         #fdp: added mcheader_data
-        return event_data, monitoring_data, mcheader_data 
+        if is_mc:
+        	return event_data, monitoring_data, mcheader_data
+        else:
+        	return event_data, monitoring_data
 
     def _find_pedestal_events(self):
         """
