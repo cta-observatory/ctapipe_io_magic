@@ -334,16 +334,16 @@ class MAGICEventSource(EventSource):
                     data.mon.tels_with_data = {1, 2}
                     data.mon.tel[tel_i + 1] = monitoring_camera
             else:
-	            data.mcheader.num_showers = self.current_run['data'].mcheader_data['M1']['sim_nevents']
-	            data.mcheader.energy_range_min = (self.current_run['data'].mcheader_data['M1']['sim_emin']).to(u.TeV) # GeV->TeV
-	            data.mcheader.energy_range_max = (self.current_run['data'].mcheader_data['M1']['sim_emax']).to(u.TeV) # GeV->TeV
-	            data.mcheader.spectral_index = self.current_run['data'].mcheader_data['M1']['sim_eslope'] 
-	            data.mcheader.max_scatter_range = (self.current_run['data'].mcheader_data['M1']['sim_max_impact']).to(u.m) # cm->m
-	            data.mcheader.max_viewcone_radius = (self.current_run['data'].mcheader_data['M1']['sim_conesemiangle']).to(u.deg)# deg->deg   
-	            if data.mcheader.max_viewcone_radius != 0.:
-	            	data.mcheader.diffuse = True
-	            else:
-	                data.mcheader.diffuse = False     
+                data.mcheader.num_showers = self.current_run['data'].mcheader_data['M1']['sim_nevents']
+                data.mcheader.energy_range_min = (self.current_run['data'].mcheader_data['M1']['sim_emin']).to(u.TeV) # GeV->TeV
+                data.mcheader.energy_range_max = (self.current_run['data'].mcheader_data['M1']['sim_emax']).to(u.TeV) # GeV->TeV
+                data.mcheader.spectral_index = self.current_run['data'].mcheader_data['M1']['sim_eslope'] 
+                data.mcheader.max_scatter_range = (self.current_run['data'].mcheader_data['M1']['sim_max_impact']).to(u.m) # cm->m
+                data.mcheader.max_viewcone_radius = (self.current_run['data'].mcheader_data['M1']['sim_conesemiangle']).to(u.deg)# deg->deg   
+                if data.mcheader.max_viewcone_radius != 0.:
+                    data.mcheader.diffuse = True
+                else:
+                    data.mcheader.diffuse = False     
 
             # Loop over the events
             for event_i in range(self.current_run['data'].n_stereo_events):
@@ -830,9 +830,9 @@ class MarsRun:
 
         # Getting the run-wise MC header data
         if self.is_mc:
-        	self.mcheader_data = dict()
-        	self.mcheader_data['M1'] = m1_data[2]
-        	self.mcheader_data['M2'] = m2_data[2]
+            self.mcheader_data = dict()
+            self.mcheader_data['M1'] = m1_data[2]
+            self.mcheader_data['M2'] = m2_data[2]
 
         # Detecting pedestal events
         self.pedestal_ids = self._find_pedestal_events()
@@ -1032,13 +1032,13 @@ class MarsRun:
             mars_meta['is_simulation'] = is_mc
 
             if is_mc:
-            	mc_header_info = input_file['RunHeaders'].arrays(mcheader_list)
-            	mcheader_data['sim_nevents']=int(mc_header_info[b'MMcRunHeader.fNumEvents'][0]) #std: 5000
-            	mcheader_data['sim_emin']=mc_header_info[b'MMcCorsikaRunHeader.fELowLim'][0]*u.GeV
-            	mcheader_data['sim_emax']=mc_header_info[b'MMcCorsikaRunHeader.fEUppLim'][0]*u.GeV
-            	mcheader_data['sim_eslope']=mc_header_info[b'MMcCorsikaRunHeader.fSlopeSpec'][0] #std: -1.6
-            	mcheader_data['sim_max_impact']=mc_header_info[b'MMcRunHeader.fImpactMax'][0]*u.cm
-            	mcheader_data['sim_conesemiangle']=mc_header_info[b'MMcRunHeader.fRandomPointingConeSemiAngle'][0]*u.deg #std: 2.5 deg, also corsika viewcone is defined by "half of the cone angle".
+                mc_header_info = input_file['RunHeaders'].arrays(mcheader_list)
+                mcheader_data['sim_nevents']=int(mc_header_info[b'MMcRunHeader.fNumEvents'][0]) #std: 5000
+                mcheader_data['sim_emin']=mc_header_info[b'MMcCorsikaRunHeader.fELowLim'][0]*u.GeV
+                mcheader_data['sim_emax']=mc_header_info[b'MMcCorsikaRunHeader.fEUppLim'][0]*u.GeV
+                mcheader_data['sim_eslope']=mc_header_info[b'MMcCorsikaRunHeader.fSlopeSpec'][0] #std: -1.6
+                mcheader_data['sim_max_impact']=mc_header_info[b'MMcRunHeader.fImpactMax'][0]*u.cm
+                mcheader_data['sim_conesemiangle']=mc_header_info[b'MMcRunHeader.fRandomPointingConeSemiAngle'][0]*u.deg #std: 2.5 deg, also corsika viewcone is defined by "half of the cone angle".
 
             # Reading event timing information:
             if not is_mc:
