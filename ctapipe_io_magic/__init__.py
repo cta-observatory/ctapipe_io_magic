@@ -148,7 +148,7 @@ class MAGICEventSource(EventSource):
 
         for file_path in file_list:
             try:
-                import uproot
+                import uproot3 as uproot
 
                 try:
                     with uproot.open(file_path) as input_data:
@@ -289,7 +289,7 @@ class MAGICEventSource(EventSource):
 
             # Setting the new active run (class MarsRun object)
             self.current_run = self._set_active_run(run_number)
-
+            
             # Set monitoring data:
             if not self.is_mc:
 
@@ -333,6 +333,19 @@ class MAGICEventSource(EventSource):
 
                     data.mon.tels_with_data = {1, 2}
                     data.mon.tel[tel_i + 1] = monitoring_camera
+            else:
+                assert self.current_run['data'].mcheader_data['M1'] == self.current_run['data'].mcheader_data['M2'], "Simulation configurations are different for M1 and M2 !!!"
+                data.mcheader.num_showers = self.current_run['data'].mcheader_data['M1']['sim_nevents']
+                data.mcheader.energy_range_min = (self.current_run['data'].mcheader_data['M1']['sim_emin']).to(u.TeV) # GeV->TeV
+                data.mcheader.energy_range_max = (self.current_run['data'].mcheader_data['M1']['sim_emax']).to(u.TeV) # GeV->TeV
+                data.mcheader.spectral_index = self.current_run['data'].mcheader_data['M1']['sim_eslope']
+                data.mcheader.max_scatter_range = (self.current_run['data'].mcheader_data['M1']['sim_max_impact']).to(u.m) # cm->m
+                data.mcheader.max_viewcone_radius = (self.current_run['data'].mcheader_data['M1']['sim_conesemiangle']).to(u.deg)# deg->deg
+                if data.mcheader.max_viewcone_radius != 0.:
+                    data.mcheader.diffuse = True
+                else:
+                    data.mcheader.diffuse = False
+                    
 
             # Loop over the events
             for event_i in range(self.current_run['data'].n_stereo_events):
@@ -475,7 +488,7 @@ class MAGICEventSource(EventSource):
                     tel_i + 1)]['PedestalMJD'], scale='utc', format='mjd')
                 pedestal_info.sample_time = Time(
                     time_tmp, format='unix', scale='utc', precision=9)
-                pedestal_info.n_events = 500  # hardcoded number of pedestal events averaged over
+                pedestal_info.n_events = 500 # hardcoded number of pedestal events averaged over
                 pedestal_info.charge_mean = []
                 pedestal_info.charge_mean.append(
                     monitoring_data['M{:d}'.format(tel_i + 1)]['PedestalFundamental']['Mean'])
@@ -503,6 +516,16 @@ class MAGICEventSource(EventSource):
 
                 data.mon.tels_with_data = tels_with_data
                 data.mon.tel[tel_i + 1] = monitoring_camera
+
+             #fdp (mono version not fully tested)
+            else:
+                data.mcheader.num_showers = self.current_run['data'].mcheader_data[telescope]['sim_nevents'] # total, including reuse
+                data.mcheader.energy_range_min = (self.current_run['data'].mcheader_data[telescope]['sim_emin']).to(u.TeV) # GeV->TeV
+                data.mcheader.energy_range_max = (self.current_run['data'].mcheader_data[telescope]['sim_emax']).to(u.TeV) # GeV->TeV
+                data.mcheader.spectral_index = self.current_run['data'].mcheader_data[telescope]['sim_eslope'] 
+                data.mcheader.max_scatter_range = (self.current_run['data'].mcheader_data[telescope]['sim_max_impact']).to(u.m) # cm->m
+                data.mcheader.max_viewcone_radius = (self.current_run['data'].mcheader_data[telescope]['sim_conesemiangle']).to(u.deg) # deg->deg
+
 
             if telescope == 'M1':
                 n_events = self.current_run['data'].n_mono_events_m1
@@ -636,7 +659,7 @@ class MAGICEventSource(EventSource):
                 tel_i + 1)]['PedestalMJD'], scale='utc', format='mjd')
             pedestal_info.sample_time = Time(
                 time_tmp, format='unix', scale='utc', precision=9)
-            pedestal_info.n_events = 500  # hardcoded number of pedestal events averaged over
+            pedestal_info.n_events = 500 # hardcoded number of pedestal events averaged over
             pedestal_info.charge_mean = []
             pedestal_info.charge_mean.append(
                 monitoring_data['M{:d}'.format(tel_i + 1)]['PedestalFundamental']['Mean'])
@@ -807,6 +830,12 @@ class MarsRun:
         self.monitoring_data['M1'] = m1_data[1]
         self.monitoring_data['M2'] = m2_data[1]
 
+        # Getting the run-wise MC header data
+        if self.is_mc:
+            self.mcheader_data = dict()
+            self.mcheader_data['M1'] = m1_data[2]
+            self.mcheader_data['M2'] = m2_data[2]
+
         # Detecting pedestal events
         self.pedestal_ids = self._find_pedestal_events()
         # Detecting stereo events
@@ -863,7 +892,7 @@ class MarsRun:
         """
 
         try:
-            import uproot
+            import uproot3 as uproot
         except ImportError:
             msg = "The `uproot` python module is required to access the MAGIC data"
             raise ImportError(msg)
@@ -897,6 +926,9 @@ class MarsRun:
         monitoring_data['PedestalFromExtractorRndm']['Mean'] = []
         monitoring_data['PedestalFromExtractorRndm']['Rms'] = []
 
+        #MC Header information, dictionary always created, but filled only in case of MC run
+        mcheader_data = dict()
+    
         event_data['file_edges'] = [0]
 
         degrees_per_hour = 15.0
@@ -959,7 +991,18 @@ class MarsRun:
             'MMcEvt.fPartId',
             'MMcEvt.fZFirstInteraction',
             'MMcEvt.fCoreX',
-            'MMcEvt.fCoreY',
+            'MMcEvt.fCoreY'
+        ]
+        
+        mcheader_list = [
+            #'MMcRunHeader.fNumSimulatedShowers',
+            'MMcRunHeader.fNumEvents',
+            'MMcCorsikaRunHeader.fELowLim', #GeV
+            'MMcCorsikaRunHeader.fEUppLim', #GeV
+            'MMcCorsikaRunHeader.fSlopeSpec',
+            'MMcRunHeader.fImpactMax', #cm
+            #'MMcCorsikaRunHeader.fViewconeAngles',
+            'MMcRunHeader.fRandomPointingConeSemiAngle' # deg
         ]
 
         # Metadata, currently not strictly required
@@ -987,6 +1030,15 @@ class MarsRun:
             mars_meta = dict()
 
             mars_meta['is_simulation'] = is_mc
+
+            if is_mc:
+                mc_header_info = input_file['RunHeaders'].arrays(mcheader_list)
+                mcheader_data['sim_nevents']=int(mc_header_info[b'MMcRunHeader.fNumEvents'][0]) #std: 5000
+                mcheader_data['sim_emin']=mc_header_info[b'MMcCorsikaRunHeader.fELowLim'][0]*u.GeV
+                mcheader_data['sim_emax']=mc_header_info[b'MMcCorsikaRunHeader.fEUppLim'][0]*u.GeV
+                mcheader_data['sim_eslope']=mc_header_info[b'MMcCorsikaRunHeader.fSlopeSpec'][0] #std: -1.6
+                mcheader_data['sim_max_impact']=mc_header_info[b'MMcRunHeader.fImpactMax'][0]*u.cm
+                mcheader_data['sim_conesemiangle']=mc_header_info[b'MMcRunHeader.fRandomPointingConeSemiAngle'][0]*u.deg #std: 2.5 deg, also corsika viewcone is defined by "half of the cone angle".
 
             # Reading event timing information:
             if not is_mc:
@@ -1223,8 +1275,9 @@ class MarsRun:
                     monitoring_data['PedestalFromExtractor'][quantity])
                 monitoring_data['PedestalFromExtractorRndm'][quantity] = np.array(
                     monitoring_data['PedestalFromExtractorRndm'][quantity])
-
-        return event_data, monitoring_data
+        
+        return event_data, monitoring_data, mcheader_data
+       
 
     def _find_pedestal_events(self):
         """
