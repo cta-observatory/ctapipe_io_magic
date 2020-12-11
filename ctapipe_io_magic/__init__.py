@@ -334,24 +334,18 @@ class MAGICEventSource(EventSource):
                     data.mon.tels_with_data = {1, 2}
                     data.mon.tel[tel_i + 1] = monitoring_camera
             else:
-                if self.current_run['data'].mcheader_data['M1']['sim_nevents'] != self.current_run['data'].mcheader_data['M2']['sim_nevents'] or \
-                   self.current_run['data'].mcheader_data['M1']['sim_emin'] != self.current_run['data'].mcheader_data['M2']['sim_emin'] or \
-                   self.current_run['data'].mcheader_data['M1']['sim_emax'] != self.current_run['data'].mcheader_data['M2']['sim_emax'] or \
-                   self.current_run['data'].mcheader_data['M1']['sim_eslope'] != self.current_run['data'].mcheader_data['M2']['sim_eslope'] or \
-                   self.current_run['data'].mcheader_data['M1']['sim_max_impact'] != self.current_run['data'].mcheader_data['M2']['sim_max_impact'] or \
-                   self.current_run['data'].mcheader_data['M1']['sim_conesemiangle'] != self.current_run['data'].mcheader_data['M2']['sim_conesemiangle']:
-                   print("WARNING!!! Simulation configurations are different for M1 and M2 !!!")
+                assert self.current_run['data'].mcheader_data['M1'] == self.current_run['data'].mcheader_data['M2'], "Simulation configurations are different for M1 and M2 !!!"
+                data.mcheader.num_showers = self.current_run['data'].mcheader_data['M1']['sim_nevents']
+                data.mcheader.energy_range_min = (self.current_run['data'].mcheader_data['M1']['sim_emin']).to(u.TeV) # GeV->TeV
+                data.mcheader.energy_range_max = (self.current_run['data'].mcheader_data['M1']['sim_emax']).to(u.TeV) # GeV->TeV
+                data.mcheader.spectral_index = self.current_run['data'].mcheader_data['M1']['sim_eslope']
+                data.mcheader.max_scatter_range = (self.current_run['data'].mcheader_data['M1']['sim_max_impact']).to(u.m) # cm->m
+                data.mcheader.max_viewcone_radius = (self.current_run['data'].mcheader_data['M1']['sim_conesemiangle']).to(u.deg)# deg->deg
+                if data.mcheader.max_viewcone_radius != 0.:
+                    data.mcheader.diffuse = True
                 else:
-                    data.mcheader.num_showers = self.current_run['data'].mcheader_data['M1']['sim_nevents']
-                    data.mcheader.energy_range_min = (self.current_run['data'].mcheader_data['M1']['sim_emin']).to(u.TeV) # GeV->TeV
-                    data.mcheader.energy_range_max = (self.current_run['data'].mcheader_data['M1']['sim_emax']).to(u.TeV) # GeV->TeV
-                    data.mcheader.spectral_index = self.current_run['data'].mcheader_data['M1']['sim_eslope']
-                    data.mcheader.max_scatter_range = (self.current_run['data'].mcheader_data['M1']['sim_max_impact']).to(u.m) # cm->m
-                    data.mcheader.max_viewcone_radius = (self.current_run['data'].mcheader_data['M1']['sim_conesemiangle']).to(u.deg)# deg->deg
-                    if data.mcheader.max_viewcone_radius != 0.:
-                        data.mcheader.diffuse = True
-                    else:
-                        data.mcheader.diffuse = False
+                    data.mcheader.diffuse = False
+                    
 
             # Loop over the events
             for event_i in range(self.current_run['data'].n_stereo_events):
