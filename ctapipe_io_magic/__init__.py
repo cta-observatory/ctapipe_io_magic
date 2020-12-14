@@ -336,6 +336,7 @@ class MAGICEventSource(EventSource):
             else:
                 assert self.current_run['data'].mcheader_data['M1'] == self.current_run['data'].mcheader_data['M2'], "Simulation configurations are different for M1 and M2 !!!"
                 data.mcheader.num_showers = self.current_run['data'].mcheader_data['M1']['sim_nevents']
+                data.mcheader.shower_reuse = self.current_run['data'].mcheader_data['M1']['sim_reuse']
                 data.mcheader.energy_range_min = (self.current_run['data'].mcheader_data['M1']['sim_emin']).to(u.TeV) # GeV->TeV
                 data.mcheader.energy_range_max = (self.current_run['data'].mcheader_data['M1']['sim_emax']).to(u.TeV) # GeV->TeV
                 data.mcheader.spectral_index = self.current_run['data'].mcheader_data['M1']['sim_eslope']
@@ -520,6 +521,7 @@ class MAGICEventSource(EventSource):
              #fdp (mono version not fully tested)
             else:
                 data.mcheader.num_showers = self.current_run['data'].mcheader_data[telescope]['sim_nevents'] # total, including reuse
+                data.mcheader.shower_reuse = self.current_run['data'].mcheader_data[telescope]['sim_reuse']
                 data.mcheader.energy_range_min = (self.current_run['data'].mcheader_data[telescope]['sim_emin']).to(u.TeV) # GeV->TeV
                 data.mcheader.energy_range_max = (self.current_run['data'].mcheader_data[telescope]['sim_emax']).to(u.TeV) # GeV->TeV
                 data.mcheader.spectral_index = self.current_run['data'].mcheader_data[telescope]['sim_eslope'] 
@@ -1034,6 +1036,7 @@ class MarsRun:
             if is_mc:
                 mc_header_info = input_file['RunHeaders'].arrays(mcheader_list)
                 mcheader_data['sim_nevents']=int(mc_header_info[b'MMcRunHeader.fNumEvents'][0]) #std: 5000
+                mcheader_data['sim_reuse']= 1 #this value is not written in the magic root file, but since the sim_events already include shower reuse we artificially set it to 1 (actually every shower reused 5 times for std MAGIC MC)
                 mcheader_data['sim_emin']=mc_header_info[b'MMcCorsikaRunHeader.fELowLim'][0]*u.GeV
                 mcheader_data['sim_emax']=mc_header_info[b'MMcCorsikaRunHeader.fEUppLim'][0]*u.GeV
                 mcheader_data['sim_eslope']=mc_header_info[b'MMcCorsikaRunHeader.fSlopeSpec'][0] #std: -1.6
