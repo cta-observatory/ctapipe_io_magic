@@ -521,6 +521,7 @@ class MAGICEventSource(EventSource):
              #fdp (mono version not fully tested)
             else:
                 data.mcheader.num_showers = self.current_run['data'].mcheader_data[telescope]['sim_nevents'] # total, including reuse
+                data.mcheader.shower_reuse = self.current_run['data'].mcheader_data[telescope]['sim_reuse']
                 data.mcheader.energy_range_min = (self.current_run['data'].mcheader_data[telescope]['sim_emin']).to(u.TeV) # GeV->TeV
                 data.mcheader.energy_range_max = (self.current_run['data'].mcheader_data[telescope]['sim_emax']).to(u.TeV) # GeV->TeV
                 data.mcheader.spectral_index = self.current_run['data'].mcheader_data[telescope]['sim_eslope'] 
