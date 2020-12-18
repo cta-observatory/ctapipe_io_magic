@@ -25,7 +25,7 @@ from ctapipe.core import Field
 
 from ctapipe.containers import DataContainer
 from ctapipe.containers import EventAndMonDataContainer
-from ctapipe.containers import TelescopePointingContainer
+from ctapipe.containers import PointingContainer, TelescopePointingContainer
 from ctapipe.containers import MonitoringCameraContainer
 from ctapipe.containers import PedestalContainer
 
@@ -375,21 +375,24 @@ class MAGICEventSource(EventSource):
                 # Setting up the DL0 container
                 data.dl0.tel.clear()
 
+                pointing = PointingContainer()
                 # Filling the DL1 container with the event data
                 for tel_i, tel_id in enumerate(tels_in_file):
                     # Creating the telescope pointing container
-                    pointing = TelescopePointingContainer()
-                    pointing.azimuth = np.deg2rad(
+                    pointing_tel = TelescopePointingContainer()
+                    
+                    pointing_tel.azimuth = np.deg2rad(
                         event_data['{:s}_pointing_az'.format(tel_id)]) * u.rad
-                    pointing.altitude = np.deg2rad(
+                    
+                    pointing_tel.altitude = np.deg2rad(
                         90 - event_data['{:s}_pointing_zd'.format(tel_id)]) * u.rad
+                    
                     # pointing.ra = np.deg2rad(
                     #    event_data['{:s}_pointing_ra'.format(tel_id)]) * u.rad
                     # pointing.dec = np.deg2rad(
                     #    event_data['{:s}_pointing_dec'.format(tel_id)]) * u.rad
 
-                    # Adding the pointing container to the event data
-                    data.pointing.tel[tel_i + 1] = pointing
+                    pointing.tel[tel_i + 1] = pointing_tel
 
                     # Adding trigger id (MAGIC nomenclature)
                     data.r0.tel[tel_i + 1].trigger_type = self.current_run['data'].event_data['M1']['trigger_pattern'][event_order_number]
@@ -401,6 +404,12 @@ class MAGICEventSource(EventSource):
                                  1].image = event_data['{:s}_image'.format(tel_id)]
                     data.dl1.tel[tel_i +
                                  1].peak_time = event_data['{:s}_pulse_time'.format(tel_id)]
+                
+                pointing.array_azimuth = np.deg2rad(event_data['m1_pointing_az']) * u.rad
+                pointing.array_altitude = np.deg2rad(90 - event_data['m1_pointing_zd']) * u.rad
+                pointing.array_ra = np.deg2rad(event_data['m1_pointing_ra']) * u.rad
+                pointing.array_dec = np.deg2rad(90 - event_data['m1_pointing_dec']) * u.rad
+                data.pointing = pointing
 
                 if not self.is_mc:
                     # Adding the event arrival time
@@ -1157,6 +1166,8 @@ class MarsRun:
                                pointing[b'MPointingPos.fDevHa']) * degrees_per_hour
                 pointing_dec = pointing[b'MPointingPos.fDec'] - \
                     pointing[b'MPointingPos.fDevDec']
+
+                
             else:
                 # Getting the telescope drive info
                 drive = input_file['Drive'].arrays(drive_array_list)
