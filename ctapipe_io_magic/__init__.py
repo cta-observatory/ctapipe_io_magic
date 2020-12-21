@@ -41,10 +41,17 @@ LOGGER = logging.getLogger(__name__)
 
 
 # MAGIC telescope positions in m wrt. to the center of CTA simulations
+#MAGIC_TEL_POSITIONS = {
+#    1: [-27.24, -146.66, 50.00] * u.m,
+#    2: [-96.44, -96.77, 51.00] * u.m
+#}
+
+# MAGIC telescope positions in m wrt. to the center of MAGIC simulations, from reflector input card
 MAGIC_TEL_POSITIONS = {
-    1: [-27.24, -146.66, 50.00] * u.m,
-    2: [-96.44, -96.77, 51.00] * u.m
+    1: [31.80, -28.10, 0.00] * u.m,
+    2: [-31.80, 28.10, 0.00] * u.m
 }
+
 # MAGIC telescope description
 OPTICS = OpticsDescription.from_name('MAGIC')
 GEOM = CameraGeometry.from_name('MAGICCam')
@@ -426,8 +433,12 @@ class MAGICEventSource(EventSource):
                     data.mc.shower_primary_id = 1 - \
                         event_data['true_shower_primary_id']
                     data.mc.h_first_int = event_data['true_h_first_int'] * u.cm
-                    data.mc.core_x = event_data['true_core_x'] * u.cm
-                    data.mc.core_y = event_data['true_core_y'] * u.cm
+                    
+                    # adding a 7deg rotation between the orientation of corsika (x axis = magnetic north) and MARS (x axis = geographical north) frames
+                    # magnetic north is 7 deg westward w.r.t. geographical north
+                    rot_corsika = 7 *u.deg
+                    data.mc.core_x = (event_data['true_core_x']*np.cos(rot_corsika) - event_data['true_core_y']*np.sin(rot_corsika))* u.cm
+                    data.mc.core_y = (event_data['true_core_x']*np.sin(rot_corsika) + event_data['true_core_y']*np.cos(rot_corsika))* u.cm
 
                 # Setting the telescopes with data
                 data.r0.tels_with_data = tels_with_data
@@ -574,16 +585,24 @@ class MAGICEventSource(EventSource):
                 data.dl0.tel[tel_i + 1].trigger_type = self.current_run['data'].event_data[telescope]['trigger_pattern'][event_order_number]
 
                 # Creating the telescope pointing container
-                pointing = TelescopePointingContainer()
-                pointing.azimuth = np.deg2rad(
+                pointing = PointingContainer()
+                pointing_tel = TelescopePointingContainer()
+
+                pointing_tel.azimuth = np.deg2rad(
                     event_data['pointing_az']) * u.rad
-                pointing.altitude = np.deg2rad(
+                pointing_tel.altitude = np.deg2rad(
                     90 - event_data['pointing_zd']) * u.rad
                 #pointing.ra = np.deg2rad(event_data['pointing_ra']) * u.rad
                 #pointing.dec = np.deg2rad(event_data['pointing_dec']) * u.rad
-
-                # Adding the pointing container to the event data
-                data.pointing.tel[tel_i + 1] = pointing
+                
+                pointing.tel[tel_i + 1] = pointing_tel
+                
+                pointing.array_azimuth = np.deg2rad(event_data['pointing_az']) * u.rad
+                pointing.array_altitude = np.deg2rad(90 - event_data['pointing_zd']) * u.rad
+                pointing.array_ra = np.deg2rad(event_data['pointing_ra']) * u.rad
+                pointing.array_dec = np.deg2rad(90 - event_data['pointing_dec']) * u.rad
+                
+                data.pointing = pointing
 
                 # Adding event charge and peak positions per pixel
                 data.dl1.tel[tel_i + 1].image = event_data['image']
@@ -604,8 +623,12 @@ class MAGICEventSource(EventSource):
                     data.mc.shower_primary_id = 1 - \
                         event_data['true_shower_primary_id']
                     data.mc.h_first_int = event_data['true_h_first_int'] * u.cm
-                    data.mc.core_x = event_data['true_core_x'] * u.cm
-                    data.mc.core_y = event_data['true_core_y'] * u.cm
+
+                    # adding a 7deg rotation between the orientation of corsika (x axis = magnetic north) and MARS (x axis = geographical north) frames
+                    # magnetic north is 7 deg westward w.r.t. geographical north
+                    rot_corsika = 7 *u.deg
+                    data.mc.core_x = (event_data['true_core_x']*np.cos(rot_corsika) - event_data['true_core_y']*np.sin(rot_corsika))* u.cm
+                    data.mc.core_y = (event_data['true_core_x']*np.sin(rot_corsika) + event_data['true_core_y']*np.cos(rot_corsika))* u.cm
 
                 # Setting the telescopes with data
                 data.r0.tels_with_data = tels_with_data
