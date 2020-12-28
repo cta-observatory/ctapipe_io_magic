@@ -1354,37 +1354,27 @@ class MarsRun:
             return stereo_ids
 
         if not self.is_mc:
+            stereo_m1_data = self.event_data['M1']['stereo_event_number'][np.where(self.event_data['M1']['trigger_pattern'] == DATA_TRIGGER_PATTERN)]
+            stereo_m2_data = self.event_data['M2']['stereo_event_number'][np.where(self.event_data['M2']['trigger_pattern'] == DATA_TRIGGER_PATTERN)]
 
-            m2_data_condition = (
-                self.event_data['M2']['trigger_pattern'] == DATA_TRIGGER_PATTERN)
+            stereo_numbers = np.intersect1d(stereo_m1_data, stereo_m2_data)
 
-            for m1_id in range(0, n_m1_events):
-                if self.event_data['M1']['trigger_pattern'][m1_id] == DATA_TRIGGER_PATTERN:
-                    m2_stereo_condition = (self.event_data['M2']['stereo_event_number'] ==
-                                           self.event_data['M1']['stereo_event_number'][m1_id])
+            m1_ids = np.searchsorted(self.event_data['M1']['stereo_event_number'], stereo_numbers)
+            m2_ids = np.searchsorted(self.event_data['M2']['stereo_event_number'], stereo_numbers)
 
-                    m12_match = np.where(
-                        m2_data_condition & m2_stereo_condition)
-
-                    if len(m12_match[0]) > 0:
-                        stereo_pair = (m1_id, m12_match[0][0])
-                        stereo_ids.append(stereo_pair)
+            stereo_ids = list(zip(m1_ids, m2_ids))
         else:
+            stereo_m1_data = self.event_data['M1']['stereo_event_number'][np.where(self.event_data['M1']['trigger_pattern'] == MC_TRIGGER_PATTERN)]
+            stereo_m2_data = self.event_data['M2']['stereo_event_number'][np.where(self.event_data['M2']['trigger_pattern'] == MC_TRIGGER_PATTERN)]
+            stereo_m1_data = stereo_m1_data[np.where(stereo_m1_data != 0)]
+            stereo_m2_data = stereo_m2_data[np.where(stereo_m2_data != 0)]
 
-            m2_data_condition = (
-                self.event_data['M2']['trigger_pattern'] == MC_TRIGGER_PATTERN)
+            stereo_numbers = np.intersect1d(stereo_m1_data, stereo_m2_data)
 
-            for m1_id in range(0, n_m1_events):
-                if self.event_data['M1']['trigger_pattern'][m1_id] == MC_TRIGGER_PATTERN and self.event_data['M1']['stereo_event_number'][m1_id] != 0:
-                    m2_stereo_condition = (self.event_data['M2']['stereo_event_number'] ==
-                                           self.event_data['M1']['stereo_event_number'][m1_id])
+            m1_ids = np.searchsorted(self.event_data['M1']['stereo_event_number'], stereo_numbers)
+            m2_ids = np.searchsorted(self.event_data['M2']['stereo_event_number'], stereo_numbers)
 
-                    m12_match = np.where(
-                        m2_data_condition & m2_stereo_condition)
-
-                    if len(m12_match[0]) > 0:
-                        stereo_pair = (m1_id, m12_match[0][0])
-                        stereo_ids.append(stereo_pair)
+            stereo_ids = list(zip(m1_ids, m2_ids))
 
         return stereo_ids
 
