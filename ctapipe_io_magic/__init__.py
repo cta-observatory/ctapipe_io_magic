@@ -1397,16 +1397,25 @@ class MarsRun:
             m1_data = self.event_data['M1']['stereo_event_number'][np.where(self.event_data['M1']['trigger_pattern'] == DATA_TRIGGER_PATTERN)]
             m2_data = self.event_data['M2']['stereo_event_number'][np.where(self.event_data['M2']['trigger_pattern'] == DATA_TRIGGER_PATTERN)]
 
+            m1_ids_data = np.where(self.event_data['M1']['trigger_pattern'] == DATA_TRIGGER_PATTERN)[0]
+            m2_ids_data = np.where(self.event_data['M2']['trigger_pattern'] == DATA_TRIGGER_PATTERN)[0]
+
             stereo_numbers = np.intersect1d(m1_data, m2_data)
 
-            m1_ids = np.searchsorted(self.event_data['M1']['stereo_event_number'], stereo_numbers)
-            m2_ids = np.searchsorted(self.event_data['M2']['stereo_event_number'], stereo_numbers)
+            m1_ids_stereo = np.searchsorted(self.event_data['M1']['stereo_event_number'], stereo_numbers)
+            m2_ids_stereo = np.searchsorted(self.event_data['M2']['stereo_event_number'], stereo_numbers)
 
-            mono_ids['M1'] = m1_ids
-            mono_ids['M2'] = m2_ids
+            # remove ids that have stereo trigger from the array of ids of data events
+            # see: https://stackoverflow.com/questions/52417929/remove-elements-from-one-array-if-present-in-another-array-keep-duplicates-nu
+            m1_ids_mono = m1_ids_data[m1_ids_stereo[np.searchsorted(m1_ids_stereo,m1_ids_data)] != m1_ids_data]
+            m2_ids_mono = m2_ids_data[m2_ids_stereo[np.searchsorted(m2_ids_stereo,m2_ids_data)] != m2_ids_data]
+
+            mono_ids['M1'] = m1_ids_mono.tolist()
+            mono_ids['M2'] = m2_ids_mono.tolist()
         else:
             m1_data = self.event_data['M1']['stereo_event_number'][np.where(self.event_data['M1']['trigger_pattern'] == MC_TRIGGER_PATTERN)]
             m2_data = self.event_data['M2']['stereo_event_number'][np.where(self.event_data['M2']['trigger_pattern'] == MC_TRIGGER_PATTERN)]
+            # just find ids where event stereo number is 0, which is given to mono events
             m1_ids = np.where(m1_data == 0)[0]
             m2_ids = np.where(m2_data == 0)[0]
 
