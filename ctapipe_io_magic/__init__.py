@@ -1417,11 +1417,12 @@ class MarsRun:
             mono_ids['M1'] = m1_ids_mono.tolist()
             mono_ids['M2'] = m2_ids_mono.tolist()
         else:
-            m1_data = self.event_data['M1']['stereo_event_number'][np.where(self.event_data['M1']['trigger_pattern'] == MC_TRIGGER_PATTERN)]
-            m2_data = self.event_data['M2']['stereo_event_number'][np.where(self.event_data['M2']['trigger_pattern'] == MC_TRIGGER_PATTERN)]
-            # just find ids where event stereo number is 0, which is given to mono events
-            m1_ids = np.where(m1_data == 0)[0]
-            m2_ids = np.where(m2_data == 0)[0]
+            # just find ids where event stereo number is 0 (which is given to mono events) and pattern is MC trigger
+            m1_mono_mask = np.logical_and(self.event_data['M1']['trigger_pattern'] == MC_TRIGGER_PATTERN, self.event_data['M1']['stereo_event_number'] == 0)
+            m2_mono_mask = np.logical_and(self.event_data['M2']['trigger_pattern'] == MC_TRIGGER_PATTERN, self.event_data['M2']['stereo_event_number'] == 0)
+
+            m1_ids = np.where(m1_mono_mask == True)[0].tolist()
+            m2_ids = np.where(m2_mono_mask == True)[0].tolist()
 
             mono_ids['M1'] = m1_ids
             mono_ids['M2'] = m2_ids
