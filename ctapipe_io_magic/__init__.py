@@ -1357,11 +1357,15 @@ class MarsRun:
             stereo_m1_data = self.event_data['M1']['stereo_event_number'][np.where(self.event_data['M1']['trigger_pattern'] == DATA_TRIGGER_PATTERN)]
             stereo_m2_data = self.event_data['M2']['stereo_event_number'][np.where(self.event_data['M2']['trigger_pattern'] == DATA_TRIGGER_PATTERN)]
 
+            # find common values between M1 and M2 stereo events, see https://numpy.org/doc/stable/reference/generated/numpy.intersect1d.html
             stereo_numbers = np.intersect1d(stereo_m1_data, stereo_m2_data)
 
+            # find indices of the stereo event numbers in original stereo event numbers arrays, see
+            # https://stackoverflow.com/questions/12122639/find-indices-of-a-list-of-values-in-a-numpy-array
             m1_ids = np.searchsorted(self.event_data['M1']['stereo_event_number'], stereo_numbers)
             m2_ids = np.searchsorted(self.event_data['M2']['stereo_event_number'], stereo_numbers)
 
+            # make list of tuples, see https://stackoverflow.com/questions/2407398/how-to-merge-lists-into-a-list-of-tuples
             stereo_ids = list(zip(m1_ids, m2_ids))
         else:
             stereo_m1_data = self.event_data['M1']['stereo_event_number'][np.where(self.event_data['M1']['trigger_pattern'] == MC_TRIGGER_PATTERN)]
