@@ -64,6 +64,13 @@ MC_TRIGGER_PATTERN = 1
 PEDESTAL_TRIGGER_PATTERN = 8
 DATA_TRIGGER_PATTERN = 128
 
+class L3JumpError(Exception):
+    """
+    Exception raised when L3 trigger number jumps backward.
+    """
+
+    def __init__(self, message):
+        self.message = message
 
 class MAGICEventSource(EventSource):
     """
@@ -1259,12 +1266,20 @@ class MarsRun:
                 dx_flip_ids_after = np.array(
                     list(set(dx_flip_ids_after) - set(orphan_ids)))
             dx_flip_ids_before = dx_flip_ids_after - 1
+            max_total_jumps = 100
             if len(dx_flip_ids_before) > 0:
                 LOGGER.warning("Warning: detected %d bitflips in file %s. Flag affected events as unsuitable" % (
                     len(dx_flip_ids_before), file_name))
+                total_jumped_events = 0
                 for i in dx_flip_ids_before:
                     trigger_pattern[i] = -1
                     trigger_pattern[i+1] = -1
+                    jumped_events = int(stereo_event_number[i]) - int(stereo_event_number[i+1])
+                    total_jumped_events += jumped_events
+                    LOGGER.warning(f"Jump of L3 number backward from {stereo_event_number[i]} to {stereo_event_number[i+1]}; "
+                        f"total jumped events so far: {total_jumped_events}")
+                    if total_jumped_events > max_total_jumps:
+                        raise L3JumpError(f"Jumps backward in L3 trigger number by {total_jumped_events} in total. You might consider matching events by time instead.")
 
             event_data['charge'].append(charge)
             event_data['arrival_time'].append(arrival_time)
