@@ -969,8 +969,15 @@ class MarsRun:
 
         #MC Header information, dictionary always created, but filled only in case of MC run
         mcheader_data = dict()
-    
+
         event_data['file_edges'] = [0]
+
+        drive_data = dict()
+        drive_data['mjd'] = np.array([])
+        drive_data['zd']  = np.array([])
+        drive_data['az']  = np.array([])
+        drive_data['ra']  = np.array([])
+        drive_data['dec'] = np.array([])
 
         degrees_per_hour = 15.0
         seconds_per_day = 86400.0
@@ -1183,7 +1190,7 @@ class MarsRun:
                         "Pedestals tree not present in file. Cleaning algorithm may fail.")
 
             # Reading pointing information (in units of degrees):
-            if 'MPointingPos.' in input_file['Events']:
+            if is_mc:
                 # Retrieving the telescope pointing direction
                 pointing = input_file['Events'].arrays(pointing_array_list)
 
@@ -1196,8 +1203,6 @@ class MarsRun:
                                pointing[b'MPointingPos.fDevHa']) * degrees_per_hour
                 pointing_dec = pointing[b'MPointingPos.fDec'] - \
                     pointing[b'MPointingPos.fDevDec']
-
-                
             else:
                 # Getting the telescope drive info
                 drive = input_file['Drive'].arrays(drive_array_list)
@@ -1208,43 +1213,14 @@ class MarsRun:
                 drive_ra = drive[b'MReportDrive.fRa'] * degrees_per_hour
                 drive_dec = drive[b'MReportDrive.fDec']
 
-                # Finding only non-repeating drive entries
-                # Repeating entries lead to failure in pointing interpolation
-                non_repeating = scipy.diff(drive_mjd) > 0
-                non_repeating = scipy.concatenate((non_repeating, [True]))
+                drive_data['mjd'] = np.concatenate((drive_data['mjd'],drive_mjd))
+                drive_data['zd']  = np.concatenate((drive_data['zd'],drive_zd))
+                drive_data['az']  = np.concatenate((drive_data['az'],drive_az))
+                drive_data['ra']  = np.concatenate((drive_data['ra'],drive_ra))
+                drive_data['dec'] = np.concatenate((drive_data['dec'],drive_dec))
 
-                # Filtering out the repeating ones
-                drive_mjd = drive_mjd[non_repeating]
-                drive_zd = drive_zd[non_repeating]
-                drive_az = drive_az[non_repeating]
-                drive_ra = drive_ra[non_repeating]
-                drive_dec = drive_dec[non_repeating]
-
-                if len(drive_zd) > 2:
-                    # If there are enough drive data, creating azimuth and zenith angles interpolators
-                    drive_zd_pointing_interpolator = scipy.interpolate.interp1d(
-                        drive_mjd, drive_zd, fill_value="extrapolate")
-                    drive_az_pointing_interpolator = scipy.interpolate.interp1d(
-                        drive_mjd, drive_az, fill_value="extrapolate")
-
-                    # Creating azimuth and zenith angles interpolators
-                    drive_ra_pointing_interpolator = scipy.interpolate.interp1d(
-                        drive_mjd, drive_ra, fill_value="extrapolate")
-                    drive_dec_pointing_interpolator = scipy.interpolate.interp1d(
-                        drive_mjd, drive_dec, fill_value="extrapolate")
-
-                    # Interpolating the drive pointing to the event time stamps
-                    pointing_zd = drive_zd_pointing_interpolator(event_mjd)
-                    pointing_az = drive_az_pointing_interpolator(event_mjd)
-                    pointing_ra = drive_ra_pointing_interpolator(event_mjd)
-                    pointing_dec = drive_dec_pointing_interpolator(event_mjd)
-
-                else:
-                    # Not enough data to interpolate the pointing direction.
-                    pointing_zd = scipy.repeat(-1, len(event_mjd))
-                    pointing_az = scipy.repeat(-1, len(event_mjd))
-                    pointing_ra = scipy.repeat(-1, len(event_mjd))
-                    pointing_dec = scipy.repeat(-1, len(event_mjd))
+                if len(drive_mjd) < 3:
+                    LOGGER.warning(f"File {file_name} has only {len(drive_mjd)} drive reports.")
 
             # check for bit flips in the stereo event ID:
             d_x = np.diff(stereo_event_number.astype(np.int))
@@ -1288,17 +1264,16 @@ class MarsRun:
                 (event_data['trigger_pattern'], trigger_pattern))
             event_data['stereo_event_number'] = scipy.concatenate(
                 (event_data['stereo_event_number'], stereo_event_number))
-            event_data['pointing_zd'] = scipy.concatenate(
-                (event_data['pointing_zd'], pointing_zd))
-            event_data['pointing_az'] = scipy.concatenate(
-                (event_data['pointing_az'], pointing_az))
-            event_data['pointing_ra'] = scipy.concatenate(
-                (event_data['pointing_ra'], pointing_ra))
-            event_data['pointing_dec'] = scipy.concatenate(
-                (event_data['pointing_dec'], pointing_dec))
-
-            # Reading MC only information:
             if is_mc:
+                event_data['pointing_zd'] = scipy.concatenate(
+                    (event_data['pointing_zd'], pointing_zd))
+                event_data['pointing_az'] = scipy.concatenate(
+                    (event_data['pointing_az'], pointing_az))
+                event_data['pointing_ra'] = scipy.concatenate(
+                    (event_data['pointing_ra'], pointing_ra))
+                event_data['pointing_dec'] = scipy.concatenate(
+                    (event_data['pointing_dec'], pointing_dec))
+
                 mc_info = input_file['Events'].arrays(mc_list)
                 # N.B.: For MC, there is only one subrun, so do not need to 'append'
                 event_data['true_energy'] = mc_info[b'MMcEvt.fEnergy']
@@ -1327,9 +1302,40 @@ class MarsRun:
                     monitoring_data['PedestalFromExtractor'][quantity])
                 monitoring_data['PedestalFromExtractorRndm'][quantity] = np.array(
                     monitoring_data['PedestalFromExtractorRndm'][quantity])
-        
+
+            # get only drive reports with unique times, otherwise interpolation fails.
+            drive_mjd_unique, unique_indices = np.unique(drive_data['mjd'], return_index=True)
+            drive_zd_unique  = drive_data['zd'][unique_indices]
+            drive_az_unique  = drive_data['az'][unique_indices]
+            drive_ra_unique  = drive_data['ra'][unique_indices]
+            drive_dec_unique = drive_data['dec'][unique_indices]
+
+            first_drive_report_time = Time(drive_mjd_unique[0], scale='utc', format='mjd')
+            last_drive_report_time  = Time(drive_mjd_unique[-1], scale='utc', format='mjd')
+
+            LOGGER.info(f"Interpolating event information from {len(drive_data['mjd'])} drive reports.")
+            LOGGER.info(f"Drive reports available from {first_drive_report_time.iso} to {last_drive_report_time.iso}.")
+
+            # Creating azimuth and zenith angles interpolators
+            drive_zd_pointing_interpolator = scipy.interpolate.interp1d(
+                drive_mjd_unique, drive_zd_unique, fill_value="extrapolate")
+            drive_az_pointing_interpolator = scipy.interpolate.interp1d(
+                drive_mjd_unique, drive_az_unique, fill_value="extrapolate")
+
+            # Creating RA and DEC interpolators
+            drive_ra_pointing_interpolator = scipy.interpolate.interp1d(
+                drive_mjd_unique, drive_ra_unique, fill_value="extrapolate")
+            drive_dec_pointing_interpolator = scipy.interpolate.interp1d(
+                drive_mjd_unique, drive_dec_unique, fill_value="extrapolate")
+
+            # Interpolating the drive pointing to the event time stamps
+            event_data['pointing_zd'] = drive_zd_pointing_interpolator(event_data['MJD'])
+            event_data['pointing_az'] = drive_az_pointing_interpolator(event_data['MJD'])
+            event_data['pointing_ra'] = drive_ra_pointing_interpolator(event_data['MJD'])
+            event_data['pointing_dec'] = drive_dec_pointing_interpolator(event_data['MJD'])
+
         return event_data, monitoring_data, mcheader_data
-       
+
 
     def _find_pedestal_events(self):
         """
