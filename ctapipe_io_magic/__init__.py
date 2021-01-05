@@ -1445,8 +1445,16 @@ class MarsRun:
 
             # remove ids that have stereo trigger from the array of ids of data events
             # see: https://stackoverflow.com/questions/52417929/remove-elements-from-one-array-if-present-in-another-array-keep-duplicates-nu
-            m1_ids_mono = m1_ids_data[m1_ids_stereo[np.searchsorted(m1_ids_stereo,m1_ids_data)] != m1_ids_data]
-            m2_ids_mono = m2_ids_data[m2_ids_stereo[np.searchsorted(m2_ids_stereo,m2_ids_data)] != m2_ids_data]
+
+            sidx1 = m1_ids_stereo.argsort()
+            idx1 = np.searchsorted(m1_ids_stereo,m1_ids_data,sorter=sidx1)
+            idx1[idx1==len(m1_ids_stereo)] = 0
+            m1_ids_mono = m1_ids_data[m1_ids_stereo[sidx1[idx1]] != m1_ids_data]
+
+            sidx2 = m2_ids_stereo.argsort()
+            idx2 = np.searchsorted(m2_ids_stereo,m2_ids_data,sorter=sidx2)
+            idx2[idx2==len(m2_ids_stereo)] = 0
+            m2_ids_mono = m2_ids_data[m2_ids_stereo[sidx2[idx2]] != m2_ids_data]
 
             mono_ids['M1'] = m1_ids_mono.tolist()
             mono_ids['M2'] = m2_ids_mono.tolist()
