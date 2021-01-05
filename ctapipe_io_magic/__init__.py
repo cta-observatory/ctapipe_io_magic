@@ -1313,8 +1313,8 @@ class MarsRun:
             first_drive_report_time = Time(drive_mjd_unique[0], scale='utc', format='mjd')
             last_drive_report_time  = Time(drive_mjd_unique[-1], scale='utc', format='mjd')
 
-            LOGGER.info(f"Interpolating event information from {len(drive_data['mjd'])} drive reports.")
-            LOGGER.info(f"Drive reports available from {first_drive_report_time.iso} to {last_drive_report_time.iso}.")
+            LOGGER.warning(f"Interpolating events information from {len(drive_data['mjd'])} drive reports.")
+            LOGGER.warning(f"Drive reports available from {first_drive_report_time.iso} to {last_drive_report_time.iso}.")
 
             # Creating azimuth and zenith angles interpolators
             drive_zd_pointing_interpolator = scipy.interpolate.interp1d(
