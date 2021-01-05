@@ -72,6 +72,14 @@ class L3JumpError(Exception):
     def __init__(self, message):
         self.message = message
 
+class MissingDriveReportError(Exception):
+    """
+    Exception raised when a subrun does not have drive reports.
+    """
+
+    def __init__(self, message):
+        self.message = message
+
 class MAGICEventSource(EventSource):
     """
     EventSource for MAGIC calibrated data.
@@ -1221,6 +1229,8 @@ class MarsRun:
 
                 if len(drive_mjd) < 3:
                     LOGGER.warning(f"File {file_name} has only {len(drive_mjd)} drive reports.")
+                    if len(drive_mjd) == 0:
+                        raise MissingDriveReportError(f"File {file_name} does not have any drive report. Check if it was merpped correctly.")
 
             # check for bit flips in the stereo event ID:
             d_x = np.diff(stereo_event_number.astype(np.int))
