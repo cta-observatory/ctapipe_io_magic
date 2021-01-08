@@ -1260,12 +1260,13 @@ class MarsRun:
                 for i in dx_flip_ids_before:
                     trigger_pattern[i] = -1
                     trigger_pattern[i+1] = -1
-                    jumped_events = int(stereo_event_number[i]) - int(stereo_event_number[i+1])
-                    total_jumped_events += jumped_events
-                    LOGGER.warning(f"Jump of L3 number backward from {stereo_event_number[i]} to {stereo_event_number[i+1]}; "
-                        f"total jumped events so far: {total_jumped_events}")
-                    if total_jumped_events > max_total_jumps:
-                        raise L3JumpError(f"Jumps backward in L3 trigger number by {total_jumped_events} in total. You might consider matching events by time instead.")
+                    if not is_mc:
+                        jumped_events = int(stereo_event_number[i]) - int(stereo_event_number[i+1])
+                        total_jumped_events += jumped_events
+                        LOGGER.warning(f"Jump of L3 number backward from {stereo_event_number[i]} to {stereo_event_number[i+1]}; "
+                            f"total jumped events so far: {total_jumped_events}")
+                        if total_jumped_events > max_total_jumps:
+                            raise L3JumpError(f"Jumps backward in L3 trigger number by {total_jumped_events} in total. You might consider matching events by time instead.")
 
             event_data['charge'].append(charge)
             event_data['arrival_time'].append(arrival_time)
