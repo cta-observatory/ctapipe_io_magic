@@ -64,6 +64,21 @@ MC_TRIGGER_PATTERN = 1
 PEDESTAL_TRIGGER_PATTERN = 8
 DATA_TRIGGER_PATTERN = 128
 
+class L3JumpError(Exception):
+    """
+    Exception raised when L3 trigger number jumps backward.
+    """
+
+    def __init__(self, message):
+        self.message = message
+
+class MissingDriveReportError(Exception):
+    """
+    Exception raised when a subrun does not have drive reports.
+    """
+
+    def __init__(self, message):
+        self.message = message
 
 class MAGICEventSource(EventSource):
     """
@@ -962,8 +977,15 @@ class MarsRun:
 
         #MC Header information, dictionary always created, but filled only in case of MC run
         mcheader_data = dict()
-    
+
         event_data['file_edges'] = [0]
+
+        drive_data = dict()
+        drive_data['mjd'] = np.array([])
+        drive_data['zd']  = np.array([])
+        drive_data['az']  = np.array([])
+        drive_data['ra']  = np.array([])
+        drive_data['dec'] = np.array([])
 
         degrees_per_hour = 15.0
         seconds_per_day = 86400.0
@@ -1176,7 +1198,7 @@ class MarsRun:
                         "Pedestals tree not present in file. Cleaning algorithm may fail.")
 
             # Reading pointing information (in units of degrees):
-            if 'MPointingPos.' in input_file['Events']:
+            if is_mc:
                 # Retrieving the telescope pointing direction
                 pointing = input_file['Events'].arrays(pointing_array_list)
 
@@ -1189,8 +1211,6 @@ class MarsRun:
                                pointing[b'MPointingPos.fDevHa']) * degrees_per_hour
                 pointing_dec = pointing[b'MPointingPos.fDec'] - \
                     pointing[b'MPointingPos.fDevDec']
-
-                
             else:
                 # Getting the telescope drive info
                 drive = input_file['Drive'].arrays(drive_array_list)
@@ -1201,43 +1221,16 @@ class MarsRun:
                 drive_ra = drive[b'MReportDrive.fRa'] * degrees_per_hour
                 drive_dec = drive[b'MReportDrive.fDec']
 
-                # Finding only non-repeating drive entries
-                # Repeating entries lead to failure in pointing interpolation
-                non_repeating = scipy.diff(drive_mjd) > 0
-                non_repeating = scipy.concatenate((non_repeating, [True]))
+                drive_data['mjd'] = np.concatenate((drive_data['mjd'],drive_mjd))
+                drive_data['zd']  = np.concatenate((drive_data['zd'],drive_zd))
+                drive_data['az']  = np.concatenate((drive_data['az'],drive_az))
+                drive_data['ra']  = np.concatenate((drive_data['ra'],drive_ra))
+                drive_data['dec'] = np.concatenate((drive_data['dec'],drive_dec))
 
-                # Filtering out the repeating ones
-                drive_mjd = drive_mjd[non_repeating]
-                drive_zd = drive_zd[non_repeating]
-                drive_az = drive_az[non_repeating]
-                drive_ra = drive_ra[non_repeating]
-                drive_dec = drive_dec[non_repeating]
-
-                if len(drive_zd) > 2:
-                    # If there are enough drive data, creating azimuth and zenith angles interpolators
-                    drive_zd_pointing_interpolator = scipy.interpolate.interp1d(
-                        drive_mjd, drive_zd, fill_value="extrapolate")
-                    drive_az_pointing_interpolator = scipy.interpolate.interp1d(
-                        drive_mjd, drive_az, fill_value="extrapolate")
-
-                    # Creating azimuth and zenith angles interpolators
-                    drive_ra_pointing_interpolator = scipy.interpolate.interp1d(
-                        drive_mjd, drive_ra, fill_value="extrapolate")
-                    drive_dec_pointing_interpolator = scipy.interpolate.interp1d(
-                        drive_mjd, drive_dec, fill_value="extrapolate")
-
-                    # Interpolating the drive pointing to the event time stamps
-                    pointing_zd = drive_zd_pointing_interpolator(event_mjd)
-                    pointing_az = drive_az_pointing_interpolator(event_mjd)
-                    pointing_ra = drive_ra_pointing_interpolator(event_mjd)
-                    pointing_dec = drive_dec_pointing_interpolator(event_mjd)
-
-                else:
-                    # Not enough data to interpolate the pointing direction.
-                    pointing_zd = scipy.repeat(-1, len(event_mjd))
-                    pointing_az = scipy.repeat(-1, len(event_mjd))
-                    pointing_ra = scipy.repeat(-1, len(event_mjd))
-                    pointing_dec = scipy.repeat(-1, len(event_mjd))
+                if len(drive_mjd) < 3:
+                    LOGGER.warning(f"File {file_name} has only {len(drive_mjd)} drive reports.")
+                    if len(drive_mjd) == 0:
+                        raise MissingDriveReportError(f"File {file_name} does not have any drive report. Check if it was merpped correctly.")
 
             # check for bit flips in the stereo event ID:
             d_x = np.diff(stereo_event_number.astype(np.int))
@@ -1259,12 +1252,21 @@ class MarsRun:
                 dx_flip_ids_after = np.array(
                     list(set(dx_flip_ids_after) - set(orphan_ids)))
             dx_flip_ids_before = dx_flip_ids_after - 1
+            max_total_jumps = 100
             if len(dx_flip_ids_before) > 0:
                 LOGGER.warning("Warning: detected %d bitflips in file %s. Flag affected events as unsuitable" % (
                     len(dx_flip_ids_before), file_name))
+                total_jumped_events = 0
                 for i in dx_flip_ids_before:
                     trigger_pattern[i] = -1
                     trigger_pattern[i+1] = -1
+                    if not is_mc:
+                        jumped_events = int(stereo_event_number[i]) - int(stereo_event_number[i+1])
+                        total_jumped_events += jumped_events
+                        LOGGER.warning(f"Jump of L3 number backward from {stereo_event_number[i]} to {stereo_event_number[i+1]}; "
+                            f"total jumped events so far: {total_jumped_events}")
+                        if total_jumped_events > max_total_jumps:
+                            raise L3JumpError(f"Jumps backward in L3 trigger number by {total_jumped_events} in total. You might consider matching events by time instead.")
 
             event_data['charge'].append(charge)
             event_data['arrival_time'].append(arrival_time)
@@ -1273,17 +1275,16 @@ class MarsRun:
                 (event_data['trigger_pattern'], trigger_pattern))
             event_data['stereo_event_number'] = scipy.concatenate(
                 (event_data['stereo_event_number'], stereo_event_number))
-            event_data['pointing_zd'] = scipy.concatenate(
-                (event_data['pointing_zd'], pointing_zd))
-            event_data['pointing_az'] = scipy.concatenate(
-                (event_data['pointing_az'], pointing_az))
-            event_data['pointing_ra'] = scipy.concatenate(
-                (event_data['pointing_ra'], pointing_ra))
-            event_data['pointing_dec'] = scipy.concatenate(
-                (event_data['pointing_dec'], pointing_dec))
-
-            # Reading MC only information:
             if is_mc:
+                event_data['pointing_zd'] = scipy.concatenate(
+                    (event_data['pointing_zd'], pointing_zd))
+                event_data['pointing_az'] = scipy.concatenate(
+                    (event_data['pointing_az'], pointing_az))
+                event_data['pointing_ra'] = scipy.concatenate(
+                    (event_data['pointing_ra'], pointing_ra))
+                event_data['pointing_dec'] = scipy.concatenate(
+                    (event_data['pointing_dec'], pointing_dec))
+
                 mc_info = input_file['Events'].arrays(mc_list)
                 # N.B.: For MC, there is only one subrun, so do not need to 'append'
                 event_data['true_energy'] = mc_info[b'MMcEvt.fEnergy']
@@ -1312,9 +1313,40 @@ class MarsRun:
                     monitoring_data['PedestalFromExtractor'][quantity])
                 monitoring_data['PedestalFromExtractorRndm'][quantity] = np.array(
                     monitoring_data['PedestalFromExtractorRndm'][quantity])
-        
+
+            # get only drive reports with unique times, otherwise interpolation fails.
+            drive_mjd_unique, unique_indices = np.unique(drive_data['mjd'], return_index=True)
+            drive_zd_unique  = drive_data['zd'][unique_indices]
+            drive_az_unique  = drive_data['az'][unique_indices]
+            drive_ra_unique  = drive_data['ra'][unique_indices]
+            drive_dec_unique = drive_data['dec'][unique_indices]
+
+            first_drive_report_time = Time(drive_mjd_unique[0], scale='utc', format='mjd')
+            last_drive_report_time  = Time(drive_mjd_unique[-1], scale='utc', format='mjd')
+
+            LOGGER.warning(f"Interpolating events information from {len(drive_data['mjd'])} drive reports.")
+            LOGGER.warning(f"Drive reports available from {first_drive_report_time.iso} to {last_drive_report_time.iso}.")
+
+            # Creating azimuth and zenith angles interpolators
+            drive_zd_pointing_interpolator = scipy.interpolate.interp1d(
+                drive_mjd_unique, drive_zd_unique, fill_value="extrapolate")
+            drive_az_pointing_interpolator = scipy.interpolate.interp1d(
+                drive_mjd_unique, drive_az_unique, fill_value="extrapolate")
+
+            # Creating RA and DEC interpolators
+            drive_ra_pointing_interpolator = scipy.interpolate.interp1d(
+                drive_mjd_unique, drive_ra_unique, fill_value="extrapolate")
+            drive_dec_pointing_interpolator = scipy.interpolate.interp1d(
+                drive_mjd_unique, drive_dec_unique, fill_value="extrapolate")
+
+            # Interpolating the drive pointing to the event time stamps
+            event_data['pointing_zd'] = drive_zd_pointing_interpolator(event_data['MJD'])
+            event_data['pointing_az'] = drive_az_pointing_interpolator(event_data['MJD'])
+            event_data['pointing_ra'] = drive_ra_pointing_interpolator(event_data['MJD'])
+            event_data['pointing_dec'] = drive_dec_pointing_interpolator(event_data['MJD'])
+
         return event_data, monitoring_data, mcheader_data
-       
+
 
     def _find_pedestal_events(self):
         """
@@ -1354,37 +1386,44 @@ class MarsRun:
             return stereo_ids
 
         if not self.is_mc:
+            stereo_m1_data = self.event_data['M1']['stereo_event_number'][np.where(self.event_data['M1']['trigger_pattern'] == DATA_TRIGGER_PATTERN)]
+            stereo_m2_data = self.event_data['M2']['stereo_event_number'][np.where(self.event_data['M2']['trigger_pattern'] == DATA_TRIGGER_PATTERN)]
 
-            m2_data_condition = (
-                self.event_data['M2']['trigger_pattern'] == DATA_TRIGGER_PATTERN)
+            # find common values between M1 and M2 stereo events, see https://numpy.org/doc/stable/reference/generated/numpy.intersect1d.html
+            stereo_numbers = np.intersect1d(stereo_m1_data, stereo_m2_data)
 
-            for m1_id in range(0, n_m1_events):
-                if self.event_data['M1']['trigger_pattern'][m1_id] == DATA_TRIGGER_PATTERN:
-                    m2_stereo_condition = (self.event_data['M2']['stereo_event_number'] ==
-                                           self.event_data['M1']['stereo_event_number'][m1_id])
+            # find indices of the stereo event numbers in original stereo event numbers arrays, see
+            # https://stackoverflow.com/questions/12122639/find-indices-of-a-list-of-values-in-a-numpy-array
+            m1_ids = np.searchsorted(self.event_data['M1']['stereo_event_number'], stereo_numbers)
+            m2_ids = np.searchsorted(self.event_data['M2']['stereo_event_number'], stereo_numbers)
 
-                    m12_match = np.where(
-                        m2_data_condition & m2_stereo_condition)
-
-                    if len(m12_match[0]) > 0:
-                        stereo_pair = (m1_id, m12_match[0][0])
-                        stereo_ids.append(stereo_pair)
+            # make list of tuples, see https://stackoverflow.com/questions/2407398/how-to-merge-lists-into-a-list-of-tuples
+            stereo_ids = list(zip(m1_ids, m2_ids))
         else:
+            stereo_m1_data = self.event_data['M1']['stereo_event_number'][np.where(self.event_data['M1']['trigger_pattern'] == MC_TRIGGER_PATTERN)]
+            stereo_m2_data = self.event_data['M2']['stereo_event_number'][np.where(self.event_data['M2']['trigger_pattern'] == MC_TRIGGER_PATTERN)]
+            # remove events with 0 stereo number, which are mono events
+            stereo_m1_data = stereo_m1_data[np.where(stereo_m1_data != 0)]
+            stereo_m2_data = stereo_m2_data[np.where(stereo_m2_data != 0)]
 
-            m2_data_condition = (
-                self.event_data['M2']['trigger_pattern'] == MC_TRIGGER_PATTERN)
+            stereo_numbers = np.intersect1d(stereo_m1_data, stereo_m2_data)
 
-            for m1_id in range(0, n_m1_events):
-                if self.event_data['M1']['trigger_pattern'][m1_id] == MC_TRIGGER_PATTERN and self.event_data['M1']['stereo_event_number'][m1_id] != 0:
-                    m2_stereo_condition = (self.event_data['M2']['stereo_event_number'] ==
-                                           self.event_data['M1']['stereo_event_number'][m1_id])
+            # because of IDs equal to 0, we must find indices in a slight different way
+            # see https://stackoverflow.com/questions/8251541/numpy-for-every-element-in-one-array-find-the-index-in-another-array
 
-                    m12_match = np.where(
-                        m2_data_condition & m2_stereo_condition)
+            index_m1 = np.argsort(self.event_data['M1']['stereo_event_number'])
+            index_m2 = np.argsort(self.event_data['M2']['stereo_event_number'])
 
-                    if len(m12_match[0]) > 0:
-                        stereo_pair = (m1_id, m12_match[0][0])
-                        stereo_ids.append(stereo_pair)
+            sort_stereo_events_m1 = self.event_data['M1']['stereo_event_number'][index_m1]
+            sort_stereo_events_m2 = self.event_data['M2']['stereo_event_number'][index_m2]
+
+            sort_index_m1 = np.searchsorted(sort_stereo_events_m1, stereo_numbers)
+            sort_index_m2 = np.searchsorted(sort_stereo_events_m2, stereo_numbers)
+
+            m1_ids = np.take(index_m1, sort_index_m1)
+            m2_ids = np.take(index_m2, sort_index_m2)
+
+            stereo_ids = list(zip(m1_ids, m2_ids))
 
         return stereo_ids
 
@@ -1403,59 +1442,43 @@ class MarsRun:
         mono_ids['M1'] = []
         mono_ids['M2'] = []
 
-        n_m1_events = len(self.event_data['M1']['stereo_event_number'])
-        n_m2_events = len(self.event_data['M2']['stereo_event_number'])
-
         if not self.is_mc:
+            m1_data = self.event_data['M1']['stereo_event_number'][np.where(self.event_data['M1']['trigger_pattern'] == DATA_TRIGGER_PATTERN)]
+            m2_data = self.event_data['M2']['stereo_event_number'][np.where(self.event_data['M2']['trigger_pattern'] == DATA_TRIGGER_PATTERN)]
 
-            m1_data_condition = self.event_data['M1']['trigger_pattern'] == DATA_TRIGGER_PATTERN
-            m2_data_condition = self.event_data['M2']['trigger_pattern'] == DATA_TRIGGER_PATTERN
+            m1_ids_data = np.where(self.event_data['M1']['trigger_pattern'] == DATA_TRIGGER_PATTERN)[0]
+            m2_ids_data = np.where(self.event_data['M2']['trigger_pattern'] == DATA_TRIGGER_PATTERN)[0]
 
-            for m1_id in range(0, n_m1_events):
-                if m1_data_condition[m1_id]:
-                    m2_stereo_condition = (self.event_data['M2']['stereo_event_number'] ==
-                                           self.event_data['M1']['stereo_event_number'][m1_id])
+            stereo_numbers = np.intersect1d(m1_data, m2_data)
 
-                    m12_match = np.where(
-                        m2_data_condition & m2_stereo_condition)
+            m1_ids_stereo = np.searchsorted(self.event_data['M1']['stereo_event_number'], stereo_numbers)
+            m2_ids_stereo = np.searchsorted(self.event_data['M2']['stereo_event_number'], stereo_numbers)
 
-                    if len(m12_match[0]) == 0:
-                        mono_ids['M1'].append(m1_id)
+            # remove ids that have stereo trigger from the array of ids of data events
+            # see: https://stackoverflow.com/questions/52417929/remove-elements-from-one-array-if-present-in-another-array-keep-duplicates-nu
 
-            for m2_id in range(0, n_m2_events):
-                if m2_data_condition[m2_id]:
-                    m1_stereo_condition = (self.event_data['M1']['stereo_event_number'] ==
-                                           self.event_data['M2']['stereo_event_number'][m2_id])
+            sidx1 = m1_ids_stereo.argsort()
+            idx1 = np.searchsorted(m1_ids_stereo,m1_ids_data,sorter=sidx1)
+            idx1[idx1==len(m1_ids_stereo)] = 0
+            m1_ids_mono = m1_ids_data[m1_ids_stereo[sidx1[idx1]] != m1_ids_data]
 
-                    m12_match = np.where(
-                        m1_data_condition & m1_stereo_condition)
+            sidx2 = m2_ids_stereo.argsort()
+            idx2 = np.searchsorted(m2_ids_stereo,m2_ids_data,sorter=sidx2)
+            idx2[idx2==len(m2_ids_stereo)] = 0
+            m2_ids_mono = m2_ids_data[m2_ids_stereo[sidx2[idx2]] != m2_ids_data]
 
-                    if len(m12_match[0]) == 0:
-                        mono_ids['M2'].append(m2_id)
+            mono_ids['M1'] = m1_ids_mono.tolist()
+            mono_ids['M2'] = m2_ids_mono.tolist()
         else:
-            m1_data_condition = self.event_data['M1']['trigger_pattern'] == MC_TRIGGER_PATTERN
-            m2_data_condition = self.event_data['M2']['trigger_pattern'] == MC_TRIGGER_PATTERN
+            # just find ids where event stereo number is 0 (which is given to mono events) and pattern is MC trigger
+            m1_mono_mask = np.logical_and(self.event_data['M1']['trigger_pattern'] == MC_TRIGGER_PATTERN, self.event_data['M1']['stereo_event_number'] == 0)
+            m2_mono_mask = np.logical_and(self.event_data['M2']['trigger_pattern'] == MC_TRIGGER_PATTERN, self.event_data['M2']['stereo_event_number'] == 0)
 
-            # shortcut if only single file is loaded:
-            if n_m1_events == 0:
-                if n_m2_events > 0:
-                    mono_ids['M2'] = np.arange(0, n_m2_events)[
-                        m2_data_condition]
-                return mono_ids
-            if n_m2_events == 0:
-                if n_m1_events > 0:
-                    mono_ids['M1'] = np.arange(0, n_m1_events)[
-                        m1_data_condition]
-                return mono_ids
+            m1_ids = np.where(m1_mono_mask == True)[0].tolist()
+            m2_ids = np.where(m2_mono_mask == True)[0].tolist()
 
-            for m1_id in range(0, n_m1_events):
-                if m1_data_condition[m1_id]:
-                    if self.event_data['M1']['stereo_event_number'][m1_id] == 0:
-                        mono_ids['M1'].append(m1_id)
-            for m2_id in range(0, n_m2_events):
-                if m2_data_condition[m2_id]:
-                    if self.event_data['M2']['stereo_event_number'][m2_id] == 0:
-                        mono_ids['M2'].append(m2_id)
+            mono_ids['M1'] = m1_ids
+            mono_ids['M2'] = m2_ids
 
         return mono_ids
 
