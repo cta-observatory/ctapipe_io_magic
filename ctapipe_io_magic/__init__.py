@@ -980,6 +980,11 @@ class MarsRun:
 
         event_data['file_edges'] = [0]
 
+        # if no file in the list (e.g. when reading mono information), then simply
+        # return empty dicts/array
+        if len(file_list) == 0:
+            return event_data, monitoring_data, mcheader_data
+
         drive_data = dict()
         drive_data['mjd'] = np.array([])
         drive_data['zd']  = np.array([])
