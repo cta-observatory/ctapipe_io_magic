@@ -8,6 +8,7 @@ import logging
 import glob
 import re
 import os.path
+from pathlib import Path
 
 import numpy as np
 
@@ -109,7 +110,8 @@ class MAGICEventSource(EventSource):
             the 'input_url' parameter.
         """
 
-        self.file_list = glob.glob(kwargs['input_url'])
+        file_path = Path(kwargs['input_url'])
+        self.file_list = glob.glob(str(file_path.absolute()))
         if not self.file_list:
             raise ValueError("Unreadable or wrong wildcard file path given.")
         self.file_list.sort()
