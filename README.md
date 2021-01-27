@@ -95,3 +95,4 @@ Some general information about the simulated data, useful for IRF calculation, a
 - v0.2.1: Monitoring data (Dead pixel and pedestal information)
 - v0.2.2: Added MC Header info
 - v0.2.3: Solve issue when interpolating information from drive reports, causing crashes when using pointing information in astropy SkyCoord objects. Make the reader faster when searching for ids of mono and stereo events
+- v0.2.4: fixes in mono_event_generator; fix to allow the use of relative paths as `input_url`

@@ -8,6 +8,7 @@ import logging
 import glob
 import re
 import os.path
+from pathlib import Path
 
 import numpy as np
 
@@ -109,7 +110,8 @@ class MAGICEventSource(EventSource):
             the 'input_url' parameter.
         """
 
-        self.file_list = glob.glob(kwargs['input_url'])
+        file_path = Path(kwargs['input_url'])
+        self.file_list = glob.glob(str(file_path.absolute()))
         if not self.file_list:
             raise ValueError("Unreadable or wrong wildcard file path given.")
         self.file_list.sort()
@@ -980,6 +982,11 @@ class MarsRun:
 
         event_data['file_edges'] = [0]
 
+        # if no file in the list (e.g. when reading mono information), then simply
+        # return empty dicts/array
+        if len(file_list) == 0:
+            return event_data, monitoring_data, mcheader_data
+
         drive_data = dict()
         drive_data['mjd'] = np.array([])
         drive_data['zd']  = np.array([])
@@ -1442,33 +1449,43 @@ class MarsRun:
         mono_ids['M1'] = []
         mono_ids['M2'] = []
 
+        n_m1_events = len(self.event_data['M1']['stereo_event_number'])
+        n_m2_events = len(self.event_data['M2']['stereo_event_number'])
+
         if not self.is_mc:
-            m1_data = self.event_data['M1']['stereo_event_number'][np.where(self.event_data['M1']['trigger_pattern'] == DATA_TRIGGER_PATTERN)]
-            m2_data = self.event_data['M2']['stereo_event_number'][np.where(self.event_data['M2']['trigger_pattern'] == DATA_TRIGGER_PATTERN)]
+            if (n_m1_events != 0) and (n_m2_events != 0):
+                m1_data = self.event_data['M1']['stereo_event_number'][np.where(self.event_data['M1']['trigger_pattern'] == DATA_TRIGGER_PATTERN)]
+                m2_data = self.event_data['M2']['stereo_event_number'][np.where(self.event_data['M2']['trigger_pattern'] == DATA_TRIGGER_PATTERN)]
 
-            m1_ids_data = np.where(self.event_data['M1']['trigger_pattern'] == DATA_TRIGGER_PATTERN)[0]
-            m2_ids_data = np.where(self.event_data['M2']['trigger_pattern'] == DATA_TRIGGER_PATTERN)[0]
+                m1_ids_data = np.where(self.event_data['M1']['trigger_pattern'] == DATA_TRIGGER_PATTERN)[0]
+                m2_ids_data = np.where(self.event_data['M2']['trigger_pattern'] == DATA_TRIGGER_PATTERN)[0]
 
-            stereo_numbers = np.intersect1d(m1_data, m2_data)
+                stereo_numbers = np.intersect1d(m1_data, m2_data)
 
-            m1_ids_stereo = np.searchsorted(self.event_data['M1']['stereo_event_number'], stereo_numbers)
-            m2_ids_stereo = np.searchsorted(self.event_data['M2']['stereo_event_number'], stereo_numbers)
+                m1_ids_stereo = np.searchsorted(self.event_data['M1']['stereo_event_number'], stereo_numbers)
+                m2_ids_stereo = np.searchsorted(self.event_data['M2']['stereo_event_number'], stereo_numbers)
 
-            # remove ids that have stereo trigger from the array of ids of data events
-            # see: https://stackoverflow.com/questions/52417929/remove-elements-from-one-array-if-present-in-another-array-keep-duplicates-nu
+                # remove ids that have stereo trigger from the array of ids of data events
+                # see: https://stackoverflow.com/questions/52417929/remove-elements-from-one-array-if-present-in-another-array-keep-duplicates-nu
 
-            sidx1 = m1_ids_stereo.argsort()
-            idx1 = np.searchsorted(m1_ids_stereo,m1_ids_data,sorter=sidx1)
-            idx1[idx1==len(m1_ids_stereo)] = 0
-            m1_ids_mono = m1_ids_data[m1_ids_stereo[sidx1[idx1]] != m1_ids_data]
+                sidx1 = m1_ids_stereo.argsort()
+                idx1 = np.searchsorted(m1_ids_stereo,m1_ids_data,sorter=sidx1)
+                idx1[idx1==len(m1_ids_stereo)] = 0
+                m1_ids_mono = m1_ids_data[m1_ids_stereo[sidx1[idx1]] != m1_ids_data]
 
-            sidx2 = m2_ids_stereo.argsort()
-            idx2 = np.searchsorted(m2_ids_stereo,m2_ids_data,sorter=sidx2)
-            idx2[idx2==len(m2_ids_stereo)] = 0
-            m2_ids_mono = m2_ids_data[m2_ids_stereo[sidx2[idx2]] != m2_ids_data]
+                sidx2 = m2_ids_stereo.argsort()
+                idx2 = np.searchsorted(m2_ids_stereo,m2_ids_data,sorter=sidx2)
+                idx2[idx2==len(m2_ids_stereo)] = 0
+                m2_ids_mono = m2_ids_data[m2_ids_stereo[sidx2[idx2]] != m2_ids_data]
 
-            mono_ids['M1'] = m1_ids_mono.tolist()
-            mono_ids['M2'] = m2_ids_mono.tolist()
+                mono_ids['M1'] = m1_ids_mono.tolist()
+                mono_ids['M2'] = m2_ids_mono.tolist()
+            elif (n_m1_events != 0) and (n_m2_events == 0):
+                m1_ids_data = np.where(self.event_data['M1']['trigger_pattern'] == DATA_TRIGGER_PATTERN)[0]
+                mono_ids['M1'] = m1_ids_data.tolist()
+            elif (n_m1_events == 0) and (n_m2_events != 0):
+                m2_ids_data = np.where(self.event_data['M2']['trigger_pattern'] == DATA_TRIGGER_PATTERN)[0]
+                mono_ids['M2'] = m2_ids_data.tolist()
         else:
             # just find ids where event stereo number is 0 (which is given to mono events) and pattern is MC trigger
             m1_mono_mask = np.logical_and(self.event_data['M1']['trigger_pattern'] == MC_TRIGGER_PATTERN, self.event_data['M1']['stereo_event_number'] == 0)
