@@ -10,20 +10,20 @@ with open(path.join(this_directory, 'README.md'), encoding='utf-8') as f:
 setup(
     name='ctapipe_io_magic',
     packages=find_packages(),
-    version='0.2.1',
+    version='0.2.4',
     description='ctapipe plugin for reading of the calibrated MAGIC files',
     long_description=long_description,
     long_description_content_type='text/markdown',
     install_requires=[
         'ctapipe',
         'astropy',
-        'uproot',
+        'uproot3',
         'numpy',
         'scipy'
     ],
     tests_require=['pytest'],
     setup_requires=['pytest_runner'],
-    author='Ievgen Vovk',
+    author='Ievgen Vovk et al.',
     author_email='Ievgen.Vovk@mpp.mpg.de',
     license='MIT',
 ) 

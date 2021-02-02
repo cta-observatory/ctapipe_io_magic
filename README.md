@@ -85,8 +85,14 @@ Monitoring data are saved in `run['data'].monitoring_data` and can also accessed
 
 Dead pixel and pedestal information are read by `magic-cta-pipe` `MAGIC_Badpixels.py` class.
 
+##### MC Header data
+Some general information about the simulated data, useful for IRF calculation, are read from the root files and stored in data.mcheader container.
+
 #### Changelog
 
 - v0.1: Initial version
 - v0.2.0: Unification of data and MC reading
 - v0.2.1: Monitoring data (Dead pixel and pedestal information)
+- v0.2.2: Added MC Header info
+- v0.2.3: Solve issue when interpolating information from drive reports, causing crashes when using pointing information in astropy SkyCoord objects. Make the reader faster when searching for ids of mono and stereo events
+- v0.2.4: fixes in mono_event_generator; fix to allow the use of relative paths as `input_url`
