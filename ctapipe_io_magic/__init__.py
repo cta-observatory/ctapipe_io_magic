@@ -628,9 +628,16 @@ class MAGICEventSource(EventSource):
                 if not self.is_mc:
                     # Adding the event arrival time
                     time_tmp = Time(
-                        event_data['mjd'], scale='utc', format='mjd')
+                        event_data['MJD'], scale='utc', format='mjd')
                     data.trigger.time = Time(
                         time_tmp, format='unix', scale='utc', precision=9)
+
+                    # === added here ===
+                    data.trigger.mjd = event_data['mjd']
+                    data.trigger.millisec = event_data['millisec']
+                    data.trigger.nanosec = event_data['nanosec']
+                    # === added here === 
+
                 else:
                     data.mc.energy = event_data['true_energy'] * u.GeV
                     data.mc.alt = (np.pi/2 - event_data['true_zd']) * u.rad
@@ -959,6 +966,7 @@ class MarsRun:
         event_data['pointing_ra'] = scipy.array([])
         event_data['pointing_dec'] = scipy.array([])
         # === added here ===
+        event_data['mjd'] = scipy.array([])
         event_data['millisec'] = scipy.array([])
         event_data['nanosec'] = scipy.array([])
         # === added here ===
@@ -1120,15 +1128,17 @@ class MarsRun:
                 event_millisec = event_times[b'MTime.fTime.fMilliSec']
                 event_nanosec = event_times[b'MTime.fNanoSec']
 
+                # === added here ===
+                event_data['mjd'] = scipy.concatenate((event_data['mjd'], event_mjd))
+                event_data['millisec'] = scipy.concatenate((event_data['millisec'], event_millisec))
+                event_data['nanosec'] = scipy.concatenate((event_data['nanosec'], event_nanosec))
+                # === added here ===
+
                 event_mjd = event_mjd + \
                     (event_millisec / 1e3 + event_nanosec / 1e9) / seconds_per_day
                 event_data['MJD'] = scipy.concatenate(
                     (event_data['MJD'], event_mjd))
 
-                # === added here ===
-                event_data['millisec'] = scipy.concatenate((event_data['millisec'], event_millisec))
-                event_data['nanosec'] = scipy.concatenate((event_data['nanosec'], event_nanosec))
-                # === added here ===
 
             # try to read RunHeaders tree (soft fail if not present, to pass current tests)
             try:
@@ -1147,9 +1157,9 @@ class MarsRun:
                 mars_meta['source_dec'] = meta_info[b'MRawRunHeader.fSourceDEC'][0] / \
                     seconds_per_hour * u.deg
 
-                # === added here ===
-                mars_meta['mjd'] = int(meta_info[b'MRawRunHeader.fRunStart.fMjd'][0])
-                # === added here ===
+                # # === added here ===
+                # mars_meta['mjd'] = int(meta_info[b'MRawRunHeader.fRunStart.fMjd'][0])
+                # # === added here ===
 
                 is_mc_check = int(meta_info[b'MRawRunHeader.fRunType'][0])
                 if is_mc_check == 0:
@@ -1782,7 +1792,12 @@ class MarsRun:
         event_data['mars_meta'] = self.event_data[telescope]['mars_meta'][file_num]
 
         if not self.is_mc:
-            event_data['mjd'] = self.event_data[telescope]['MJD'][event_id]
+            event_data['MJD'] = self.event_data[telescope]['MJD'][event_id]
+            # === added here ===
+            event_data['mjd'] = self.event_data[telescope]['mjd'][event_id]
+            event_data['millisec'] = self.event_data[telescope]['millisec'][event_id]
+            event_data['nanosec'] = self.event_data[telescope]['nanosec'][event_id]
+            # === added here === 
         else:
             event_data['true_energy'] = self.event_data[telescope]['true_energy'][event_id]
             event_data['true_zd'] = self.event_data[telescope]['true_zd'][event_id]
