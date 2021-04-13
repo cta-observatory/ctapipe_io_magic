@@ -33,7 +33,7 @@ from ctapipe.containers import PedestalContainer
 from ctapipe.instrument import TelescopeDescription
 from ctapipe.instrument import SubarrayDescription
 from ctapipe.instrument import OpticsDescription
-from ctapipe.instrument import CameraGeometry
+from ctapipe.instrument import CameraDescription
 
 
 __all__ = ['MAGICEventSource']
@@ -55,9 +55,10 @@ MAGIC_TEL_POSITIONS = {
 
 # MAGIC telescope description
 OPTICS = OpticsDescription.from_name('MAGIC')
-GEOM = CameraGeometry.from_name('MAGICCam')
+MAGICCAM = CameraDescription.from_name("MAGICCam")
+GEOM = MAGICCAM.geometry
 MAGIC_TEL_DESCRIPTION = TelescopeDescription(
-    name='MAGIC', tel_type='MAGIC', optics=OPTICS, camera=GEOM)
+    name='MAGIC', tel_type='MAGIC', optics=OPTICS, camera=MAGICCAM)
 MAGIC_TEL_DESCRIPTIONS = {1: MAGIC_TEL_DESCRIPTION, 2: MAGIC_TEL_DESCRIPTION}
 
 # trigger patterns:
