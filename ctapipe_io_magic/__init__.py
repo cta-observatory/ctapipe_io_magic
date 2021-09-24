@@ -40,6 +40,14 @@ __all__ = ['MAGICEventSource']
 
 LOGGER = logging.getLogger(__name__)
 
+class TriggerContainer(Container):
+    time = Field(NAN_TIME, "central average time stamp")
+    tels_with_trigger = Field([], "list of telescope ids with data")
+    event_type = Field(EventType.SUBARRAY, "Event type")
+    tel = Field(Map(TelescopeTriggerContainer), "telescope-wise trigger information")
+    mjd = Field(nan, "MAGIC mjd time")
+    millisec = Field(nan, "MAGIC millisec time")
+    nanosec = Field(nan, "MAGIC nanosec time")
 
 # MAGIC telescope positions in m wrt. to the center of CTA simulations
 #MAGIC_TEL_POSITIONS = {
@@ -491,6 +499,8 @@ class MAGICEventSource(EventSource):
             data = EventAndMonDataContainer()
         else:
             data = DataContainer()
+
+        data.trigger = TriggerContainer()
 
         # Telescopes with data:
         tels_in_file = ["M1", "M2"]
