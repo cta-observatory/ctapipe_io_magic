@@ -10,6 +10,7 @@ import re
 import os.path
 from pathlib import Path
 
+
 import numpy as np
 
 import scipy
@@ -35,10 +36,11 @@ from ctapipe.instrument import SubarrayDescription
 from ctapipe.instrument import OpticsDescription
 from ctapipe.instrument import CameraGeometry
 
+from numpy import nan
+from ctapipe.containers import EventType, TelescopeTriggerContainer
+from ctapipe.core import Map
 
-__all__ = ['MAGICEventSource']
-
-LOGGER = logging.getLogger(__name__)
+NAN_TIME = Time(np.ma.masked_array(nan, mask=True), format="mjd")
 
 class TriggerContainer(Container):
     time = Field(NAN_TIME, "central average time stamp")
@@ -48,6 +50,11 @@ class TriggerContainer(Container):
     mjd = Field(nan, "MAGIC mjd time")
     millisec = Field(nan, "MAGIC millisec time")
     nanosec = Field(nan, "MAGIC nanosec time")
+
+__all__ = ['MAGICEventSource']
+
+LOGGER = logging.getLogger(__name__)
+
 
 # MAGIC telescope positions in m wrt. to the center of CTA simulations
 #MAGIC_TEL_POSITIONS = {
