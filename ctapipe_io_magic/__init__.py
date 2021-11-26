@@ -173,7 +173,7 @@ class MAGICEventSource(EventSource):
 
         for file_path in file_list:
             try:
-                import uproot3 as uproot
+                import uproot
 
                 try:
                     with uproot.open(file_path) as input_data:
@@ -400,6 +400,9 @@ class MAGICEventSource(EventSource):
                 # Setting up the DL0 container
                 data.dl0.tel.clear()
 
+                # Setting up the DL1 container
+                data.dl1.tel.clear()
+
                 pointing = PointingContainer()
                 # Filling the DL1 container with the event data
                 for tel_i, tel_id in enumerate(tels_in_file):
@@ -601,6 +604,9 @@ class MAGICEventSource(EventSource):
                 # Setting up the DL0 container
                 data.dl0.tel.clear()
                 data.dl0.tel[tel_i + 1].trigger_type = self.current_run['data'].event_data[telescope]['trigger_pattern'][event_order_number]
+
+                # Setting up the DL1 container
+                data.dl1.tel.clear()
 
                 # Creating the telescope pointing container
                 pointing = PointingContainer()
@@ -944,7 +950,7 @@ class MarsRun:
         """
 
         try:
-            import uproot3 as uproot
+            import uproot
         except ImportError:
             msg = "The `uproot` python module is required to access the MAGIC data"
             raise ImportError(msg)
@@ -953,13 +959,13 @@ class MarsRun:
 
         event_data['charge'] = []
         event_data['arrival_time'] = []
-        event_data['trigger_pattern'] = scipy.array([], dtype=np.int32)
-        event_data['stereo_event_number'] = scipy.array([], dtype=np.int32)
-        event_data['pointing_zd'] = scipy.array([])
-        event_data['pointing_az'] = scipy.array([])
-        event_data['pointing_ra'] = scipy.array([])
-        event_data['pointing_dec'] = scipy.array([])
-        event_data['MJD'] = scipy.array([])
+        event_data['trigger_pattern'] = np.array([], dtype=np.int32)
+        event_data['stereo_event_number'] = np.array([], dtype=np.int32)
+        event_data['pointing_zd'] = np.array([])
+        event_data['pointing_az'] = np.array([])
+        event_data['pointing_ra'] = np.array([])
+        event_data['pointing_dec'] = np.array([])
+        event_data['MJD'] = np.array([])
         event_data['mars_meta'] = []
 
         # monitoring information (updated from time to time)
@@ -967,7 +973,7 @@ class MarsRun:
 
         monitoring_data['badpixelinfo'] = []
         monitoring_data['badpixelinfoMJDrange'] = []
-        monitoring_data['PedestalMJD'] = scipy.array([])
+        monitoring_data['PedestalMJD'] = np.array([])
         monitoring_data['PedestalFundamental'] = dict()
         monitoring_data['PedestalFundamental']['Mean'] = []
         monitoring_data['PedestalFundamental']['Rms'] = []
@@ -1082,13 +1088,13 @@ class MarsRun:
 
             input_file = uproot.open(file_name)
 
-            events = input_file['Events'].arrays(evt_common_list)
+            events = input_file['Events'].arrays(evt_common_list, library="np")
 
             # Reading the info common to MC and real data
-            charge = events[b'MCerPhotEvt.fPixels.fPhot']
-            arrival_time = events[b'MArrivalTime.fData']
-            trigger_pattern = events[b'MTriggerPattern.fPrescaled']
-            stereo_event_number = events[b'MRawEvtHeader.fStereoEvtNumber']
+            charge = events['MCerPhotEvt.fPixels.fPhot']
+            arrival_time = events['MArrivalTime.fData']
+            trigger_pattern = events['MTriggerPattern.fPrescaled']
+            stereo_event_number = events['MRawEvtHeader.fStereoEvtNumber']
 
             # Reading run-wise meta information (same for all events in subrun):
             mars_meta = dict()
@@ -1096,47 +1102,47 @@ class MarsRun:
             mars_meta['is_simulation'] = is_mc
 
             if is_mc:
-                mc_header_info = input_file['RunHeaders'].arrays(mcheader_list)
-                mcheader_data['sim_nevents']=int(mc_header_info[b'MMcRunHeader.fNumEvents'][0]) #std: 5000
+                mc_header_info = input_file['RunHeaders'].arrays(mcheader_list, library="np")
+                mcheader_data['sim_nevents']=int(mc_header_info['MMcRunHeader.fNumEvents'][0]) #std: 5000
                 mcheader_data['sim_reuse']= 1 #this value is not written in the magic root file, but since the sim_events already include shower reuse we artificially set it to 1 (actually every shower reused 5 times for std MAGIC MC)
-                mcheader_data['sim_emin']=mc_header_info[b'MMcCorsikaRunHeader.fELowLim'][0]*u.GeV
-                mcheader_data['sim_emax']=mc_header_info[b'MMcCorsikaRunHeader.fEUppLim'][0]*u.GeV
-                mcheader_data['sim_eslope']=mc_header_info[b'MMcCorsikaRunHeader.fSlopeSpec'][0] #std: -1.6
-                mcheader_data['sim_max_impact']=mc_header_info[b'MMcRunHeader.fImpactMax'][0]*u.cm
-                mcheader_data['sim_conesemiangle']=mc_header_info[b'MMcRunHeader.fRandomPointingConeSemiAngle'][0]*u.deg #std: 2.5 deg, also corsika viewcone is defined by "half of the cone angle".
+                mcheader_data['sim_emin']=mc_header_info['MMcCorsikaRunHeader.fELowLim'][0]*u.GeV
+                mcheader_data['sim_emax']=mc_header_info['MMcCorsikaRunHeader.fEUppLim'][0]*u.GeV
+                mcheader_data['sim_eslope']=mc_header_info['MMcCorsikaRunHeader.fSlopeSpec'][0] #std: -1.6
+                mcheader_data['sim_max_impact']=mc_header_info['MMcRunHeader.fImpactMax'][0]*u.cm
+                mcheader_data['sim_conesemiangle']=mc_header_info['MMcRunHeader.fRandomPointingConeSemiAngle'][0]*u.deg #std: 2.5 deg, also corsika viewcone is defined by "half of the cone angle".
 
             # Reading event timing information:
             if not is_mc:
-                event_times = input_file['Events'].arrays(time_array_list)
+                event_times = input_file['Events'].arrays(time_array_list, library="np")
                 # Computing the event arrival time
 
-                event_mjd = event_times[b'MTime.fMjd']
-                event_millisec = event_times[b'MTime.fTime.fMilliSec']
-                event_nanosec = event_times[b'MTime.fNanoSec']
+                event_mjd = event_times['MTime.fMjd']
+                event_millisec = event_times['MTime.fTime.fMilliSec']
+                event_nanosec = event_times['MTime.fNanoSec']
 
                 event_mjd = event_mjd + \
                     (event_millisec / 1e3 + event_nanosec / 1e9) / seconds_per_day
-                event_data['MJD'] = scipy.concatenate(
+                event_data['MJD'] = np.concatenate(
                     (event_data['MJD'], event_mjd))
 
             # try to read RunHeaders tree (soft fail if not present, to pass current tests)
             try:
                 meta_info = input_file['RunHeaders'].arrays(
-                    metainfo_array_list)
+                    metainfo_array_list, library="np")
 
                 mars_meta['origin'] = "MAGIC"
                 mars_meta['input_url'] = file_name
 
                 mars_meta['number'] = int(
-                    meta_info[b'MRawRunHeader.fRunNumber'][0])
+                    meta_info['MRawRunHeader.fRunNumber'][0])
                 mars_meta['number_subrun'] = int(
-                    meta_info[b'MRawRunHeader.fSubRunIndex'][0])
-                mars_meta['source_ra'] = meta_info[b'MRawRunHeader.fSourceRA'][0] / \
+                    meta_info['MRawRunHeader.fSubRunIndex'][0])
+                mars_meta['source_ra'] = meta_info['MRawRunHeader.fSourceRA'][0] / \
                     seconds_per_hour * degrees_per_hour * u.deg
-                mars_meta['source_dec'] = meta_info[b'MRawRunHeader.fSourceDEC'][0] / \
+                mars_meta['source_dec'] = meta_info['MRawRunHeader.fSourceDEC'][0] / \
                     seconds_per_hour * u.deg
 
-                is_mc_check = int(meta_info[b'MRawRunHeader.fRunType'][0])
+                is_mc_check = int(meta_info['MRawRunHeader.fRunType'][0])
                 if is_mc_check == 0:
                     is_mc_check = False
                 elif is_mc_check == 256:
@@ -1153,7 +1159,7 @@ class MarsRun:
                 # Reading the info only contained in real data
                 if not is_mc:
                     badpixelinfo = input_file['RunHeaders']['MBadPixelsCam.fArray.fInfo'].array(
-                        uproot.asjagged(uproot.asdtype(np.int32))).flatten().reshape((4, 1183), order='F')
+                        uproot.interpretation.jagged.AsJagged(uproot.interpretation.numerical.AsDtype(np.dtype('>i4'))), library="np")[0].reshape((4, 1183), order='F')
                     # now we have 4 axes:
                     # 0st axis: empty (?)
                     # 1st axis: Unsuitable pixels
@@ -1181,25 +1187,25 @@ class MarsRun:
             if not is_mc:
                 try:
                     pedestal_info = input_file['Pedestals'].arrays(
-                        pedestal_array_list)
+                        pedestal_array_list, library="np")
 
-                    pedestal_mjd = pedestal_info[b'MTimePedestals.fMjd']
-                    pedestal_millisec = pedestal_info[b'MTimePedestals.fTime.fMilliSec']
-                    pedestal_nanosec = pedestal_info[b'MTimePedestals.fNanoSec']
+                    pedestal_mjd = pedestal_info['MTimePedestals.fMjd']
+                    pedestal_millisec = pedestal_info['MTimePedestals.fTime.fMilliSec']
+                    pedestal_nanosec = pedestal_info['MTimePedestals.fNanoSec']
                     n_pedestals = len(pedestal_mjd)
                     pedestal_mjd = pedestal_mjd + \
                         (pedestal_millisec / 1e3 +
                          pedestal_nanosec / 1e9) / seconds_per_day
-                    monitoring_data['PedestalMJD'] = scipy.concatenate(
+                    monitoring_data['PedestalMJD'] = np.concatenate(
                         (monitoring_data['PedestalMJD'], pedestal_mjd))
                     for quantity in ['Mean', 'Rms']:
                         for i_pedestal in range(n_pedestals):
                             monitoring_data['PedestalFundamental'][quantity].append(
-                                pedestal_info['MPedPhotFundamental.fArray.f{:s}'.format(quantity).encode()][i_pedestal][:n_camera_pixels])
+                                pedestal_info[f'MPedPhotFundamental.fArray.f{quantity}'][i_pedestal][:n_camera_pixels])
                             monitoring_data['PedestalFromExtractor'][quantity].append(
-                                pedestal_info['MPedPhotFromExtractor.fArray.f{:s}'.format(quantity).encode()][i_pedestal][:n_camera_pixels])
+                                pedestal_info[f'MPedPhotFromExtractor.fArray.f{quantity}'][i_pedestal][:n_camera_pixels])
                             monitoring_data['PedestalFromExtractorRndm'][quantity].append(
-                                pedestal_info['MPedPhotFromExtractorRndm.fArray.f{:s}'.format(quantity).encode()][i_pedestal][:n_camera_pixels])
+                                pedestal_info[f'MPedPhotFromExtractorRndm.fArray.f{quantity}'][i_pedestal][:n_camera_pixels])
 
                 except KeyError:
                     LOGGER.warning(
@@ -1208,26 +1214,26 @@ class MarsRun:
             # Reading pointing information (in units of degrees):
             if is_mc:
                 # Retrieving the telescope pointing direction
-                pointing = input_file['Events'].arrays(pointing_array_list)
+                pointing = input_file['Events'].arrays(pointing_array_list, library="np")
 
-                pointing_zd = pointing[b'MPointingPos.fZd'] - \
-                    pointing[b'MPointingPos.fDevZd']
-                pointing_az = pointing[b'MPointingPos.fAz'] - \
-                    pointing[b'MPointingPos.fDevAz']
+                pointing_zd = pointing['MPointingPos.fZd'] - \
+                    pointing['MPointingPos.fDevZd']
+                pointing_az = pointing['MPointingPos.fAz'] - \
+                    pointing['MPointingPos.fDevAz']
                 # N.B. the positive sign here, as HA = local sidereal time - ra
-                pointing_ra = (pointing[b'MPointingPos.fRa'] +
-                               pointing[b'MPointingPos.fDevHa']) * degrees_per_hour
-                pointing_dec = pointing[b'MPointingPos.fDec'] - \
-                    pointing[b'MPointingPos.fDevDec']
+                pointing_ra = (pointing['MPointingPos.fRa'] +
+                               pointing['MPointingPos.fDevHa']) * degrees_per_hour
+                pointing_dec = pointing['MPointingPos.fDec'] - \
+                    pointing['MPointingPos.fDevDec']
             else:
                 # Getting the telescope drive info
-                drive = input_file['Drive'].arrays(drive_array_list)
+                drive = input_file['Drive'].arrays(drive_array_list, library="np")
 
-                drive_mjd = drive[b'MReportDrive.fMjd']
-                drive_zd = drive[b'MReportDrive.fCurrentZd']
-                drive_az = drive[b'MReportDrive.fCurrentAz']
-                drive_ra = drive[b'MReportDrive.fRa'] * degrees_per_hour
-                drive_dec = drive[b'MReportDrive.fDec']
+                drive_mjd = drive['MReportDrive.fMjd']
+                drive_zd = drive['MReportDrive.fCurrentZd']
+                drive_az = drive['MReportDrive.fCurrentAz']
+                drive_ra = drive['MReportDrive.fRa'] * degrees_per_hour
+                drive_dec = drive['MReportDrive.fDec']
 
                 drive_data['mjd'] = np.concatenate((drive_data['mjd'],drive_mjd))
                 drive_data['zd']  = np.concatenate((drive_data['zd'],drive_zd))
@@ -1279,29 +1285,29 @@ class MarsRun:
             event_data['charge'].append(charge)
             event_data['arrival_time'].append(arrival_time)
             event_data['mars_meta'].append(mars_meta)
-            event_data['trigger_pattern'] = scipy.concatenate(
+            event_data['trigger_pattern'] = np.concatenate(
                 (event_data['trigger_pattern'], trigger_pattern))
-            event_data['stereo_event_number'] = scipy.concatenate(
+            event_data['stereo_event_number'] = np.concatenate(
                 (event_data['stereo_event_number'], stereo_event_number))
             if is_mc:
-                event_data['pointing_zd'] = scipy.concatenate(
+                event_data['pointing_zd'] = np.concatenate(
                     (event_data['pointing_zd'], pointing_zd))
-                event_data['pointing_az'] = scipy.concatenate(
+                event_data['pointing_az'] = np.concatenate(
                     (event_data['pointing_az'], pointing_az))
-                event_data['pointing_ra'] = scipy.concatenate(
+                event_data['pointing_ra'] = np.concatenate(
                     (event_data['pointing_ra'], pointing_ra))
-                event_data['pointing_dec'] = scipy.concatenate(
+                event_data['pointing_dec'] = np.concatenate(
                     (event_data['pointing_dec'], pointing_dec))
 
-                mc_info = input_file['Events'].arrays(mc_list)
+                mc_info = input_file['Events'].arrays(mc_list, library="np")
                 # N.B.: For MC, there is only one subrun, so do not need to 'append'
-                event_data['true_energy'] = mc_info[b'MMcEvt.fEnergy']
-                event_data['true_zd'] = mc_info[b'MMcEvt.fTheta']
-                event_data['true_az'] = mc_info[b'MMcEvt.fPhi']
-                event_data['true_shower_primary_id'] = mc_info[b'MMcEvt.fPartId']
-                event_data['true_h_first_int'] = mc_info[b'MMcEvt.fZFirstInteraction']
-                event_data['true_core_x'] = mc_info[b'MMcEvt.fCoreX']
-                event_data['true_core_y'] = mc_info[b'MMcEvt.fCoreY']
+                event_data['true_energy'] = mc_info['MMcEvt.fEnergy']
+                event_data['true_zd'] = mc_info['MMcEvt.fTheta']
+                event_data['true_az'] = mc_info['MMcEvt.fPhi']
+                event_data['true_shower_primary_id'] = mc_info['MMcEvt.fPartId']
+                event_data['true_h_first_int'] = mc_info['MMcEvt.fZFirstInteraction']
+                event_data['true_core_x'] = mc_info['MMcEvt.fCoreX']
+                event_data['true_core_y'] = mc_info['MMcEvt.fCoreY']
 
             event_data['file_edges'].append(len(event_data['trigger_pattern']))
 
@@ -1621,8 +1627,8 @@ class MarsRun:
         arrival_times = self.event_data[telescope]['arrival_time'][file_num][id_in_file][:self.n_camera_pixels]
 
         event_data = dict()
-        event_data['image'] = photon_content
-        event_data['pulse_time'] = arrival_times
+        event_data['image'] = np.array(photon_content)
+        event_data['pulse_time'] = np.array(arrival_times)
         event_data['pointing_az'] = self.event_data[telescope]['pointing_az'][event_id]
         event_data['pointing_zd'] = self.event_data[telescope]['pointing_zd'][event_id]
         event_data['pointing_ra'] = self.event_data[telescope]['pointing_ra'][event_id]
@@ -1679,10 +1685,10 @@ class MarsRun:
         m2_arrival_times = self.event_data['M2']['arrival_time'][m2_file_num][m2_id_in_file][:self.n_camera_pixels]
 
         event_data = dict()
-        event_data['m1_image'] = m1_photon_content
-        event_data['m1_pulse_time'] = m1_arrival_times
-        event_data['m2_image'] = m2_photon_content
-        event_data['m2_pulse_time'] = m2_arrival_times
+        event_data['m1_image'] = np.array(m1_photon_content)
+        event_data['m1_pulse_time'] = np.array(m1_arrival_times)
+        event_data['m2_image'] = np.array(m2_photon_content)
+        event_data['m2_pulse_time'] = np.array(m2_arrival_times)
         event_data['m1_pointing_az'] = self.event_data['M1']['pointing_az'][m1_id]
         event_data['m1_pointing_zd'] = self.event_data['M1']['pointing_zd'][m1_id]
         event_data['m1_pointing_ra'] = self.event_data['M1']['pointing_ra'][m1_id]
