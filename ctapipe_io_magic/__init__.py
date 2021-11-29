@@ -24,16 +24,22 @@ from ctapipe.io.datalevels import DataLevel
 from ctapipe.core import Container
 from ctapipe.core import Field
 
-from ctapipe.containers import ArrayEventContainer, SimulatedShowerContainer
-from ctapipe.containers import PointingContainer, TelescopePointingContainer
-from ctapipe.containers import MonitoringCameraContainer
-from ctapipe.containers import PedestalContainer
+from ctapipe.containers import (
+    ArrayEventContainer,
+    SimulatedShowerContainer,
+    PointingContainer,
+    TelescopePointingContainer,
+    TelescopeTriggerContainer,
+    MonitoringCameraContainer,
+    PedestalContainer,
+)
 
-from ctapipe.instrument import TelescopeDescription
-from ctapipe.instrument import SubarrayDescription
-from ctapipe.instrument import OpticsDescription
-from ctapipe.instrument import CameraDescription
-
+from ctapipe.instrument import (
+    TelescopeDescription,
+    SubarrayDescription,
+    OpticsDescription,
+    CameraDescription,
+)
 
 __all__ = ['MAGICEventSource']
 
