@@ -90,7 +90,7 @@ class MAGICEventSource(EventSource):
     """
     _count = 0
 
-    def __init__(self, input_url=None, config=None, parent=None,, **kwargs):
+    def __init__(self, input_url=None, config=None, parent=None, **kwargs):
         """
         Constructor
 
