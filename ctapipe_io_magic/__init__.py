@@ -113,7 +113,7 @@ class MAGICEventSource(EventSource):
         super().__init__(input_url=input_url, config=config, parent=parent, **kwargs)
 
         # Retrieving the list of run numbers corresponding to the data files
-        run_info = self.get_run_info_from_name(input_url)
+        run_info = self.get_run_info_from_name(str(input_url))
         run_numbers = run_info[0]
         is_mc_runs = run_info[1]
 
@@ -228,7 +228,7 @@ class MAGICEventSource(EventSource):
         run = dict()
         run['number'] = run_number
         run['read_events'] = 0
-        run['data'] = MarsRun(run_file_mask=self.input_url)
+        run['data'] = MarsRun(run_file_mask=str(self.input_url))
 
         return run
 
