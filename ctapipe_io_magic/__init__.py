@@ -24,8 +24,7 @@ from ctapipe.io.datalevels import DataLevel
 from ctapipe.core import Container
 from ctapipe.core import Field
 
-from ctapipe.containers import DataContainer
-from ctapipe.containers import EventAndMonDataContainer
+from ctapipe.containers import ArrayEventContainer
 from ctapipe.containers import PointingContainer, TelescopePointingContainer
 from ctapipe.containers import MonitoringCameraContainer
 from ctapipe.containers import PedestalContainer
@@ -91,7 +90,7 @@ class MAGICEventSource(EventSource):
     """
     _count = 0
 
-    def __init__(self, config=None, tool=None, **kwargs):
+    def __init__(self, input_url=None, config=None, parent=None,, **kwargs):
         """
         Constructor
 
@@ -101,7 +100,7 @@ class MAGICEventSource(EventSource):
             Configuration specified by config file or cmdline arguments.
             Used to set traitlet values.
             Set to None if no configuration to pass.
-        tool: ctapipe.core.Tool
+        parent : ctapipe.core.Tool
             Tool executable that is calling this component.
             Passes the correct logger to the component.
             Set to None if no Tool to pass.
@@ -111,22 +110,12 @@ class MAGICEventSource(EventSource):
             the 'input_url' parameter.
         """
 
-        file_path = Path(kwargs['input_url'])
-        self.file_list = glob.glob(str(file_path.absolute()))
-        if not self.file_list:
-            raise ValueError("Unreadable or wrong wildcard file path given.")
-        self.file_list.sort()
-
-        # EventSource can not handle file wild cards as input_url
-        # To overcome this we substitute the input_url with first file matching
-        # the specified file mask.
-        del kwargs['input_url']
-        super().__init__(input_url=self.file_list[0], **kwargs)
+        super().__init__(input_url=input_url, config=config, parent=parent, **kwargs)
 
         # Retrieving the list of run numbers corresponding to the data files
-        run_info = list(map(self.get_run_info_from_name, self.file_list))
-        run_numbers = [i[0] for i in run_info]
-        is_mc_runs = [i[1] for i in run_info]
+        run_info = self.get_run_info_from_name(input_url)
+        run_numbers = run_info[0]
+        is_mc_runs = run_info[1]
 
         self.run_numbers, indices = np.unique(run_numbers, return_index=True)
         is_mc_runs = [is_mc_runs[i] for i in indices]
@@ -243,14 +232,10 @@ class MAGICEventSource(EventSource):
             The run to use
         """
 
-        this_run_mask = os.path.join(self.input_url.parents[0],
-                                     '*{:d}*root'.format(run_number))
-
         run = dict()
         run['number'] = run_number
         run['read_events'] = 0
-        run['data'] = MarsRun(run_file_mask=this_run_mask,
-                              filter_list=self.file_list)
+        run['data'] = MarsRun(run_file_mask=self.input_url)
 
         return run
 
@@ -295,10 +280,7 @@ class MAGICEventSource(EventSource):
         counter = 0
 
         # Data container - is initialized once, and data is replaced within it after each yield
-        if not self.is_mc:
-            data = EventAndMonDataContainer()
-        else:
-            data = DataContainer()
+        data = ArrayEventContainer()
 
         # Telescopes with data:
         tels_in_file = ["m1", "m2"]
@@ -491,10 +473,7 @@ class MAGICEventSource(EventSource):
         telescope = telescope.upper()
 
         # Data container - is initialized once, and data is replaced within it after each yield
-        if not self.is_mc:
-            data = EventAndMonDataContainer()
-        else:
-            data = DataContainer()
+        data = ArrayEventContainer()
 
         # Telescopes with data:
         tels_in_file = ["M1", "M2"]
