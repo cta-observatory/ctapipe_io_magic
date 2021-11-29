@@ -117,15 +117,8 @@ class MAGICEventSource(EventSource):
         run_numbers = run_info[0]
         is_mc_runs = run_info[1]
 
-        self.run_numbers, indices = np.unique(run_numbers, return_index=True)
-        is_mc_runs = [is_mc_runs[i] for i in indices]
-        is_mc_runs = np.unique(is_mc_runs)
-
-        # Checking if runt type (data/MC) is consistent:
-        if len(is_mc_runs) > 1:
-            raise ValueError(
-                "Loaded files contain data and MC runs. Please load only data OR Monte Carlos.")
-        self.is_mc = is_mc_runs[0]
+        self.run_numbers = run_numbers
+        self.is_mc = is_mc_runs
 
         # Retrieving the data level (so far HARDCODED Sorcerer)
         self.datalevel = DataLevel.DL1_IMAGES
