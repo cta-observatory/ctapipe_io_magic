@@ -556,7 +556,7 @@ class MAGICEventSource(EventSource):
             data.meta = event_data['mars_meta']
             data.meta["max_events"] = self.max_events
 
-            data.trigger.event_type = self.current_run['data'].array_event[telescope]['trigger_pattern'][event_order_number]
+            data.trigger.event_type = self.current_run['data'].event_data[telescope]['trigger_pattern'][event_order_number]
             data.trigger.tels_with_trigger = tels_with_data
             if self.allowed_tels:
                 data.trigger.tels_with_trigger = np.intersect1d(
