@@ -252,7 +252,7 @@ class MAGICEventSource(EventSource):
         return (self.datalevel, )
 
     @property
-    def obs_id(self):
+    def obs_ids(self):
         return self.run_numbers
 
     def _generator(self):
