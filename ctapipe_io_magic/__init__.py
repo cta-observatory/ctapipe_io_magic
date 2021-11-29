@@ -157,7 +157,7 @@ class MAGICEventSource(EventSource):
 
         is_magic_root_file = True
 
-        file_list = glob.glob(file_mask)
+        file_list = glob.glob(str(file_mask))
 
         for file_path in file_list:
             try:
