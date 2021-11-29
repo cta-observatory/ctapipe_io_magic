@@ -122,9 +122,11 @@ class MAGICEventSource(EventSource):
         run_info = self.get_run_info_from_name(str(input_url))
         run_numbers = run_info[0]
         is_mc_runs = run_info[1]
+        telescope = run_info[2]
 
         self.run_numbers = run_numbers
         self.is_mc = is_mc_runs
+        self.telescope = telescope
 
         # Retrieving the data level (so far HARDCODED Sorcerer)
         self.datalevel = DataLevel.DL1_IMAGES
@@ -194,9 +196,9 @@ class MAGICEventSource(EventSource):
             A run number of the file.
         """
 
-        mask_data = r".*\d+_M\d+_(\d+)\.\d+_Y_.*"
-        mask_mc = r".*_M\d_za\d+to\d+_\d_(\d+)_Y_.*"
-        mask_mc_alt = r".*_M\d_\d_(\d+)_.*"
+        mask_data = r".*\d+_M(\d+)_(\d+)\.\d+_Y_.*"
+        mask_mc = r".*_M(\d)_za\d+to\d+_\d_(\d+)_Y_.*"
+        mask_mc_alt = r".*_M(\d)_\d_(\d+)_.*"
         if re.findall(mask_data, file_name):
             parsed_info = re.findall(mask_data, file_name)
             is_mc = False
@@ -208,13 +210,14 @@ class MAGICEventSource(EventSource):
             is_mc = True
 
         try:
-            run_number = int(parsed_info[0])
+            telescope  = int(parsed_info[0][0])
+            run_number = int(parsed_info[0][1])
         except IndexError:
             raise IndexError(
                 'Can not identify the run number and type (data/MC) of the file'
                 '{:s}'.format(file_name))
 
-        return run_number, is_mc
+        return run_number, is_mc, telescope
 
     def _set_active_run(self, run_number):
         """
@@ -264,7 +267,7 @@ class MAGICEventSource(EventSource):
 
         """
 
-        return self._stereo_event_generator()
+        return self._mono_event_generator(telescope=f"M{self.telescope}")
 
     def _stereo_event_generator(self):
         """
