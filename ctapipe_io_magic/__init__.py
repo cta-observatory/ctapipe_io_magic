@@ -24,7 +24,7 @@ from ctapipe.io.datalevels import DataLevel
 from ctapipe.core import Container
 from ctapipe.core import Field
 
-from ctapipe.containers import ArrayEventContainer
+from ctapipe.containers import ArrayEventContainer, SimulatedShowerContainer
 from ctapipe.containers import PointingContainer, TelescopePointingContainer
 from ctapipe.containers import MonitoringCameraContainer
 from ctapipe.containers import PedestalContainer
@@ -525,19 +525,17 @@ class MAGICEventSource(EventSource):
             monitoring_camera.pedestal = pedestal_info
             monitoring_camera.pixel_status = badpixel_info
 
-            data.mon.tels_with_data = tels_with_data
             data.mon.tel[tel_i + 1] = monitoring_camera
 
-         #fdp (mono version not fully tested)
+        #fdp (mono version not fully tested)
         else:
             data.mcheader.num_showers = self.current_run['data'].mcheader_data[telescope]['sim_nevents'] # total, including reuse
             data.mcheader.shower_reuse = self.current_run['data'].mcheader_data[telescope]['sim_reuse']
             data.mcheader.energy_range_min = (self.current_run['data'].mcheader_data[telescope]['sim_emin']).to(u.TeV) # GeV->TeV
             data.mcheader.energy_range_max = (self.current_run['data'].mcheader_data[telescope]['sim_emax']).to(u.TeV) # GeV->TeV
-            data.mcheader.spectral_index = self.current_run['data'].mcheader_data[telescope]['sim_eslope'] 
+            data.mcheader.spectral_index = self.current_run['data'].mcheader_data[telescope]['sim_eslope']
             data.mcheader.max_scatter_range = (self.current_run['data'].mcheader_data[telescope]['sim_max_impact']).to(u.m) # cm->m
             data.mcheader.max_viewcone_radius = (self.current_run['data'].mcheader_data[telescope]['sim_conesemiangle']).to(u.deg) # deg->deg
-
 
         if telescope == 'M1':
             n_events = self.current_run['data'].n_mono_events_m1
@@ -556,6 +554,21 @@ class MAGICEventSource(EventSource):
                 event_i, telescope=telescope)
 
             data.meta = event_data['mars_meta']
+            data.meta["max_events"] = self.max_events
+
+            data.trigger.event_type = self.current_run['data'].array_event[telescope]['trigger_pattern'][event_order_number]
+            data.trigger.tels_with_trigger = tels_with_data
+            if self.allowed_tels:
+                data.trigger.tels_with_trigger = np.intersect1d(
+                    data.trigger.tels_with_trigger,
+                    self.subarray.tel_ids,
+                    assume_unique=True,)
+            if not self.is_mc:
+                # Adding the event arrival time
+                time_tmp = Time(
+                    event_data['mjd'], scale='utc', format='mjd')
+                data.trigger.tel[tel_i + 1] = TelescopeTriggerContainer(time=Time(
+                    time_tmp, format='unix', scale='utc', precision=9))
 
             # Event counter
             data.count = counter
@@ -564,70 +577,46 @@ class MAGICEventSource(EventSource):
 
             # Setting up the R0 container
             data.r0.tel.clear()
-            data.r0.tel[tel_i + 1].trigger_type = self.current_run['data'].event_data[telescope]['trigger_pattern'][event_order_number]
-
-            # Setting up the R1 container
             data.r1.tel.clear()
-            data.r1.tel[tel_i + 1].trigger_type = self.current_run['data'].event_data[telescope]['trigger_pattern'][event_order_number]
-
-            # Setting up the DL0 container
             data.dl0.tel.clear()
-            data.dl0.tel[tel_i + 1].trigger_type = self.current_run['data'].event_data[telescope]['trigger_pattern'][event_order_number]
-
-            # Setting up the DL1 container
             data.dl1.tel.clear()
+            data.pointing.tel.clear()
 
             # Creating the telescope pointing container
             pointing = PointingContainer()
-            pointing_tel = TelescopePointingContainer()
+            pointing_tel = TelescopePointingContainer(
+                azimuth = np.deg2rad(
+                event_data['pointing_az']) * u.rad,
+                altitude = np.deg2rad(
+                90 - event_data['pointing_zd']) * u.rad,)
 
-            pointing_tel.azimuth = np.deg2rad(
-                event_data['pointing_az']) * u.rad
-            pointing_tel.altitude = np.deg2rad(
-                90 - event_data['pointing_zd']) * u.rad
-            #pointing.ra = np.deg2rad(event_data['pointing_ra']) * u.rad
-            #pointing.dec = np.deg2rad(event_data['pointing_dec']) * u.rad
-            
             pointing.tel[tel_i + 1] = pointing_tel
-            
-            pointing.array_azimuth = np.deg2rad(event_data['pointing_az']) * u.rad
+
+            pointing.array_azimuth  = np.deg2rad(event_data['pointing_az']) * u.rad
             pointing.array_altitude = np.deg2rad(90 - event_data['pointing_zd']) * u.rad
-            pointing.array_ra = np.deg2rad(event_data['pointing_ra']) * u.rad
-            pointing.array_dec = np.deg2rad(90 - event_data['pointing_dec']) * u.rad
-            
+            pointing.array_ra       = np.deg2rad(event_data['pointing_ra']) * u.rad
+            pointing.array_dec      = np.deg2rad(90 - event_data['pointing_dec']) * u.rad
+
             data.pointing = pointing
 
             # Adding event charge and peak positions per pixel
             data.dl1.tel[tel_i + 1].image = event_data['image']
             data.dl1.tel[tel_i + 1].peak_time = event_data['pulse_time']
 
-            if not self.is_mc:
-                # Adding the event arrival time
-                time_tmp = Time(
-                    event_data['mjd'], scale='utc', format='mjd')
-                data.trigger.time = Time(
-                    time_tmp, format='unix', scale='utc', precision=9)
-            else:
-                data.mc.energy = event_data['true_energy'] * u.GeV
-                data.mc.alt = (np.pi/2 - event_data['true_zd']) * u.rad
+            if self.is_mc:
+                rot_corsika = 7 *u.deg
                 # check meaning of 7deg transformation (I.Vovk)
-                data.mc.az = -1 * \
-                    (event_data['true_az'] - np.deg2rad(180 - 7)) * u.rad
-                data.mc.shower_primary_id = 1 - \
-                    event_data['true_shower_primary_id']
-                data.mc.h_first_int = event_data['true_h_first_int'] * u.cm
-
                 # adding a 7deg rotation between the orientation of corsika (x axis = magnetic north) and MARS (x axis = geographical north) frames
                 # magnetic north is 7 deg westward w.r.t. geographical north
-                rot_corsika = 7 *u.deg
-                data.mc.core_x = (event_data['true_core_x']*np.cos(rot_corsika) - event_data['true_core_y']*np.sin(rot_corsika))* u.cm
-                data.mc.core_y = (event_data['true_core_x']*np.sin(rot_corsika) + event_data['true_core_y']*np.cos(rot_corsika))* u.cm
-
-            # Setting the telescopes with data
-            data.r0.tels_with_data = tels_with_data
-            data.r1.tels_with_data = tels_with_data
-            data.dl0.tels_with_data = tels_with_data
-            data.trigger.tels_with_trigger = tels_with_data
+                data.simulation.shower = SimulatedShowerContainer(
+                    energy = u.Quantity(event_data['true_energy'], u.GeV),
+                    alt = Angle((np.pi/2 - event_data['true_zd']), u.rad),
+                    az = Angle(-1 * (event_data['true_az'] - np.deg2rad(180 - 7)), u.rad),
+                    shower_primary_id = 1 - event_data['true_shower_primary_id'],
+                    h_first_int = u.Quantity(event_data['true_h_first_int'], u.cm),
+                    core_x = u.Quantity((event_data['true_core_x']*np.cos(rot_corsika) - event_data['true_core_y']*np.sin(rot_corsika)), u.cm),
+                    core_y = u.Quantity((event_data['true_core_x']*np.sin(rot_corsika) + event_data['true_core_y']*np.cos(rot_corsika)), u.cm),
+                )
 
             yield data
             counter += 1
