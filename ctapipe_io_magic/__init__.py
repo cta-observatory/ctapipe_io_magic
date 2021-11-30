@@ -217,14 +217,14 @@ class MAGICEventSource(EventSource):
             Description
         """
 
-        mask_data_calibrated = r".*\d+_M(\d+)_(\d+)\.\d+_Y_.*"
-        mask_data_star       = r".*\d+_M(\d+)_(\d+)\.\d+_I_.*"
-        mask_data_superstar  = r".*\d+_(\d+)_S_.*"
-        mask_data_melibea    = r".*\d+_(\d+)_Q_.*"
-        mask_mc_calibrated   = r".*_M(\d)_za\d+to\d+_\d_(\d+)_Y_.*"
-        mask_mc_star         = r".*_M(\d)_za\d+to\d+_\d_(\d+)_I_.*"
-        mask_mc_superstar    = r".*_za\d+to\d+_\d_S_.*"
-        mask_mc_melibea      = r".*_za\d+to\d+_\d_Q_.*"
+        mask_data_calibrated = r"\d{6}_M(\d+)_(\d+)\.\d+_Y_.*"
+        mask_data_star       = r"\d{6}_M(\d+)_(\d+)\.\d+_I_.*"
+        mask_data_superstar  = r"\d{6}_(\d+)_S_.*"
+        mask_data_melibea    = r"\d{6}_(\d+)_Q_.*"
+        mask_mc_calibrated   = r"GA_M(\d)_za\d+to\d+_\d_(\d+)_Y_.*"
+        mask_mc_star         = r"GA_M(\d)_za\d+to\d+_\d_(\d+)_I_.*"
+        mask_mc_superstar    = r"GA_za\d+to\d+_\d_S_.*"
+        mask_mc_melibea      = r"GA_za\d+to\d+_\d_Q_.*"
         mask_mc_alt = r".*_M(\d)_\d_(\d+)_.*"
         if re.findall(mask_data_calibrated, file_name):
             parsed_info = re.findall(mask_data_calibrated, file_name)
