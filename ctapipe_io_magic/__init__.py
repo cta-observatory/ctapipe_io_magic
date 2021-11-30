@@ -9,6 +9,7 @@ import glob
 import re
 import os.path
 from pathlib import Path
+from enum import Enum, auto
 
 import numpy as np
 
@@ -71,6 +72,14 @@ MC_TRIGGER_PATTERN = 1
 PEDESTAL_TRIGGER_PATTERN = 8
 DATA_TRIGGER_PATTERN = 128
 
+class MARSDataLevel(Enum):
+    """Enum of the different MARS Data Levels"""
+
+    CALIBRATED = auto()  # Calibrated images in charge and time (no waveforms)
+    STAR       = auto()  # Cleaned images, with Hillas parametrization
+    SUPERSTAR  = auto()  # Stereo parameters reconstructed
+    MELIBEA    = auto()  # Reconstruction of hadronness, event direction and energy
+
 class L3JumpError(Exception):
     """
     Exception raised when L3 trigger number jumps backward.
@@ -130,6 +139,7 @@ class MAGICEventSource(EventSource):
 
         # Retrieving the data level (so far HARDCODED Sorcerer)
         self.datalevel = DataLevel.DL1_IMAGES
+        self.mars_datalevel = run_info[3]
 
         # # Setting up the current run with the first run present in the data
         # self.current_run = self._set_active_run(run_number=0)
@@ -187,37 +197,89 @@ class MAGICEventSource(EventSource):
 
         Parameters
         ----------
-        file_name: str
+        file_name : str
             A file name to process.
 
         Returns
         -------
-        int:
-            A run number of the file.
+        run_number: int
+            The run number of the file.
+        is_mc: Bool
+            Flag to tag MC files
+        telescope: int
+            Number of the telescope
+        datalevel: MARSDataLevel
+            Data level according to MARS
+
+        Raises
+        ------
+        IndexError
+            Description
         """
 
-        mask_data = r".*\d+_M(\d+)_(\d+)\.\d+_Y_.*"
-        mask_mc = r".*_M(\d)_za\d+to\d+_\d_(\d+)_Y_.*"
+        mask_data_calibrated = r".*\d+_M(\d+)_(\d+)\.\d+_Y_.*"
+        mask_data_star       = r".*\d+_M(\d+)_(\d+)\.\d+_I_.*"
+        mask_data_superstar  = r".*\d+_(\d+)_S_.*"
+        mask_data_melibea    = r".*\d+_(\d+)_Q_.*"
+        mask_mc_calibrated   = r".*_M(\d)_za\d+to\d+_\d_(\d+)_Y_.*"
+        mask_mc_star         = r".*_M(\d)_za\d+to\d+_\d_(\d+)_I_.*"
+        mask_mc_superstar    = r".*_za\d+to\d+_\d_S_.*"
+        mask_mc_melibea      = r".*_za\d+to\d+_\d_Q_.*"
         mask_mc_alt = r".*_M(\d)_\d_(\d+)_.*"
-        if re.findall(mask_data, file_name):
-            parsed_info = re.findall(mask_data, file_name)
-            is_mc = False
-        elif re.findall(mask_mc, file_name):
-            parsed_info = re.findall(mask_mc, file_name)
-            is_mc = True
-        else:
-            parsed_info = re.findall(mask_mc_alt, file_name)
-            is_mc = True
-
-        try:
+        if re.findall(mask_data_calibrated, file_name):
+            parsed_info = re.findall(mask_data_calibrated, file_name)
             telescope  = int(parsed_info[0][0])
             run_number = int(parsed_info[0][1])
-        except IndexError:
+            datalevel  = MARSDataLevel.CALIBRATED
+            is_mc = False
+        elif re.findall(mask_data_star, file_name):
+            parsed_info = re.findall(mask_data_star, file_name)
+            telescope  = int(parsed_info[0][0])
+            run_number = int(parsed_info[0][1])
+            datalevel  = MARSDataLevel.STAR
+            is_mc = False
+        elif re.findall(mask_data_superstar, file_name):
+            parsed_info = re.findall(mask_data_superstar, file_name)
+            telescope  = None
+            run_number = int(parsed_info[0])
+            datalevel  = MARSDataLevel.SUPERSTAR
+            is_mc = False
+        elif re.findall(mask_data_melibea, file_name):
+            parsed_info = re.findall(mask_data_melibea, file_name)
+            telescope  = None
+            run_number = int(parsed_info[0])
+            datalevel  = MARSDataLevel.MELIBEA
+            is_mc = False
+        elif re.findall(mask_mc_calibrated, file_name):
+            parsed_info = re.findall(mask_mc_calibrated, file_name)
+            telescope  = int(parsed_info[0][0])
+            run_number = int(parsed_info[0][1])
+            datalevel  = MARSDataLevel.CALIBRATED
+            is_mc = True
+        elif re.findall(mask_mc_star, file_name):
+            parsed_info = re.findall(mask_mc_star, file_name)
+            telescope  = int(parsed_info[0][0])
+            run_number = int(parsed_info[0][1])
+            datalevel  = MARSDataLevel.STAR
+            is_mc = True
+        elif re.findall(mask_mc_superstar, file_name):
+            parsed_info = re.findall(mask_mc_superstar, file_name)
+            telescope  = None
+            run_number = int(parsed_info[0])
+            datalevel  = MARSDataLevel.SUPERSTAR
+            is_mc = True
+        elif re.findall(mask_mc_melibea, file_name):
+            parsed_info = re.findall(mask_mc_melibea, file_name)
+            telescope  = None
+            run_number = int(parsed_info[0])
+            datalevel  = MARSDataLevel.MELIBEA
+            is_mc = True
+        else:
             raise IndexError(
                 'Can not identify the run number and type (data/MC) of the file'
                 '{:s}'.format(file_name))
 
-        return run_number, is_mc, telescope
+        return run_number, is_mc, telescope, datalevel
 
     def _set_active_run(self, run_number):
         """
@@ -230,7 +292,7 @@ class MAGICEventSource(EventSource):
 
         Returns
         -------
-        MarsRun:
+        run: MarsRun
             The run to use
         """
 
