@@ -265,13 +265,13 @@ class MAGICEventSource(EventSource):
         elif re.findall(mask_mc_superstar, file_name):
             parsed_info = re.findall(mask_mc_superstar, file_name)
             telescope  = None
-            run_number = int(parsed_info[0])
+            run_number = None
             datalevel  = MARSDataLevel.SUPERSTAR
             is_mc = True
         elif re.findall(mask_mc_melibea, file_name):
             parsed_info = re.findall(mask_mc_melibea, file_name)
             telescope  = None
-            run_number = int(parsed_info[0])
+            run_number = None
             datalevel  = MARSDataLevel.MELIBEA
             is_mc = True
         else:
