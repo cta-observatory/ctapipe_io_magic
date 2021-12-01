@@ -141,6 +141,9 @@ class MAGICEventSource(EventSource):
         self.datalevel = DataLevel.DL1_IMAGES
         self.mars_datalevel = run_info[3]
 
+        if self.is_mc:
+            self.simulation_config = self.parse_simulation_header()
+
         # # Setting up the current run with the first run present in the data
         # self.current_run = self._set_active_run(run_number=0)
         self.current_run = None
@@ -280,6 +283,52 @@ class MAGICEventSource(EventSource):
                 '{:s}'.format(file_name))
 
         return run_number, is_mc, telescope, datalevel
+
+    def parse_simulation_header(self):
+
+        try:
+            import uproot
+            with uproot.open(self.input_url) as input_file:
+                run_header_tree = input_file['RunHeaders']
+                spectral_index  = run_header_tree['MMcCorsikaRunHeader.fSlopeSpec'].array(library="np")[0]
+                view_cone       = run_header_tree['MMcRunHeader.fRandomPointingConeSemiAngle'].array(library="np")[0]
+                e_low           = run_header_tree['MMcCorsikaRunHeader.fELowLim'].array(library="np")[0]
+                e_high          = run_header_tree['MMcCorsikaRunHeader.fEUppLim'].array(library="np")[0]
+                max_impact      = run_header_tree['MMcRunHeader.fImpactMax'].array(library="np")[0]
+                n_showers       = np.sum(run_header_tree['MMcRunHeader.fNumSimulatedShowers'].array(library="np"))
+                corsika_version = run_header_tree['MMcCorsikaRunHeader.fCorsikaVersion'].array(library="np")[0]
+                site_height     = run_header_tree['MMcCorsikaRunHeader.fHeightLev[10]'].array(library="np")[0][0]
+                atm_model       = run_header_tree['MMcCorsikaRunHeader.fAtmosphericModel'].array(library="np")[0]
+                max_zd          = run_header_tree['MMcRunHeader.fShowerThetaMax'].array(library="np")[0]
+                min_zd          = run_header_tree['MMcRunHeader.fShowerThetaMin'].array(library="np")[0]
+                max_az          = run_header_tree['MMcRunHeader.fShowerPhiMax'].array(library="np")[0]
+                min_az          = run_header_tree['MMcRunHeader.fShowerPhiMin'].array(library="np")[0]
+                max_wavelength  = run_header_tree['MMcRunHeader.fCWaveUpper'].array(library="np")[0]
+                min_wavelength  = run_header_tree['MMcRunHeader.fCWaveLower'].array(library="np")[0]
+
+                return SimulationConfigContainer(
+                    corsika_version=corsika_version,
+                    energy_range_min=e_low * u.GeV,
+                    energy_range_max=e_high * u.GeV,
+                    prod_site_alt=site_height * u.cm,
+                    spectral_index=spectral_index,
+                    num_showers=n_showers,
+                    shower_reuse=1, #not written in the magic root file, but since the sim_events already include shower reuse we artificially set it to 1 (actually every shower reused 5 times for std MAGIC MC)
+                    max_alt=mc_run_head["alt_range"][1] * u.rad,
+                    min_alt=mc_run_head["alt_range"][0] * u.rad,
+                    max_az=max_az * u.deg,
+                    min_az=min_az * u.deg,
+                    max_viewcone_radius=view_cone * u.deg,
+                    min_viewcone_radius=0.0 * u.deg,
+                    max_scatter_range=max_impact * u.m,
+                    min_scatter_range=0.0 * u.m,
+                    atmosphere=atm_model,
+                    corsika_wlen_min=min_wavelength * u.nm,
+                    corsika_wlen_max=max_wavelength * u.nm,
+                )
+
+        except ImportError:
+            print("Error while importing uproot.")
 
     def _set_active_run(self, run_number):
         """
@@ -597,16 +646,6 @@ class MAGICEventSource(EventSource):
             monitoring_camera.pixel_status = badpixel_info
 
             data.mon.tel[tel_i + 1] = monitoring_camera
-
-        #fdp (mono version not fully tested)
-        else:
-            data.mcheader.num_showers = self.current_run['data'].mcheader_data[telescope]['sim_nevents'] # total, including reuse
-            data.mcheader.shower_reuse = self.current_run['data'].mcheader_data[telescope]['sim_reuse']
-            data.mcheader.energy_range_min = (self.current_run['data'].mcheader_data[telescope]['sim_emin']).to(u.TeV) # GeV->TeV
-            data.mcheader.energy_range_max = (self.current_run['data'].mcheader_data[telescope]['sim_emax']).to(u.TeV) # GeV->TeV
-            data.mcheader.spectral_index = self.current_run['data'].mcheader_data[telescope]['sim_eslope']
-            data.mcheader.max_scatter_range = (self.current_run['data'].mcheader_data[telescope]['sim_max_impact']).to(u.m) # cm->m
-            data.mcheader.max_viewcone_radius = (self.current_run['data'].mcheader_data[telescope]['sim_conesemiangle']).to(u.deg) # deg->deg
 
         if telescope == 'M1':
             n_events = self.current_run['data'].n_mono_events_m1
