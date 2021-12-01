@@ -722,7 +722,7 @@ class MAGICEventSource(EventSource):
                 data.simulation.shower = SimulatedShowerContainer(
                     energy = u.Quantity(event_data['true_energy'], u.GeV),
                     alt = Angle((np.pi/2 - event_data['true_zd']), u.rad),
-                    az = Angle(-1 * (event_data['true_az'] - np.deg2rad(180 - 7)), u.rad),
+                    az = Angle(-1 * (event_data['true_az'] - np.deg2rad(180 - rot_corsika.value)), u.rad),
                     shower_primary_id = 1 - event_data['true_shower_primary_id'],
                     h_first_int = u.Quantity(event_data['true_h_first_int'], u.cm),
                     core_x = u.Quantity((event_data['true_core_x']*np.cos(rot_corsika) - event_data['true_core_y']*np.sin(rot_corsika)), u.cm),
