@@ -315,8 +315,8 @@ class MAGICEventSource(EventSource):
                     spectral_index=spectral_index,
                     num_showers=n_showers,
                     shower_reuse=1, #not written in the magic root file, but since the sim_events already include shower reuse we artificially set it to 1 (actually every shower reused 5 times for std MAGIC MC)
-                    max_alt=mc_run_head["alt_range"][1] * u.rad,
-                    min_alt=mc_run_head["alt_range"][0] * u.rad,
+                    max_alt=(90. - min_zd) * u.deg,
+                    min_alt=(90. - max_zd) * u.deg,
                     max_az=max_az * u.deg,
                     min_az=min_az * u.deg,
                     max_viewcone_radius=view_cone * u.deg,
