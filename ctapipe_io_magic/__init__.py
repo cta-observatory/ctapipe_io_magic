@@ -292,20 +292,31 @@ class MAGICEventSource(EventSource):
             with uproot.open(self.input_url) as input_file:
                 run_header_tree = input_file['RunHeaders']
                 spectral_index  = run_header_tree['MMcCorsikaRunHeader.fSlopeSpec'].array(library="np")[0]
-                view_cone       = run_header_tree['MMcRunHeader.fRandomPointingConeSemiAngle'].array(library="np")[0]
                 e_low           = run_header_tree['MMcCorsikaRunHeader.fELowLim'].array(library="np")[0]
                 e_high          = run_header_tree['MMcCorsikaRunHeader.fEUppLim'].array(library="np")[0]
-                max_impact      = run_header_tree['MMcRunHeader.fImpactMax'].array(library="np")[0]
-                n_showers       = np.sum(run_header_tree['MMcRunHeader.fNumSimulatedShowers'].array(library="np"))
                 corsika_version = run_header_tree['MMcCorsikaRunHeader.fCorsikaVersion'].array(library="np")[0]
                 site_height     = run_header_tree['MMcCorsikaRunHeader.fHeightLev[10]'].array(library="np")[0][0]
                 atm_model       = run_header_tree['MMcCorsikaRunHeader.fAtmosphericModel'].array(library="np")[0]
-                max_zd          = run_header_tree['MMcRunHeader.fShowerThetaMax'].array(library="np")[0]
-                min_zd          = run_header_tree['MMcRunHeader.fShowerThetaMin'].array(library="np")[0]
-                max_az          = run_header_tree['MMcRunHeader.fShowerPhiMax'].array(library="np")[0]
-                min_az          = run_header_tree['MMcRunHeader.fShowerPhiMin'].array(library="np")[0]
-                max_wavelength  = run_header_tree['MMcRunHeader.fCWaveUpper'].array(library="np")[0]
-                min_wavelength  = run_header_tree['MMcRunHeader.fCWaveLower'].array(library="np")[0]
+                if self.mars_datalevel in [MARSDataLevel.CALIBRATED, MARSDataLevel.STAR]:
+                    view_cone       = run_header_tree['MMcRunHeader.fRandomPointingConeSemiAngle'].array(library="np")[0]
+                    max_impact      = run_header_tree['MMcRunHeader.fImpactMax'].array(library="np")[0]
+                    n_showers       = np.sum(run_header_tree['MMcRunHeader.fNumSimulatedShowers'].array(library="np"))
+                    max_zd          = run_header_tree['MMcRunHeader.fShowerThetaMax'].array(library="np")[0]
+                    min_zd          = run_header_tree['MMcRunHeader.fShowerThetaMin'].array(library="np")[0]
+                    max_az          = run_header_tree['MMcRunHeader.fShowerPhiMax'].array(library="np")[0]
+                    min_az          = run_header_tree['MMcRunHeader.fShowerPhiMin'].array(library="np")[0]
+                    max_wavelength  = run_header_tree['MMcRunHeader.fCWaveUpper'].array(library="np")[0]
+                    min_wavelength  = run_header_tree['MMcRunHeader.fCWaveLower'].array(library="np")[0]
+                elif self.mars_datalevel in [MARSDataLevel.SUPERSTAR, MARSDataLevel.MELIBEA]:
+                    view_cone       = run_header_tree['MMcRunHeader_1.fRandomPointingConeSemiAngle'].array(library="np")[0]
+                    max_impact      = run_header_tree['MMcRunHeader_1.fImpactMax'].array(library="np")[0]
+                    n_showers       = np.sum(run_header_tree['MMcRunHeader_1.fNumSimulatedShowers'].array(library="np"))
+                    max_zd          = run_header_tree['MMcRunHeader_1.fShowerThetaMax'].array(library="np")[0]
+                    min_zd          = run_header_tree['MMcRunHeader_1.fShowerThetaMin'].array(library="np")[0]
+                    max_az          = run_header_tree['MMcRunHeader_1.fShowerPhiMax'].array(library="np")[0]
+                    min_az          = run_header_tree['MMcRunHeader_1.fShowerPhiMin'].array(library="np")[0]
+                    max_wavelength  = run_header_tree['MMcRunHeader_1.fCWaveUpper'].array(library="np")[0]
+                    min_wavelength  = run_header_tree['MMcRunHeader_1.fCWaveLower'].array(library="np")[0]
 
                 return SimulationConfigContainer(
                     corsika_version=corsika_version,
