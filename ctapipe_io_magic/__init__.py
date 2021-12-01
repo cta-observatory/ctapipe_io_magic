@@ -28,6 +28,7 @@ from ctapipe.core import Field
 from ctapipe.containers import (
     ArrayEventContainer,
     SimulatedShowerContainer,
+    SimulationConfigContainer,
     PointingContainer,
     TelescopePointingContainer,
     TelescopeTriggerContainer,
