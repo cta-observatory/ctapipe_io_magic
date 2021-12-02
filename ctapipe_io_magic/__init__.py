@@ -16,6 +16,7 @@ import numpy as np
 import scipy
 import scipy.interpolate
 
+from astropy.coordinates import Angle
 from astropy import units as u
 from astropy.time import Time
 
