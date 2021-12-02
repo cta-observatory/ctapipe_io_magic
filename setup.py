@@ -1,29 +1,31 @@
 from setuptools import setup, find_packages
 from os import path
 
-# read the contents of your README file
-this_directory = path.abspath(path.dirname(__file__))
-with open(path.join(this_directory, 'README.md'), encoding='utf-8') as f:
-    long_description = f.read()
+tests_require = ["pytest"]
 
+docs_require = [
+    "sphinx~=4.2",
+    "sphinx-automodapi",
+    "sphinx_argparse",
+    "sphinx_rtd_theme",
+    "numpydoc",
+    "nbsphinx"
+]
 
 setup(
-    name='ctapipe_io_magic',
+    use_scm_version={"write_to": os.path.join("magicctapipe", "_version.py")},
     packages=find_packages(),
-    version='0.3.0',
-    description='ctapipe plugin for reading of the calibrated MAGIC files',
-    long_description=long_description,
-    long_description_content_type='text/markdown',
     install_requires=[
-        'ctapipe',
-        'astropy',
-        'uproot',
+        'ctapipe~=0.12.0',
+        'astropy~=4.2',
+        'uproot~=4.0',
         'numpy',
         'scipy'
     ],
-    tests_require=['pytest'],
+    extras_require={
+        "all": tests_require + docs_require,
+        "tests": tests_require,
+        "docs": docs_require,
+    },
     setup_requires=['pytest_runner'],
-    author='Ievgen Vovk et al.',
-    author_email='Ievgen.Vovk@mpp.mpg.de',
-    license='MIT',
-) 
+)
