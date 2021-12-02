@@ -988,7 +988,10 @@ class MarsCalibratedRun:
         # Detecting stereo events
         self.stereo_ids = self._find_stereo_events()
         # Detecting mono events
-        self.mono_ids = self._find_mono_events()
+        if self.is_mc:
+            self.mono_ids = self._find_stereo_mc_events()
+        else:
+            self.mono_ids = self._find_mono_events()
 
     @property
     def n_events_m1(self):
@@ -1529,6 +1532,51 @@ class MarsCalibratedRun:
             stereo_ids = list(zip(m1_ids, m2_ids))
 
         return stereo_ids
+
+    def _find_stereo_mc_events(self):
+        """
+        This internal methods identifies stereo events in the run.
+
+        Returns
+        -------
+        list:
+            A list of pairs (M1_id, M2_id) corresponding to stereo events in the run.
+        """
+
+        mono_ids = dict()
+        mono_ids['M1'] = []
+        mono_ids['M2'] = []
+
+        n_m1_events = len(self.event_data['M1']['stereo_event_number'])
+        n_m2_events = len(self.event_data['M2']['stereo_event_number'])
+
+        stereo_m1_data = self.event_data['M1']['stereo_event_number'][np.where(self.event_data['M1']['trigger_pattern'] == MC_TRIGGER_PATTERN)]
+        stereo_m2_data = self.event_data['M2']['stereo_event_number'][np.where(self.event_data['M2']['trigger_pattern'] == MC_TRIGGER_PATTERN)]
+        # remove events with 0 stereo number, which are mono events
+        stereo_m1_data = stereo_m1_data[np.where(stereo_m1_data != 0)]
+        stereo_m2_data = stereo_m2_data[np.where(stereo_m2_data != 0)]
+
+        stereo_numbers = np.intersect1d(stereo_m1_data, stereo_m2_data)
+
+        # because of IDs equal to 0, we must find indices in a slight different way
+        # see https://stackoverflow.com/questions/8251541/numpy-for-every-element-in-one-array-find-the-index-in-another-array
+
+        index_m1 = np.argsort(self.event_data['M1']['stereo_event_number'])
+        index_m2 = np.argsort(self.event_data['M2']['stereo_event_number'])
+
+        sort_stereo_events_m1 = self.event_data['M1']['stereo_event_number'][index_m1]
+        sort_stereo_events_m2 = self.event_data['M2']['stereo_event_number'][index_m2]
+
+        sort_index_m1 = np.searchsorted(sort_stereo_events_m1, stereo_numbers)
+        sort_index_m2 = np.searchsorted(sort_stereo_events_m2, stereo_numbers)
+
+        m1_ids = np.take(index_m1, sort_index_m1)
+        m2_ids = np.take(index_m2, sort_index_m2)
+
+        mono_ids['M1'] = m1_ids
+        mono_ids['M2'] = m2_ids
+
+        return mono_ids
 
     def _find_mono_events(self):
         """
