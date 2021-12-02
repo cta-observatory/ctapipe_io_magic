@@ -28,6 +28,7 @@ from ctapipe.core import Field
 
 from ctapipe.containers import (
     ArrayEventContainer,
+    SimulatedEventContainer,
     SimulatedShowerContainer,
     SimulationConfigContainer,
     PointingContainer,
@@ -737,6 +738,7 @@ class MAGICEventSource(EventSource):
                 # check meaning of 7deg transformation (I.Vovk)
                 # adding a 7deg rotation between the orientation of corsika (x axis = magnetic north) and MARS (x axis = geographical north) frames
                 # magnetic north is 7 deg westward w.r.t. geographical north
+                data.simulation = SimulatedEventContainer()
                 data.simulation.shower = SimulatedShowerContainer(
                     energy = u.Quantity(event_data['true_energy'], u.GeV),
                     alt = Angle((np.pi/2 - event_data['true_zd']), u.rad),
