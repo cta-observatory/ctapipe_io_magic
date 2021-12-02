@@ -743,6 +743,8 @@ class MAGICEventSource(EventSource):
                     az = Angle(-1 * (event_data['true_az'] - np.deg2rad(180 - rot_corsika.value)), u.rad),
                     shower_primary_id = 1 - event_data['true_shower_primary_id'],
                     h_first_int = u.Quantity(event_data['true_h_first_int'], u.cm),
+                    core_x = u.Quantity((event_data['true_core_x']*np.cos(rot_corsika) - event_data['true_core_y']*np.sin(rot_corsika)).value, u.cm),
+                    core_y = u.Quantity((event_data['true_core_x']*np.sin(rot_corsika) + event_data['true_core_y']*np.cos(rot_corsika)).value, u.cm),
                     core_x = u.Quantity((event_data['true_core_x']*np.cos(rot_corsika) - event_data['true_core_y']*np.sin(rot_corsika)), u.cm),
                     core_y = u.Quantity((event_data['true_core_x']*np.sin(rot_corsika) + event_data['true_core_y']*np.cos(rot_corsika)), u.cm),
                 )
