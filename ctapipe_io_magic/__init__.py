@@ -1083,12 +1083,6 @@ class MarsCalibratedRun:
         self.monitoring_data['M1'] = m1_data[1]
         self.monitoring_data['M2'] = m2_data[1]
 
-        # Getting the run-wise MC header data
-        if self.is_mc:
-            self.mcheader_data = dict()
-            self.mcheader_data['M1'] = m1_data[2]
-            self.mcheader_data['M2'] = m2_data[2]
-
         # Detecting pedestal events
         self.pedestal_ids = self._find_pedestal_events()
         # Detecting stereo events
@@ -1182,15 +1176,12 @@ class MarsCalibratedRun:
         monitoring_data['PedestalFromExtractorRndm']['Mean'] = []
         monitoring_data['PedestalFromExtractorRndm']['Rms'] = []
 
-        #MC Header information, dictionary always created, but filled only in case of MC run
-        mcheader_data = dict()
-
         event_data['file_edges'] = [0]
 
         # if no file in the list (e.g. when reading mono information), then simply
         # return empty dicts/array
         if len(file_list) == 0:
-            return event_data, monitoring_data, mcheader_data
+            return event_data, monitoring_data
 
         drive_data = dict()
         drive_data['mjd'] = np.array([])
@@ -1261,17 +1252,6 @@ class MarsCalibratedRun:
             'MMcEvt.fCoreX',
             'MMcEvt.fCoreY'
         ]
-        
-        mcheader_list = [
-            #'MMcRunHeader.fNumSimulatedShowers',
-            'MMcRunHeader.fNumEvents',
-            'MMcCorsikaRunHeader.fELowLim', #GeV
-            'MMcCorsikaRunHeader.fEUppLim', #GeV
-            'MMcCorsikaRunHeader.fSlopeSpec',
-            'MMcRunHeader.fImpactMax', #cm
-            #'MMcCorsikaRunHeader.fViewconeAngles',
-            'MMcRunHeader.fRandomPointingConeSemiAngle' # deg
-        ]
 
         # Metadata, currently not strictly required
         metainfo_array_list = [
@@ -1298,16 +1278,6 @@ class MarsCalibratedRun:
             mars_meta = dict()
 
             mars_meta['is_simulation'] = is_mc
-
-            if is_mc:
-                mc_header_info = input_file['RunHeaders'].arrays(mcheader_list, library="np")
-                mcheader_data['sim_nevents']=int(mc_header_info['MMcRunHeader.fNumEvents'][0]) #std: 5000
-                mcheader_data['sim_reuse']= 1 #this value is not written in the magic root file, but since the sim_events already include shower reuse we artificially set it to 1 (actually every shower reused 5 times for std MAGIC MC)
-                mcheader_data['sim_emin']=mc_header_info['MMcCorsikaRunHeader.fELowLim'][0]*u.GeV
-                mcheader_data['sim_emax']=mc_header_info['MMcCorsikaRunHeader.fEUppLim'][0]*u.GeV
-                mcheader_data['sim_eslope']=mc_header_info['MMcCorsikaRunHeader.fSlopeSpec'][0] #std: -1.6
-                mcheader_data['sim_max_impact']=mc_header_info['MMcRunHeader.fImpactMax'][0]*u.cm
-                mcheader_data['sim_conesemiangle']=mc_header_info['MMcRunHeader.fRandomPointingConeSemiAngle'][0]*u.deg #std: 2.5 deg, also corsika viewcone is defined by "half of the cone angle".
 
             # Reading event timing information:
             if not is_mc:
@@ -1557,7 +1527,7 @@ class MarsCalibratedRun:
             event_data['pointing_ra'] = drive_ra_pointing_interpolator(event_data['MJD'])
             event_data['pointing_dec'] = drive_dec_pointing_interpolator(event_data['MJD'])
 
-        return event_data, monitoring_data, mcheader_data
+        return event_data, monitoring_data
 
 
     def _find_pedestal_events(self):
