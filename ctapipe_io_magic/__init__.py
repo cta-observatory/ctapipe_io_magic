@@ -43,6 +43,7 @@ from ctapipe.instrument import (
     SubarrayDescription,
     OpticsDescription,
     CameraDescription,
+    CameraReadout,
 )
 
 __all__ = ['MAGICEventSource']
@@ -65,6 +66,12 @@ MAGIC_TEL_POSITIONS = {
 # MAGIC telescope description
 OPTICS = OpticsDescription.from_name('MAGIC')
 MAGICCAM = CameraDescription.from_name("MAGICCam")
+MAGICCAM.readout = CameraReadout(
+    camera_name='MAGICCam',
+    sampling_rate=u.Quantity(1.64, u.GHz),
+    reference_pulse_shape=np.array([]),
+    reference_pulse_sample_width=u.Quantity(0.5, u.ns)
+)
 GEOM = MAGICCAM.geometry
 MAGIC_TEL_DESCRIPTION = TelescopeDescription(
     name='MAGIC', tel_type='MAGIC', optics=OPTICS, camera=MAGICCAM)
