@@ -754,6 +754,112 @@ class MAGICEventSource(EventSource):
 
         return
 
+    def _melibea_event_generator(self):
+        """
+        Melibea event generator. Yields ArrayEventContainer instances, filled
+        with the read event data.
+        """
+
+        counter = 0
+
+        # Data container - is initialized once, and data is replaced within it after each yield
+        data = ArrayEventContainer()
+
+        # Telescopes with data:
+        tels_in_file = ["M1", "M2"]
+
+        tels_with_data = {1, 2}
+
+        # Removing the previously read data run from memory
+        if self.current_run is not None:
+            if 'data' in self.current_run:
+                del self.current_run['data']
+
+        # Setting the new active run
+        self.current_run = self._set_active_run(self.run_numbers)
+        event_data = self.current_run.event_data
+
+        # Loop over the events
+        for event in range(n_events):
+            # Event and run ids
+            event_order_number = self.current_run['data'].mono_ids[telescope][event_i]
+            event_id = self.current_run['data'].event_data[telescope]['stereo_event_number'][event_order_number]
+            obs_id = self.current_run['number']
+
+            # Reading event data
+            event_data = self.current_run['data'].get_mono_event_data(
+                event_i, telescope=telescope)
+
+            data.meta = event_data['mars_meta']
+            data.meta["max_events"] = self.max_events
+
+            data.trigger.event_type = self.current_run['data'].event_data[telescope]['trigger_pattern'][event_order_number]
+            data.trigger.tels_with_trigger = tels_with_data
+            if self.allowed_tels:
+                data.trigger.tels_with_trigger = np.intersect1d(
+                    data.trigger.tels_with_trigger,
+                    self.subarray.tel_ids,
+                    assume_unique=True,)
+            if not self.is_mc:
+                # Adding the event arrival time
+                time_tmp = Time(
+                    event_data['mjd'], scale='utc', format='mjd')
+                data.trigger.tel[tel_i + 1] = TelescopeTriggerContainer(time=Time(
+                    time_tmp, format='unix', scale='utc', precision=9))
+
+            # Event counter
+            data.count = counter
+            data.index.obs_id = obs_id
+            data.index.event_id = event_id
+
+            # Setting up the R0 container
+            data.r0.tel.clear()
+            data.r1.tel.clear()
+            data.dl0.tel.clear()
+            data.dl1.tel.clear()
+            data.pointing.tel.clear()
+
+            # Creating the telescope pointing container
+            pointing = PointingContainer()
+            pointing_tel = TelescopePointingContainer(
+                azimuth = np.deg2rad(
+                event_data['pointing_az']) * u.rad,
+                altitude = np.deg2rad(
+                90 - event_data['pointing_zd']) * u.rad,)
+
+            pointing.tel[tel_i + 1] = pointing_tel
+
+            pointing.array_azimuth  = np.deg2rad(event_data['pointing_az']) * u.rad
+            pointing.array_altitude = np.deg2rad(90 - event_data['pointing_zd']) * u.rad
+            pointing.array_ra       = np.deg2rad(event_data['pointing_ra']) * u.rad
+            pointing.array_dec      = np.deg2rad(90 - event_data['pointing_dec']) * u.rad
+
+            data.pointing = pointing
+
+            # Adding event charge and peak positions per pixel
+            data.dl1.tel[tel_i + 1].image = event_data['image']
+            data.dl1.tel[tel_i + 1].peak_time = event_data['pulse_time']
+
+            if self.is_mc:
+                rot_corsika = 7 *u.deg
+                # check meaning of 7deg transformation (I.Vovk)
+                # adding a 7deg rotation between the orientation of corsika (x axis = magnetic north) and MARS (x axis = geographical north) frames
+                # magnetic north is 7 deg westward w.r.t. geographical north
+                data.simulation.shower = SimulatedShowerContainer(
+                    energy = u.Quantity(event_data['true_energy'], u.GeV),
+                    alt = Angle((np.pi/2 - event_data['true_zd']), u.rad),
+                    az = Angle(-1 * (event_data['true_az'] - np.deg2rad(180 - rot_corsika.value)), u.rad),
+                    shower_primary_id = 1 - event_data['true_shower_primary_id'],
+                    h_first_int = u.Quantity(event_data['true_h_first_int'], u.cm),
+                    core_x = u.Quantity((event_data['true_core_x']*np.cos(rot_corsika) - event_data['true_core_y']*np.sin(rot_corsika)), u.cm),
+                    core_y = u.Quantity((event_data['true_core_x']*np.sin(rot_corsika) + event_data['true_core_y']*np.cos(rot_corsika)), u.cm),
+                )
+
+            yield data
+            counter += 1
+
+        return
+
     def _pedestal_event_generator(self, telescope):
         """
         Pedestal event generator. Yields DataContainer instances, filled
@@ -1547,34 +1653,11 @@ class MarsCalibratedRun:
         mono_ids['M1'] = []
         mono_ids['M2'] = []
 
-        n_m1_events = len(self.event_data['M1']['stereo_event_number'])
-        n_m2_events = len(self.event_data['M2']['stereo_event_number'])
+        m1_ids = np.argwhere(self.event_data['M1']['stereo_event_number'])
+        m2_ids = np.argwhere(self.event_data['M2']['stereo_event_number'])
 
-        stereo_m1_data = self.event_data['M1']['stereo_event_number'][np.where(self.event_data['M1']['trigger_pattern'] == MC_TRIGGER_PATTERN)]
-        stereo_m2_data = self.event_data['M2']['stereo_event_number'][np.where(self.event_data['M2']['trigger_pattern'] == MC_TRIGGER_PATTERN)]
-        # remove events with 0 stereo number, which are mono events
-        stereo_m1_data = stereo_m1_data[np.where(stereo_m1_data != 0)]
-        stereo_m2_data = stereo_m2_data[np.where(stereo_m2_data != 0)]
-
-        stereo_numbers = np.intersect1d(stereo_m1_data, stereo_m2_data)
-
-        # because of IDs equal to 0, we must find indices in a slight different way
-        # see https://stackoverflow.com/questions/8251541/numpy-for-every-element-in-one-array-find-the-index-in-another-array
-
-        index_m1 = np.argsort(self.event_data['M1']['stereo_event_number'])
-        index_m2 = np.argsort(self.event_data['M2']['stereo_event_number'])
-
-        sort_stereo_events_m1 = self.event_data['M1']['stereo_event_number'][index_m1]
-        sort_stereo_events_m2 = self.event_data['M2']['stereo_event_number'][index_m2]
-
-        sort_index_m1 = np.searchsorted(sort_stereo_events_m1, stereo_numbers)
-        sort_index_m2 = np.searchsorted(sort_stereo_events_m2, stereo_numbers)
-
-        m1_ids = np.take(index_m1, sort_index_m1)
-        m2_ids = np.take(index_m2, sort_index_m2)
-
-        mono_ids['M1'] = m1_ids
-        mono_ids['M2'] = m2_ids
+        mono_ids['M1'] = list(m1_ids.flatten())
+        mono_ids['M2'] = list(m2_ids.flatten())
 
         return mono_ids
 
