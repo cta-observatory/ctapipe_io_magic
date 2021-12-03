@@ -1953,8 +1953,8 @@ class MarsCalibratedRun:
         arrival_times = self.event_data[telescope]['arrival_time'][file_num][id_in_file][:self.n_camera_pixels]
 
         event_data = dict()
-        event_data['image'] = np.array(photon_content)
-        event_data['pulse_time'] = np.array(arrival_times)
+        event_data['image'] = np.array(photon_content, dtype=np.float)
+        event_data['pulse_time'] = np.array(arrival_times, dtype=np.float)
         event_data['pointing_az'] = self.event_data[telescope]['pointing_az'][event_id]
         event_data['pointing_zd'] = self.event_data[telescope]['pointing_zd'][event_id]
         event_data['pointing_ra'] = self.event_data[telescope]['pointing_ra'][event_id]
