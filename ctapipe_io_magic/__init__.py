@@ -393,7 +393,8 @@ class MAGICEventSource(EventSource):
 
     @property
     def obs_ids(self):
-        return self.run_numbers
+        # ToCheck: will this be compatible in the future, e.g. with merged MC files
+        return [self.run_numbers]
 
     def _generator(self):
         """
