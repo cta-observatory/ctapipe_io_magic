@@ -428,7 +428,7 @@ class MAGICEventSource(EventSource):
 
         # Telescopes with data:
         tels_in_file = ["m1", "m2"]
-        tels_with_data = {1, 2}
+        tels_with_data = [1, 2]
 
         # Loop over the available data runs
         for run_number in self.run_numbers:
@@ -482,7 +482,7 @@ class MAGICEventSource(EventSource):
                     monitoring_camera.pedestal = pedestal_info
                     monitoring_camera.pixel_status = badpixel_info
 
-                    data.mon.tels_with_data = {1, 2}
+                    data.mon.tels_with_data = [1, 2]
                     data.mon.tel[tel_i + 1] = monitoring_camera
             else:
                 assert self.current_run['data'].mcheader_data['M1'] == self.current_run['data'].mcheader_data['M2'], "Simulation configurations are different for M1 and M2 !!!"
@@ -627,7 +627,7 @@ class MAGICEventSource(EventSource):
                 telescope, tels_in_file))
 
         tel_i = tels_in_file.index(telescope)
-        tels_with_data = {tel_i + 1, }
+        tels_with_data = [tel_i + 1, ]
 
         # Removing the previously read data run from memory
         if self.current_run is not None:
@@ -779,7 +779,7 @@ class MAGICEventSource(EventSource):
         # Telescopes with data:
         tels_in_file = ["M1", "M2"]
 
-        tels_with_data = {1, 2}
+        tels_with_data = [1, 2]
 
         # Removing the previously read data run from memory
         if self.current_run is not None:
@@ -900,7 +900,7 @@ class MAGICEventSource(EventSource):
                 telescope, tels_in_file))
 
         tel_i = tels_in_file.index(telescope)
-        tels_with_data = {tel_i + 1, }
+        tels_with_data = [tel_i + 1, ]
 
         # Loop over the available data runs
         for run_number in self.run_numbers:
