@@ -66,10 +66,13 @@ MAGIC_TEL_POSITIONS = {
 # MAGIC telescope description
 OPTICS = OpticsDescription.from_name('MAGIC')
 MAGICCAM = CameraDescription.from_name("MAGICCam")
+pulse_shape_lo_gain = np.array([])
+pulse_shape_hi_gain = np.array([])
+pulse_shape = np.vstack((pulse_shape_lo_gain, pulse_shape_lo_gain))
 MAGICCAM.readout = CameraReadout(
     camera_name='MAGICCam',
     sampling_rate=u.Quantity(1.64, u.GHz),
-    reference_pulse_shape=np.array([]),
+    reference_pulse_shape=pulse_shape,
     reference_pulse_sample_width=u.Quantity(0.5, u.ns)
 )
 GEOM = MAGICCAM.geometry
