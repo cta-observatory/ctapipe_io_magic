@@ -20,11 +20,10 @@ def test_stream():
 
 def test_loop():
     dataset = get_dataset_path("20131004_M1_05029747.003_Y_MagicCrab-W0.40+035.root")
-    dataset = dataset.replace('_M1_', '_M*_')
     with MAGICEventSource(input_url=dataset) as source:
         count = 0
         for event in source:
-            assert event.r0.tels_with_data == {1, 2}
+            assert event.trigger.tels_with_trigger == [1]
             assert event.count == count
             count += 1
 
@@ -36,7 +35,6 @@ def test_loop():
 
 def test_that_event_is_not_modified_after_loop():
     dataset = get_dataset_path("20131004_M1_05029747.003_Y_MagicCrab-W0.40+035.root")
-    dataset = dataset.replace('_M1_', '_M*_')
 
     # with MAGICEventSource(input_url=dataset, max_events=3) as source:
     with MAGICEventSource(input_url=dataset) as source:
@@ -53,7 +51,6 @@ def test_that_event_is_not_modified_after_loop():
 
 def test_len():
     dataset = get_dataset_path("20131004_M1_05029747.003_Y_MagicCrab-W0.40+035.root")
-    dataset = dataset.replace('_M1_', '_M*_')
 
     with MAGICEventSource(input_url=dataset) as source:
         count = 0
@@ -61,7 +58,7 @@ def test_len():
             count += 1
 
         # assert count == len(source)
-        n_stereo_events = source.current_run['data'].n_stereo_events
+        n_stereo_events = source.current_run['data'].n_mono_events_m1
         assert count == n_stereo_events
 
     # with MAGICEventSource(input_url=dataset, max_events=3) as reader:
@@ -75,8 +72,8 @@ def test_geom():
 
     with MAGICEventSource(input_url=dataset) as source:
         event = next(source._generator())
-        assert source.subarray.tels[1].camera.pix_x.size == 1039
-        assert source.subarray.tels[2].camera.pix_x.size == 1039
+        assert source.subarray.tels[1].camera.geometry.pix_x.size == 1039
+        assert source.subarray.tels[2].camera.geometry.pix_x.size == 1039
 
 
 def test_eventseeker():
@@ -85,11 +82,11 @@ def test_eventseeker():
 
     with MAGICEventSource(input_url=dataset) as source:
         seeker = EventSeeker(source)
-        event = seeker[0]
+        event = seeker.get_event_index(0)
         assert event.count == 0
         assert event.index.event_id == 29795
 
-        event = seeker[2]
+        event = seeker.get_event_index(2)
         assert event.count == 2
         assert event.index.event_id == 29798
 
@@ -99,7 +96,7 @@ def test_eventcontent():
 
     with MAGICEventSource(input_url=dataset) as source:
         seeker = EventSeeker(source)
-        event = seeker[0]
+        event = seeker.get_event_index(0)
         assert event.dl1.tel[1].image[0] == -0.53125
         assert event.dl1.tel[2].image[0] == 2.2265625
         assert event.dl1.tel[1].peak_time[0] == 49.125
