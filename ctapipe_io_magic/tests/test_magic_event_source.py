@@ -68,7 +68,6 @@ def test_len():
 
 def test_geom():
     dataset = get_dataset_path("20131004_M1_05029747.003_Y_MagicCrab-W0.40+035.root")
-    dataset = dataset.replace('_M1_', '_M*_')
 
     with MAGICEventSource(input_url=dataset) as source:
         event = next(source._generator())
@@ -78,7 +77,6 @@ def test_geom():
 
 def test_eventseeker():
     dataset = get_dataset_path("20131004_M1_05029747.003_Y_MagicCrab-W0.40+035.root")
-    dataset = dataset.replace('_M1_', '_M*_')
 
     with MAGICEventSource(input_url=dataset) as source:
         seeker = EventSeeker(source)
@@ -92,12 +90,9 @@ def test_eventseeker():
 
 def test_eventcontent():
     dataset = get_dataset_path("20131004_M1_05029747.003_Y_MagicCrab-W0.40+035.root")
-    dataset = dataset.replace('_M1_', '_M*_')
 
     with MAGICEventSource(input_url=dataset) as source:
         seeker = EventSeeker(source)
         event = seeker.get_event_index(0)
         assert event.dl1.tel[1].image[0] == -0.53125
-        assert event.dl1.tel[2].image[0] == 2.2265625
         assert event.dl1.tel[1].peak_time[0] == 49.125
-        assert event.dl1.tel[2].peak_time[0] == 23.5625
