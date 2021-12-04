@@ -50,7 +50,6 @@ __all__ = ['MAGICEventSource']
 
 LOGGER = logging.getLogger(__name__)
 
-
 # MAGIC telescope positions in m wrt. to the center of CTA simulations
 #MAGIC_TEL_POSITIONS = {
 #    1: [-27.24, -146.66, 50.00] * u.m,
@@ -62,6 +61,18 @@ MAGIC_TEL_POSITIONS = {
     1: [31.80, -28.10, 0.00] * u.m,
     2: [-31.80, 28.10, 0.00] * u.m
 }
+
+# Magnetic field values at the MAGIC site (taken from CORSIKA input cards)
+# Reference system is the CORSIKA one, where x-axis points to magnetic north
+# i.e. B y-component is 0
+# MAGIC_Bdec is the magnetic declination i.e. angle between magnetic and geographic
+# north, negative if pointing westwards, positive if pointing eastwards
+# MAGIC_Binc is the magnetic field inclination
+MAGIC_Bx = u.Quantity(29.5, u.uT)
+MAGIC_Bz = u.Quantity(23.0, u.uT)
+MAGIC_Btot = np.sqrt(MAGIC_Bx**2+MAGIC_Bz**2)
+MAGIC_Bdec = u.Quantity(-7.0, u.deg).to(u.rad)
+MAGIC_Binc = u.Quantity(np.arctan2(-MAGIC_Bz.value, MAGIC_Bx.value), u.rad)
 
 # MAGIC telescope description
 OPTICS = OpticsDescription.from_name('MAGIC')
@@ -338,6 +349,10 @@ class MAGICEventSource(EventSource):
                     spectral_index=spectral_index,
                     num_showers=n_showers,
                     shower_reuse=1, #not written in the magic root file, but since the sim_events already include shower reuse we artificially set it to 1 (actually every shower reused 5 times for std MAGIC MC)
+                    shower_prog_id = 1,
+                    prod_site_B_total = MAGIC_Btot,
+                    prod_site_B_declination = MAGIC_Bdec,
+                    prod_site_B_inclination = MAGIC_Binc,
                     max_alt=u.Quantity((90. - min_zd), u.deg).to(u.rad),
                     min_alt=u.Quantity((90. - max_zd), u.deg).to(u.rad),
                     max_az=u.Quantity(max_az, u.deg).to(u.rad),
@@ -745,7 +760,6 @@ class MAGICEventSource(EventSource):
             data.dl1.tel[tel_i + 1].peak_time = event_data['pulse_time']
 
             if self.is_mc:
-                rot_corsika = 7 *u.deg
                 # check meaning of 7deg transformation (I.Vovk)
                 # adding a 7deg rotation between the orientation of corsika (x axis = magnetic north) and MARS (x axis = geographical north) frames
                 # magnetic north is 7 deg westward w.r.t. geographical north
@@ -753,11 +767,11 @@ class MAGICEventSource(EventSource):
                 data.simulation.shower = SimulatedShowerContainer(
                     energy = u.Quantity(event_data['true_energy'], u.GeV),
                     alt = Angle((np.pi/2 - event_data['true_zd']), u.rad),
-                    az = Angle(-1 * (event_data['true_az'] - np.deg2rad(180 - rot_corsika.value)), u.rad),
+                    az = Angle(-1 * (event_data['true_az'] - (np.pi/2 + MAGIC_Bdec.value)), u.rad),
                     shower_primary_id = 1 - event_data['true_shower_primary_id'],
                     h_first_int = u.Quantity(event_data['true_h_first_int'], u.cm),
-                    core_x = u.Quantity((event_data['true_core_x']*np.cos(rot_corsika) - event_data['true_core_y']*np.sin(rot_corsika)).value, u.cm),
-                    core_y = u.Quantity((event_data['true_core_x']*np.sin(rot_corsika) + event_data['true_core_y']*np.cos(rot_corsika)).value, u.cm),
+                    core_x = u.Quantity((event_data['true_core_x']*np.cos(-MAGIC_Bdec) - event_data['true_core_y']*np.sin(-MAGIC_Bdec)).value, u.cm),
+                    core_y = u.Quantity((event_data['true_core_x']*np.sin(-MAGIC_Bdec) + event_data['true_core_y']*np.cos(-MAGIC_Bdec)).value, u.cm),
                 )
 
             yield data
