@@ -173,7 +173,9 @@ class MAGICEventSource(EventSource):
         self.current_run = None
 
         self._subarray_info = SubarrayDescription(
-            'MAGIC', MAGIC_TEL_POSITIONS, MAGIC_TEL_DESCRIPTIONS)
+            name='MAGIC', tel_positions=MAGIC_TEL_POSITIONS, tel_descriptions=MAGIC_TEL_DESCRIPTIONS)
+        if self.allowed_tels:
+            self._subarray_info = self._subarray_info.select_subarray(self.allowed_tels)
 
     @staticmethod
     def is_compatible(file_mask):
