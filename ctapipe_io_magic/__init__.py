@@ -77,8 +77,8 @@ MAGIC_Binc = u.Quantity(np.arctan2(-MAGIC_Bz.value, MAGIC_Bx.value), u.rad)
 # MAGIC telescope description
 OPTICS = OpticsDescription.from_name('MAGIC')
 MAGICCAM = CameraDescription.from_name("MAGICCam")
-pulse_shape_lo_gain = np.array([])
-pulse_shape_hi_gain = np.array([])
+pulse_shape_lo_gain = np.array([0., 1., 2., 1., 0.])
+pulse_shape_hi_gain = np.array([1., 2., 3., 2., 1.])
 pulse_shape = np.vstack((pulse_shape_lo_gain, pulse_shape_lo_gain))
 MAGICCAM.readout = CameraReadout(
     camera_name='MAGICCam',
