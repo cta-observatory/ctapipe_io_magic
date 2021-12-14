@@ -46,6 +46,8 @@ from ctapipe.instrument import (
     CameraReadout,
 )
 
+from ctapipe.coordinates import CameraFrame
+
 __all__ = ['MAGICEventSource']
 
 LOGGER = logging.getLogger(__name__)
@@ -86,6 +88,7 @@ MAGICCAM.readout = CameraReadout(
     reference_pulse_shape=pulse_shape,
     reference_pulse_sample_width=u.Quantity(0.5, u.ns)
 )
+MAGICCAM.geometry.frame = CameraFrame(focal_length=OPTICS.equivalent_focal_length)
 GEOM = MAGICCAM.geometry
 MAGIC_TEL_DESCRIPTION = TelescopeDescription(
     name='MAGIC', tel_type='MAGIC', optics=OPTICS, camera=MAGICCAM)
