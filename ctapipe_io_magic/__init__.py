@@ -906,7 +906,7 @@ class MAGICEventSource(EventSource):
         telescope = telescope.upper()
 
         # Data container - is initialized once, and data is replaced within it after each yield
-        data = EventAndMonDataContainer()
+        data = ArrayEventContainer()
 
         # Telescopes with data:
         tels_in_file = ["M1", "M2"]
@@ -965,7 +965,6 @@ class MAGICEventSource(EventSource):
             monitoring_camera.pedestal = pedestal_info
             monitoring_camera.pixel_status = badpixel_info
 
-            data.mon.tels_with_data = tels_with_data
             data.mon.tel[tel_i + 1] = monitoring_camera
 
             if telescope == 'M1':
@@ -985,6 +984,21 @@ class MAGICEventSource(EventSource):
                     event_i, telescope=telescope)
 
                 data.meta = event_data['mars_meta']
+                data.meta["max_events"] = self.max_events
+
+                data.trigger.event_type = self.current_run['data'].event_data[telescope]['trigger_pattern'][event_order_number]
+                data.trigger.tels_with_trigger = tels_with_data
+                if self.allowed_tels:
+                    data.trigger.tels_with_trigger = np.intersect1d(
+                        data.trigger.tels_with_trigger,
+                        self.subarray.tel_ids,
+                        assume_unique=True,)
+                if not self.is_mc:
+                    # Adding the event arrival time
+                    time_tmp = Time(
+                        event_data['mjd'], scale='utc', format='mjd')
+                    data.trigger.tel[tel_i + 1] = TelescopeTriggerContainer(time=Time(
+                        time_tmp, format='unix', scale='utc', precision=9))
 
                 # Event counter
                 data.count = counter
@@ -993,42 +1007,31 @@ class MAGICEventSource(EventSource):
 
                 # Setting up the R0 container
                 data.r0.tel.clear()
-                data.r0.tel[tel_i + 1].trigger_type = self.current_run['data'].event_data[telescope]['trigger_pattern'][event_order_number]
-
-                # Setting up the R1 container
                 data.r1.tel.clear()
-                data.r1.tel[tel_i + 1].trigger_type = self.current_run['data'].event_data[telescope]['trigger_pattern'][event_order_number]
-
-                # Setting up the DL0 container
                 data.dl0.tel.clear()
-                data.dl0.tel[tel_i + 1].trigger_type = self.current_run['data'].event_data[telescope]['trigger_pattern'][event_order_number]
+                data.dl1.tel.clear()
+                data.pointing.tel.clear()
 
                 # Creating the telescope pointing container
-                pointing = TelescopePointingContainer()
-                pointing.azimuth = np.deg2rad(
-                    event_data['pointing_az']) * u.rad
-                pointing.altitude = np.deg2rad(
-                    90 - event_data['pointing_zd']) * u.rad
-                #pointing.ra = np.deg2rad(event_data['pointing_ra']) * u.rad
-                #pointing.dec = np.deg2rad(event_data['pointing_dec']) * u.rad
+                pointing = PointingContainer()
+                pointing_tel = TelescopePointingContainer(
+                    azimuth = np.deg2rad(
+                    event_data['pointing_az']) * u.rad,
+                    altitude = np.deg2rad(
+                    90 - event_data['pointing_zd']) * u.rad,)
 
-                # Adding the pointing container to the event data
-                data.pointing.tel[tel_i + 1] = pointing
+                pointing.tel[tel_i + 1] = pointing_tel
+
+                pointing.array_azimuth  = np.deg2rad(event_data['pointing_az']) * u.rad
+                pointing.array_altitude = np.deg2rad(90 - event_data['pointing_zd']) * u.rad
+                pointing.array_ra       = np.deg2rad(event_data['pointing_ra']) * u.rad
+                pointing.array_dec      = np.deg2rad(90 - event_data['pointing_dec']) * u.rad
+
+                data.pointing = pointing
 
                 # Adding event charge and peak positions per pixel
                 data.dl1.tel[tel_i + 1].image = event_data['image']
                 data.dl1.tel[tel_i + 1].peak_time = event_data['pulse_time']
-
-                # Adding the event arrival time
-                time_tmp = Time(event_data['mjd'], scale='utc', format='mjd')
-                data.trigger.time = Time(
-                    time_tmp, format='unix', scale='utc', precision=9)
-
-                # Setting the telescopes with data
-                data.r0.tels_with_data = tels_with_data
-                data.r1.tels_with_data = tels_with_data
-                data.dl0.tels_with_data = tels_with_data
-                data.trigger.tels_with_trigger = tels_with_data
 
                 yield data
                 counter += 1
