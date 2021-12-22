@@ -7,8 +7,6 @@ import logging
 
 import glob
 import re
-import os.path
-from pathlib import Path
 from enum import Enum, auto
 
 import numpy as np
