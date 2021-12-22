@@ -19,6 +19,8 @@ cd ctapipe_io_magic
 python setup.py install --user
 ```
 
+**NB: in the near future, ctapipe_io_magic will be available in PyPI and/or conda.**
+
 #### Usage
 
 ```python
