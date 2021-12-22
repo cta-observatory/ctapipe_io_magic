@@ -255,7 +255,6 @@ class MAGICEventSource(EventSource):
         mask_mc_star         = r"GA_M(\d)_za\d+to\d+_\d_(\d+)_I_.*"
         mask_mc_superstar    = r"GA_za\d+to\d+_\d_S_.*"
         mask_mc_melibea      = r"GA_za\d+to\d+_\d_Q_.*"
-        mask_mc_alt = r".*_M(\d)_\d_(\d+)_.*"
         if re.findall(mask_data_calibrated, file_name):
             parsed_info = re.findall(mask_data_calibrated, file_name)
             telescope  = int(parsed_info[0][0])
