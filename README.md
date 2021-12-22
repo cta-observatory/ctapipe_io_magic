@@ -1,8 +1,6 @@
 ## *ctapipe* MAGIC event source
 
-This module implements the *ctapipe* class, needed to read the calibrated data of the MAGIC telescope system. It requires the [*ctapipe*](https://github.com/cta-observatory/ctapipe) and [*uproot*](https://github.com/scikit-hep/uproot) packages to run.
-
-### Note: This package is under heavy development, and recent development is taking place at [MPCDF GitLab](https://gitlab.mpcdf.mpg.de/ievo/ctapipe_io_magic). Check if the current master branch at [github.com/cta-observatory](https://github.com/cta-observatory/ctapipe_io_magic) is up to date with MPCDF if using the former. Usage at your own risk, it is recommended to contact one of the latest committers at the [MPCDF GitLab repository](https://gitlab.mpcdf.mpg.de/ievo/ctapipe_io_magic) if you plan to use this package.
+EventSource plugin for *ctapipe*, needed to read the calibrated data of the MAGIC telescope system. It requires the [*ctapipe*](https://github.com/cta-observatory/ctapipe) (v0.8.0) and [*uproot*](https://github.com/scikit-hep/uproot4) (>=4.x) packages to run.
 
 #### Installation
 
