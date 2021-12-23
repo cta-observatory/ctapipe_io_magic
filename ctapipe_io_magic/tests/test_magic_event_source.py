@@ -31,7 +31,7 @@ def test_event_source_for_magic_file(dataset):
     reader = EventSource(dataset)
 
     # import here to see if ctapipe detects plugin
-    from ctapipe_io_lst import MAGICEventSource
+    from ctapipe_io_magic import MAGICEventSource
 
     assert isinstance(reader, MAGICEventSource)
     assert reader.input_url == dataset
