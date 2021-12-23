@@ -25,6 +25,19 @@ test_calibrated_all = test_calibrated_real+test_calibrated_simulated
 
 
 @pytest.mark.parametrize('dataset', test_calibrated_all)
+def test_event_source_for_magic_file(dataset):
+    from ctapipe.io import EventSource
+
+    reader = EventSource(dataset)
+
+    # import here to see if ctapipe detects plugin
+    from ctapipe_io_lst import MAGICEventSource
+
+    assert isinstance(reader, MAGICEventSource)
+    assert reader.input_url == dataset
+
+
+@pytest.mark.parametrize('dataset', test_calibrated_all)
 def test_compatible(dataset):
     from ctapipe_io_magic import MAGICEventSource
     assert MAGICEventSource.is_compatible(dataset)
