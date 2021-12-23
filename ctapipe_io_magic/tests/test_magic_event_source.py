@@ -21,10 +21,7 @@ test_calibrated_simulated = [
     test_calibrated_simulated_dir / 'GA_M2_za35to50_8_824319_Y_w0.root',
 ]
 
-test_calibrated_all = [
-    test_calibrated_real,
-    test_calibrated_simulated,
-]
+test_calibrated_all = test_calibrated_real+test_calibrated_simulated
 
 
 @pytest.mark.parametrize('dataset', test_calibrated_all)
