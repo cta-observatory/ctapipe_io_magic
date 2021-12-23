@@ -44,9 +44,9 @@ def test_loop(dataset):
     with MAGICEventSource(input_url=dataset, max_events=n_events) as source:
         for i, event in enumerate(source):
             assert event.count == i
-            if "_M1_" in dataset:
+            if "_M1_" in dataset.name:
                 assert event.trigger.tels_with_trigger == [1]
-            if "_M2_" in dataset:
+            if "_M2_" in dataset.name:
                 assert event.trigger.tels_with_trigger == [2]
 
         assert (i + 1) == n_events
