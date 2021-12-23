@@ -74,25 +74,6 @@ def test_that_event_is_not_modified_after_loop(dataset):
 
 
 @pytest.mark.parametrize('dataset', test_calibrated_all)
-def test_len(dataset):
-    from ctapipe_io_magic import MAGICEventSource
-    n_events = 10
-
-    with MAGICEventSource(input_url=dataset, max_events=n_events) as source:
-        count = 0
-        for _ in source:
-            count += 1
-
-        # assert count == len(source)
-        n_stereo_events = source.current_run['data'].n_mono_events_m1
-        assert count == n_stereo_events
-
-    # with MAGICEventSource(input_url=dataset, max_events=3) as reader:
-    # with MAGICEventSource(input_url=dataset) as reader:
-    #     assert len(reader) == 3
-
-
-@pytest.mark.parametrize('dataset', test_calibrated_all)
 def test_geom(dataset):
     from ctapipe_io_magic import MAGICEventSource
 
