@@ -11,3 +11,4 @@ ctapipe_io_magic.egg-info/top_level.txt
 dist/
 ctapipe_io_magic/__pycache__/__init__.cpython-36.pyc
 *__pycache__
+test_data
