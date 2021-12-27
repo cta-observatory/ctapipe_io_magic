@@ -46,7 +46,9 @@ from ctapipe.instrument import (
 
 from ctapipe.coordinates import CameraFrame
 
-__all__ = ['MAGICEventSource']
+from .version import __version__
+
+__all__ = ['MAGICEventSource', '__version__']
 
 LOGGER = logging.getLogger(__name__)
 
