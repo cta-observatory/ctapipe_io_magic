@@ -1182,7 +1182,9 @@ class MarsCalibratedRun:
             'MRawRunHeader.fSubRunIndex',
             'MRawRunHeader.fSourceRA',
             'MRawRunHeader.fSourceDEC',
-            'MRawRunHeader.fTelescopeNumber']
+            'MRawRunHeader.fTelescopeNumber',
+            'MRawRunHeader.fSourceName[80]',
+            'MRawRunHeader.fObservationMode[60]']
 
         for file_name in file_list:
 
@@ -1231,6 +1233,10 @@ class MarsCalibratedRun:
                     seconds_per_hour * degrees_per_hour * u.deg
                 mars_meta['source_dec'] = meta_info['MRawRunHeader.fSourceDEC'][0] / \
                     seconds_per_hour * u.deg
+                src_name_array = meta_info['MRawRunHeader.fSourceName[80]'].array(library="np")[0]
+                mars_meta['source_name'] = "".join([chr(item) for item in src_name_array if item != 0])
+                obs_mode_array = meta_info['MRawRunHeader.fObservationMode[60]'].array(library="np")[0]
+                mars_meta['observation_mode'] = "".join([chr(item) for item in obs_mode_array if item != 0])
 
                 is_mc_check = int(meta_info['MRawRunHeader.fRunType'][0])
                 if is_mc_check == 0:
