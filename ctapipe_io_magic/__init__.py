@@ -1189,8 +1189,8 @@ class MarsCalibratedRun:
             if not is_mc:
                 src_name_array = meta_info['MRawRunHeader.fSourceName[80]'][0]
                 mars_meta['source_name'] = "".join([chr(item) for item in src_name_array if item != 0])
-            obs_mode_array = meta_info['MRawRunHeader.fObservationMode[60]'][0]
-            mars_meta['observation_mode'] = "".join([chr(item) for item in obs_mode_array if item != 0])
+                obs_mode_array = meta_info['MRawRunHeader.fObservationMode[60]'][0]
+                mars_meta['observation_mode'] = "".join([chr(item) for item in obs_mode_array if item != 0])
 
             is_mc_check = int(meta_info['MRawRunHeader.fRunType'][0])
             if is_mc_check == 0:
