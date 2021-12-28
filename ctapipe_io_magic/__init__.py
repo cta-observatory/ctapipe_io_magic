@@ -165,7 +165,7 @@ class MAGICEventSource(EventSource):
         self.telescope = telescope
 
         # Retrieving the data level (so far HARDCODED Sorcerer)
-        self.datalevel = DataLevel.DL1_IMAGES
+        self.datalevel = DataLevel.DL0
         self.mars_datalevel = run_info[3]
 
         if self.is_mc:
