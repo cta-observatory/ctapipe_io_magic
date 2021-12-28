@@ -18,6 +18,8 @@ from astropy.coordinates import Angle
 from astropy import units as u
 from astropy.time import Time
 
+import uproot
+
 from ctapipe.io.eventsource import EventSource
 from ctapipe.io.datalevels import DataLevel
 
@@ -127,10 +129,8 @@ class MAGICEventSource(EventSource):
     """
     EventSource for MAGIC calibrated data.
 
-    This class operates with the MAGIC data run-wise. This means that the files
-    corresponding to the same data run are loaded and processed together.
+    This class operates with the MAGIC data subrun-wise for calibrated data.
     """
-    _count = 0
 
     def __init__(self, input_url=None, config=None, parent=None, **kwargs):
         """
@@ -181,7 +181,7 @@ class MAGICEventSource(EventSource):
             self._subarray_info = self._subarray_info.select_subarray(self.allowed_tels)
 
     @staticmethod
-    def is_compatible(file_mask):
+    def is_compatible(file_path):
         """
         This method checks if the specified file mask corresponds
         to MAGIC data files. The result will be True only if all
@@ -189,8 +189,8 @@ class MAGICEventSource(EventSource):
 
         Parameters
         ----------
-        file_mask: str
-            A file mask to check
+        file_path: str
+            Path to file
 
         Returns
         -------
@@ -201,23 +201,15 @@ class MAGICEventSource(EventSource):
 
         is_magic_root_file = True
 
-        file_list = glob.glob(str(file_mask))
-
-        for file_path in file_list:
-            try:
-                import uproot
-
-                try:
-                    with uproot.open(file_path) as input_data:
-                        if 'Events' not in input_data:
-                            is_magic_root_file = False
-                except ValueError:
-                    # uproot raises ValueError if the file is not a ROOT file
+        try:
+            with uproot.open(file_path) as input_data:
+                mandatory_trees = ['Events', 'RunHeaders', 'RunTails']
+                trees_in_file = [tree in input_data for tree in mandatory_trees]
+                if not all(trees_in_file):
                     is_magic_root_file = False
-
-            except ImportError:
-                if re.match(r'.+_m\d_.+root', file_path.lower()) is None:
-                    is_magic_root_file = False
+        except ValueError:
+            # uproot raises ValueError if the file is not a ROOT file
+            is_magic_root_file = False
 
         return is_magic_root_file
 
