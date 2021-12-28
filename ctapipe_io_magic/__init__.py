@@ -948,7 +948,7 @@ class MarsCalibratedRun:
         if '_M1_' in self.file_name:
             m1_data = self.load_events(
                 uproot_file, self.is_mc, self.n_camera_pixels)
-            m1_data = self.load_events(
+            m2_data = self.load_events(
                 None, self.is_mc, self.n_camera_pixels)
         if '_M2_' in self.file_name:
             m1_data = self.load_events(
