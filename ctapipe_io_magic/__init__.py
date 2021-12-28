@@ -155,6 +155,7 @@ class MAGICEventSource(EventSource):
         super().__init__(input_url=input_url, config=config, parent=parent, **kwargs)
 
         # Retrieving the list of run numbers corresponding to the data files
+        self.file_ = uproot.open(self.input_url.expanduser())
         run_info = self.get_run_info_from_name(str(input_url))
         run_numbers = run_info[0]
         is_mc_runs = run_info[1]
@@ -179,6 +180,12 @@ class MAGICEventSource(EventSource):
             name='MAGIC', tel_positions=MAGIC_TEL_POSITIONS, tel_descriptions=MAGIC_TEL_DESCRIPTIONS)
         if self.allowed_tels:
             self._subarray_info = self._subarray_info.select_subarray(self.allowed_tels)
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.close()
+
+    def close(self):
+        self.file_.close()
 
     @staticmethod
     def is_compatible(file_path):
@@ -306,64 +313,58 @@ class MAGICEventSource(EventSource):
 
     def parse_simulation_header(self):
 
-        try:
-            import uproot
-            with uproot.open(self.input_url) as input_file:
-                run_header_tree = input_file['RunHeaders']
-                spectral_index  = run_header_tree['MMcCorsikaRunHeader.fSlopeSpec'].array(library="np")[0]
-                e_low           = run_header_tree['MMcCorsikaRunHeader.fELowLim'].array(library="np")[0]
-                e_high          = run_header_tree['MMcCorsikaRunHeader.fEUppLim'].array(library="np")[0]
-                corsika_version = run_header_tree['MMcCorsikaRunHeader.fCorsikaVersion'].array(library="np")[0]
-                site_height     = run_header_tree['MMcCorsikaRunHeader.fHeightLev[10]'].array(library="np")[0][0]
-                atm_model       = run_header_tree['MMcCorsikaRunHeader.fAtmosphericModel'].array(library="np")[0]
-                if self.mars_datalevel in [MARSDataLevel.CALIBRATED, MARSDataLevel.STAR]:
-                    view_cone       = run_header_tree['MMcRunHeader.fRandomPointingConeSemiAngle'].array(library="np")[0]
-                    max_impact      = run_header_tree['MMcRunHeader.fImpactMax'].array(library="np")[0]
-                    n_showers       = np.sum(run_header_tree['MMcRunHeader.fNumSimulatedShowers'].array(library="np"))
-                    max_zd          = run_header_tree['MMcRunHeader.fShowerThetaMax'].array(library="np")[0]
-                    min_zd          = run_header_tree['MMcRunHeader.fShowerThetaMin'].array(library="np")[0]
-                    max_az          = run_header_tree['MMcRunHeader.fShowerPhiMax'].array(library="np")[0]
-                    min_az          = run_header_tree['MMcRunHeader.fShowerPhiMin'].array(library="np")[0]
-                    max_wavelength  = run_header_tree['MMcRunHeader.fCWaveUpper'].array(library="np")[0]
-                    min_wavelength  = run_header_tree['MMcRunHeader.fCWaveLower'].array(library="np")[0]
-                elif self.mars_datalevel in [MARSDataLevel.SUPERSTAR, MARSDataLevel.MELIBEA]:
-                    view_cone       = run_header_tree['MMcRunHeader_1.fRandomPointingConeSemiAngle'].array(library="np")[0]
-                    max_impact      = run_header_tree['MMcRunHeader_1.fImpactMax'].array(library="np")[0]
-                    n_showers       = np.sum(run_header_tree['MMcRunHeader_1.fNumSimulatedShowers'].array(library="np"))
-                    max_zd          = run_header_tree['MMcRunHeader_1.fShowerThetaMax'].array(library="np")[0]
-                    min_zd          = run_header_tree['MMcRunHeader_1.fShowerThetaMin'].array(library="np")[0]
-                    max_az          = run_header_tree['MMcRunHeader_1.fShowerPhiMax'].array(library="np")[0]
-                    min_az          = run_header_tree['MMcRunHeader_1.fShowerPhiMin'].array(library="np")[0]
-                    max_wavelength  = run_header_tree['MMcRunHeader_1.fCWaveUpper'].array(library="np")[0]
-                    min_wavelength  = run_header_tree['MMcRunHeader_1.fCWaveLower'].array(library="np")[0]
+        run_header_tree = self.file_['RunHeaders']
+        spectral_index  = run_header_tree['MMcCorsikaRunHeader.fSlopeSpec'].array(library="np")[0]
+        e_low           = run_header_tree['MMcCorsikaRunHeader.fELowLim'].array(library="np")[0]
+        e_high          = run_header_tree['MMcCorsikaRunHeader.fEUppLim'].array(library="np")[0]
+        corsika_version = run_header_tree['MMcCorsikaRunHeader.fCorsikaVersion'].array(library="np")[0]
+        site_height     = run_header_tree['MMcCorsikaRunHeader.fHeightLev[10]'].array(library="np")[0][0]
+        atm_model       = run_header_tree['MMcCorsikaRunHeader.fAtmosphericModel'].array(library="np")[0]
+        if self.mars_datalevel in [MARSDataLevel.CALIBRATED, MARSDataLevel.STAR]:
+            view_cone       = run_header_tree['MMcRunHeader.fRandomPointingConeSemiAngle'].array(library="np")[0]
+            max_impact      = run_header_tree['MMcRunHeader.fImpactMax'].array(library="np")[0]
+            n_showers       = np.sum(run_header_tree['MMcRunHeader.fNumSimulatedShowers'].array(library="np"))
+            max_zd          = run_header_tree['MMcRunHeader.fShowerThetaMax'].array(library="np")[0]
+            min_zd          = run_header_tree['MMcRunHeader.fShowerThetaMin'].array(library="np")[0]
+            max_az          = run_header_tree['MMcRunHeader.fShowerPhiMax'].array(library="np")[0]
+            min_az          = run_header_tree['MMcRunHeader.fShowerPhiMin'].array(library="np")[0]
+            max_wavelength  = run_header_tree['MMcRunHeader.fCWaveUpper'].array(library="np")[0]
+            min_wavelength  = run_header_tree['MMcRunHeader.fCWaveLower'].array(library="np")[0]
+        elif self.mars_datalevel in [MARSDataLevel.SUPERSTAR, MARSDataLevel.MELIBEA]:
+            view_cone       = run_header_tree['MMcRunHeader_1.fRandomPointingConeSemiAngle'].array(library="np")[0]
+            max_impact      = run_header_tree['MMcRunHeader_1.fImpactMax'].array(library="np")[0]
+            n_showers       = np.sum(run_header_tree['MMcRunHeader_1.fNumSimulatedShowers'].array(library="np"))
+            max_zd          = run_header_tree['MMcRunHeader_1.fShowerThetaMax'].array(library="np")[0]
+            min_zd          = run_header_tree['MMcRunHeader_1.fShowerThetaMin'].array(library="np")[0]
+            max_az          = run_header_tree['MMcRunHeader_1.fShowerPhiMax'].array(library="np")[0]
+            min_az          = run_header_tree['MMcRunHeader_1.fShowerPhiMin'].array(library="np")[0]
+            max_wavelength  = run_header_tree['MMcRunHeader_1.fCWaveUpper'].array(library="np")[0]
+            min_wavelength  = run_header_tree['MMcRunHeader_1.fCWaveLower'].array(library="np")[0]
 
-                return SimulationConfigContainer(
-                    corsika_version=corsika_version,
-                    energy_range_min=u.Quantity(e_low, u.GeV).to(u.TeV),
-                    energy_range_max=u.Quantity(e_high, u.GeV).to(u.TeV),
-                    prod_site_alt=u.Quantity(site_height, u.cm).to(u.m),
-                    spectral_index=spectral_index,
-                    num_showers=n_showers,
-                    shower_reuse=1, #not written in the magic root file, but since the sim_events already include shower reuse we artificially set it to 1 (actually every shower reused 5 times for std MAGIC MC)
-                    shower_prog_id = 1,
-                    prod_site_B_total = MAGIC_Btot,
-                    prod_site_B_declination = MAGIC_Bdec,
-                    prod_site_B_inclination = MAGIC_Binc,
-                    max_alt=u.Quantity((90. - min_zd), u.deg).to(u.rad),
-                    min_alt=u.Quantity((90. - max_zd), u.deg).to(u.rad),
-                    max_az=u.Quantity(max_az, u.deg).to(u.rad),
-                    min_az=u.Quantity(min_az, u.deg).to(u.rad),
-                    max_viewcone_radius=view_cone * u.deg,
-                    min_viewcone_radius=0.0 * u.deg,
-                    max_scatter_range=u.Quantity(max_impact, u.cm).to(u.m),
-                    min_scatter_range=0.0 * u.m,
-                    atmosphere=atm_model,
-                    corsika_wlen_min=min_wavelength * u.nm,
-                    corsika_wlen_max=max_wavelength * u.nm,
-                )
-
-        except ImportError:
-            print("Error while importing uproot.")
+        return SimulationConfigContainer(
+            corsika_version=corsika_version,
+            energy_range_min=u.Quantity(e_low, u.GeV).to(u.TeV),
+            energy_range_max=u.Quantity(e_high, u.GeV).to(u.TeV),
+            prod_site_alt=u.Quantity(site_height, u.cm).to(u.m),
+            spectral_index=spectral_index,
+            num_showers=n_showers,
+            shower_reuse=1, #not written in the magic root file, but since the sim_events already include shower reuse we artificially set it to 1 (actually every shower reused 5 times for std MAGIC MC)
+            shower_prog_id = 1,
+            prod_site_B_total = MAGIC_Btot,
+            prod_site_B_declination = MAGIC_Bdec,
+            prod_site_B_inclination = MAGIC_Binc,
+            max_alt=u.Quantity((90. - min_zd), u.deg).to(u.rad),
+            min_alt=u.Quantity((90. - max_zd), u.deg).to(u.rad),
+            max_az=u.Quantity(max_az, u.deg).to(u.rad),
+            min_az=u.Quantity(min_az, u.deg).to(u.rad),
+            max_viewcone_radius=view_cone * u.deg,
+            min_viewcone_radius=0.0 * u.deg,
+            max_scatter_range=u.Quantity(max_impact, u.cm).to(u.m),
+            min_scatter_range=0.0 * u.m,
+            atmosphere=atm_model,
+            corsika_wlen_min=min_wavelength * u.nm,
+            corsika_wlen_max=max_wavelength * u.nm,
+        )
 
     def _set_active_run(self, run_number):
         """
@@ -384,7 +385,7 @@ class MAGICEventSource(EventSource):
         run['number'] = run_number
         run['read_events'] = 0
         if self.mars_datalevel == MARSDataLevel.CALIBRATED:
-            run['data'] = MarsCalibratedRun(run_file_mask=str(self.input_url))
+            run['data'] = MarsCalibratedRun(self.file_, self.is_mc)
 
         return run
 
@@ -928,64 +929,32 @@ class MarsCalibratedRun:
     This class implements reading of the event data from a single MAGIC calibrated run.
     """
 
-    def __init__(self, run_file_mask, filter_list=None):
+    def __init__(self, uproot_file, is_mc):
         """
         Constructor of the class. Defines the run to use and the camera pixel arrangement.
 
         Parameters
         ----------
-        run_file_mask: str
-            A path mask for files belonging to the run. Must correspond to a single run
-            or an exception will be raised. Must correspond to calibrated ("sorcerer"-level)
-            data.
-        filter_list: list, optional
-            A list of files, to which the run_file_mask should be applied. If None, all the
-            files satisfying run_file_mask will be used. Defaults to None.
+        uproot_file: str
+            A file opened by uproot via uproot.open(file_name)
         """
 
         self.n_camera_pixels = GEOM.n_pixels
 
-        self.run_file_mask = run_file_mask
+        self.file_name = uproot_file.file_path
 
-        # Preparing the lists of M1/2 data files
-        file_list = glob.glob(run_file_mask)
+        self.is_mc = is_mc
 
-        # Filtering out extra files if necessary
-        if filter_list is not None:
-            file_list = list(set(file_list) & set(filter_list))
-
-        self.m1_file_list = list(
-            filter(lambda name: '_M1_' in name, file_list))
-        self.m2_file_list = list(
-            filter(lambda name: '_M2_' in name, file_list))
-        self.m1_file_list.sort()
-        self.m2_file_list.sort()
-
-        # Retrieving the list of run numbers corresponding to the data files
-        run_info = list(
-            map(MAGICEventSource.get_run_info_from_name, file_list))
-        run_numbers = [i[0] for i in run_info]
-        is_mc_runs = [i[1] for i in run_info]
-
-        run_numbers = np.unique(run_numbers)
-        is_mc_runs = np.unique(is_mc_runs)
-        # Checking if run type (data/MC) is consistent:
-        if len(is_mc_runs) > 1:
-            raise ValueError(
-                "Run type is not consistently data or MC: {}".format(is_mc_runs))
-
-        self.is_mc = is_mc_runs[0]
-
-        # Checking if a single run is going to be read
-        if len(run_numbers) > 1:
-            raise ValueError(
-                "Run mask corresponds to more than one run: {}".format(run_numbers))
-
-        # Reading the data
-        m1_data = self.load_events(
-            self.m1_file_list, self.is_mc, self.n_camera_pixels)
-        m2_data = self.load_events(
-            self.m2_file_list, self.is_mc, self.n_camera_pixels)
+        if '_M1_' in self.file_name:
+            m1_data = self.load_events(
+                uproot_file, self.is_mc, self.n_camera_pixels)
+            m1_data = self.load_events(
+                None, self.is_mc, self.n_camera_pixels)
+        if '_M2_' in self.file_name:
+            m1_data = self.load_events(
+                None, self.is_mc, self.n_camera_pixels)
+            m2_data = self.load_events(
+                uproot_file, self.is_mc, self.n_camera_pixels)
 
         # Getting the event data
         self.event_data = dict()
@@ -1036,7 +1005,7 @@ class MarsCalibratedRun:
         return len(self.pedestal_ids['M2'])
 
     @staticmethod
-    def load_events(file_list, is_mc, n_camera_pixels):
+    def load_events(uproot_file, is_mc, n_camera_pixels):
         """
         This method loads events and monitoring data from the pre-defiled file and returns them as a dictionary.
 
@@ -1054,12 +1023,6 @@ class MarsCalibratedRun:
         dict:
             A dictionary with the even properties: charge / arrival time data, trigger, direction etc.
         """
-
-        try:
-            import uproot
-        except ImportError:
-            msg = "The `uproot` python module is required to access the MAGIC data"
-            raise ImportError(msg)
 
         event_data = dict()
 
@@ -1094,7 +1057,7 @@ class MarsCalibratedRun:
 
         # if no file in the list (e.g. when reading mono information), then simply
         # return empty dicts/array
-        if len(file_list) == 0:
+        if uproot_file is None:
             return event_data, monitoring_data
 
         drive_data = dict()
@@ -1178,226 +1141,224 @@ class MarsCalibratedRun:
             'MRawRunHeader.fSourceName[80]',
             'MRawRunHeader.fObservationMode[60]']
 
-        for file_name in file_list:
+        input_file = uproot_file
 
-            input_file = uproot.open(file_name)
+        events = input_file['Events'].arrays(evt_common_list, library="np")
 
-            events = input_file['Events'].arrays(evt_common_list, library="np")
+        # Reading the info common to MC and real data
+        charge = events['MCerPhotEvt.fPixels.fPhot']
+        arrival_time = events['MArrivalTime.fData']
+        trigger_pattern = events['MTriggerPattern.fPrescaled']
+        stereo_event_number = events['MRawEvtHeader.fStereoEvtNumber']
 
-            # Reading the info common to MC and real data
-            charge = events['MCerPhotEvt.fPixels.fPhot']
-            arrival_time = events['MArrivalTime.fData']
-            trigger_pattern = events['MTriggerPattern.fPrescaled']
-            stereo_event_number = events['MRawEvtHeader.fStereoEvtNumber']
+        # Reading run-wise meta information (same for all events in subrun):
+        mars_meta = dict()
 
-            # Reading run-wise meta information (same for all events in subrun):
-            mars_meta = dict()
+        mars_meta['is_simulation'] = is_mc
 
-            mars_meta['is_simulation'] = is_mc
+        # Reading event timing information:
+        if not is_mc:
+            event_times = input_file['Events'].arrays(time_array_list, library="np")
+            # Computing the event arrival time
 
-            # Reading event timing information:
+            event_mjd = event_times['MTime.fMjd']
+            event_millisec = event_times['MTime.fTime.fMilliSec']
+            event_nanosec = event_times['MTime.fNanoSec']
+
+            event_mjd = event_mjd + \
+                (event_millisec / 1e3 + event_nanosec / 1e9) / seconds_per_day
+            event_data['MJD'] = np.concatenate(
+                (event_data['MJD'], event_mjd))
+
+        # try to read RunHeaders tree (soft fail if not present, to pass current tests)
+        try:
+            meta_info = input_file['RunHeaders'].arrays(
+                metainfo_array_list, library="np")
+
+            mars_meta['origin'] = "MAGIC"
+            mars_meta['input_url'] = uproot_file.file_path
+
+            mars_meta['number'] = int(
+                meta_info['MRawRunHeader.fRunNumber'][0])
+            mars_meta['number_subrun'] = int(
+                meta_info['MRawRunHeader.fSubRunIndex'][0])
+            mars_meta['source_ra'] = meta_info['MRawRunHeader.fSourceRA'][0] / \
+                seconds_per_hour * degrees_per_hour * u.deg
+            mars_meta['source_dec'] = meta_info['MRawRunHeader.fSourceDEC'][0] / \
+                seconds_per_hour * u.deg
+            src_name_array = meta_info['MRawRunHeader.fSourceName[80]'].array(library="np")[0]
+            mars_meta['source_name'] = "".join([chr(item) for item in src_name_array if item != 0])
+            obs_mode_array = meta_info['MRawRunHeader.fObservationMode[60]'].array(library="np")[0]
+            mars_meta['observation_mode'] = "".join([chr(item) for item in obs_mode_array if item != 0])
+
+            is_mc_check = int(meta_info['MRawRunHeader.fRunType'][0])
+            if is_mc_check == 0:
+                is_mc_check = False
+            elif is_mc_check == 256:
+                is_mc_check = True
+            else:
+                msg = "Run type (Data or MC) of MAGIC data file not recognised."
+                LOGGER.error(msg)
+                raise ValueError(msg)
+            if is_mc_check != is_mc:
+                msg = "Inconsistent run type (data or MC) between file name and runheader content."
+                LOGGER.error(msg)
+                raise ValueError(msg)
+
+            # Reading the info only contained in real data
             if not is_mc:
-                event_times = input_file['Events'].arrays(time_array_list, library="np")
-                # Computing the event arrival time
+                badpixelinfo = input_file['RunHeaders']['MBadPixelsCam.fArray.fInfo'].array(
+                    uproot.interpretation.jagged.AsJagged(uproot.interpretation.numerical.AsDtype(np.dtype('>i4'))), library="np")[0].reshape((4, 1183), order='F')
+                # now we have 4 axes:
+                # 0st axis: empty (?)
+                # 1st axis: Unsuitable pixels
+                # 2nd axis: Uncalibrated pixels (says why pixel is unsuitable)
+                # 3rd axis: Bad hardware pixels (says why pixel is unsuitable)
+                # Each axis cointains a 32bit integer encoding more information about the specific problem, see MARS software, MBADPixelsPix.h
+                # take first axis
+                unsuitable_pix_bitinfo = badpixelinfo[1][:n_camera_pixels]
+                # extract unsuitable bit:
+                unsuitable_pix = np.zeros(n_camera_pixels, dtype=np.bool)
+                for i in range(n_camera_pixels):
+                    unsuitable_pix[i] = int('\t{0:08b}'.format(
+                        unsuitable_pix_bitinfo[i] & 0xff)[-2])
+                monitoring_data['badpixelinfo'].append(unsuitable_pix)
+                # save time interval of badpixel info:
+                monitoring_data['badpixelinfoMJDrange'].append(
+                    [event_mjd[0], event_mjd[-1]])
 
-                event_mjd = event_times['MTime.fMjd']
-                event_millisec = event_times['MTime.fTime.fMilliSec']
-                event_nanosec = event_times['MTime.fNanoSec']
+        except KeyError:
+            LOGGER.warning(
+                "RunHeaders tree not present in file. Cannot read meta information - will assume it is a real data run.")
+            is_mc = False
 
-                event_mjd = event_mjd + \
-                    (event_millisec / 1e3 + event_nanosec / 1e9) / seconds_per_day
-                event_data['MJD'] = np.concatenate(
-                    (event_data['MJD'], event_mjd))
-
-            # try to read RunHeaders tree (soft fail if not present, to pass current tests)
+        # try to read Pedestals tree (soft fail if not present)
+        if not is_mc:
             try:
-                meta_info = input_file['RunHeaders'].arrays(
-                    metainfo_array_list, library="np")
+                pedestal_info = input_file['Pedestals'].arrays(
+                    pedestal_array_list, library="np")
 
-                mars_meta['origin'] = "MAGIC"
-                mars_meta['input_url'] = file_name
-
-                mars_meta['number'] = int(
-                    meta_info['MRawRunHeader.fRunNumber'][0])
-                mars_meta['number_subrun'] = int(
-                    meta_info['MRawRunHeader.fSubRunIndex'][0])
-                mars_meta['source_ra'] = meta_info['MRawRunHeader.fSourceRA'][0] / \
-                    seconds_per_hour * degrees_per_hour * u.deg
-                mars_meta['source_dec'] = meta_info['MRawRunHeader.fSourceDEC'][0] / \
-                    seconds_per_hour * u.deg
-                src_name_array = meta_info['MRawRunHeader.fSourceName[80]'].array(library="np")[0]
-                mars_meta['source_name'] = "".join([chr(item) for item in src_name_array if item != 0])
-                obs_mode_array = meta_info['MRawRunHeader.fObservationMode[60]'].array(library="np")[0]
-                mars_meta['observation_mode'] = "".join([chr(item) for item in obs_mode_array if item != 0])
-
-                is_mc_check = int(meta_info['MRawRunHeader.fRunType'][0])
-                if is_mc_check == 0:
-                    is_mc_check = False
-                elif is_mc_check == 256:
-                    is_mc_check = True
-                else:
-                    msg = "Run type (Data or MC) of MAGIC data file not recognised."
-                    LOGGER.error(msg)
-                    raise ValueError(msg)
-                if is_mc_check != is_mc:
-                    msg = "Inconsistent run type (data or MC) between file name and runheader content."
-                    LOGGER.error(msg)
-                    raise ValueError(msg)
-
-                # Reading the info only contained in real data
-                if not is_mc:
-                    badpixelinfo = input_file['RunHeaders']['MBadPixelsCam.fArray.fInfo'].array(
-                        uproot.interpretation.jagged.AsJagged(uproot.interpretation.numerical.AsDtype(np.dtype('>i4'))), library="np")[0].reshape((4, 1183), order='F')
-                    # now we have 4 axes:
-                    # 0st axis: empty (?)
-                    # 1st axis: Unsuitable pixels
-                    # 2nd axis: Uncalibrated pixels (says why pixel is unsuitable)
-                    # 3rd axis: Bad hardware pixels (says why pixel is unsuitable)
-                    # Each axis cointains a 32bit integer encoding more information about the specific problem, see MARS software, MBADPixelsPix.h
-                    # take first axis
-                    unsuitable_pix_bitinfo = badpixelinfo[1][:n_camera_pixels]
-                    # extract unsuitable bit:
-                    unsuitable_pix = np.zeros(n_camera_pixels, dtype=np.bool)
-                    for i in range(n_camera_pixels):
-                        unsuitable_pix[i] = int('\t{0:08b}'.format(
-                            unsuitable_pix_bitinfo[i] & 0xff)[-2])
-                    monitoring_data['badpixelinfo'].append(unsuitable_pix)
-                    # save time interval of badpixel info:
-                    monitoring_data['badpixelinfoMJDrange'].append(
-                        [event_mjd[0], event_mjd[-1]])
+                pedestal_mjd = pedestal_info['MTimePedestals.fMjd']
+                pedestal_millisec = pedestal_info['MTimePedestals.fTime.fMilliSec']
+                pedestal_nanosec = pedestal_info['MTimePedestals.fNanoSec']
+                n_pedestals = len(pedestal_mjd)
+                pedestal_mjd = pedestal_mjd + \
+                    (pedestal_millisec / 1e3 +
+                     pedestal_nanosec / 1e9) / seconds_per_day
+                monitoring_data['PedestalMJD'] = np.concatenate(
+                    (monitoring_data['PedestalMJD'], pedestal_mjd))
+                for quantity in ['Mean', 'Rms']:
+                    for i_pedestal in range(n_pedestals):
+                        monitoring_data['PedestalFundamental'][quantity].append(
+                            pedestal_info[f'MPedPhotFundamental.fArray.f{quantity}'][i_pedestal][:n_camera_pixels])
+                        monitoring_data['PedestalFromExtractor'][quantity].append(
+                            pedestal_info[f'MPedPhotFromExtractor.fArray.f{quantity}'][i_pedestal][:n_camera_pixels])
+                        monitoring_data['PedestalFromExtractorRndm'][quantity].append(
+                            pedestal_info[f'MPedPhotFromExtractorRndm.fArray.f{quantity}'][i_pedestal][:n_camera_pixels])
 
             except KeyError:
                 LOGGER.warning(
-                    "RunHeaders tree not present in file. Cannot read meta information - will assume it is a real data run.")
-                is_mc = False
+                    "Pedestals tree not present in file. Cleaning algorithm may fail.")
 
-            # try to read Pedestals tree (soft fail if not present)
-            if not is_mc:
-                try:
-                    pedestal_info = input_file['Pedestals'].arrays(
-                        pedestal_array_list, library="np")
+        # Reading pointing information (in units of degrees):
+        if is_mc:
+            # Retrieving the telescope pointing direction
+            pointing = input_file['Events'].arrays(pointing_array_list, library="np")
 
-                    pedestal_mjd = pedestal_info['MTimePedestals.fMjd']
-                    pedestal_millisec = pedestal_info['MTimePedestals.fTime.fMilliSec']
-                    pedestal_nanosec = pedestal_info['MTimePedestals.fNanoSec']
-                    n_pedestals = len(pedestal_mjd)
-                    pedestal_mjd = pedestal_mjd + \
-                        (pedestal_millisec / 1e3 +
-                         pedestal_nanosec / 1e9) / seconds_per_day
-                    monitoring_data['PedestalMJD'] = np.concatenate(
-                        (monitoring_data['PedestalMJD'], pedestal_mjd))
-                    for quantity in ['Mean', 'Rms']:
-                        for i_pedestal in range(n_pedestals):
-                            monitoring_data['PedestalFundamental'][quantity].append(
-                                pedestal_info[f'MPedPhotFundamental.fArray.f{quantity}'][i_pedestal][:n_camera_pixels])
-                            monitoring_data['PedestalFromExtractor'][quantity].append(
-                                pedestal_info[f'MPedPhotFromExtractor.fArray.f{quantity}'][i_pedestal][:n_camera_pixels])
-                            monitoring_data['PedestalFromExtractorRndm'][quantity].append(
-                                pedestal_info[f'MPedPhotFromExtractorRndm.fArray.f{quantity}'][i_pedestal][:n_camera_pixels])
+            pointing_zd = pointing['MPointingPos.fZd'] - \
+                pointing['MPointingPos.fDevZd']
+            pointing_az = pointing['MPointingPos.fAz'] - \
+                pointing['MPointingPos.fDevAz']
+            # N.B. the positive sign here, as HA = local sidereal time - ra
+            pointing_ra = (pointing['MPointingPos.fRa'] +
+                           pointing['MPointingPos.fDevHa']) * degrees_per_hour
+            pointing_dec = pointing['MPointingPos.fDec'] - \
+                pointing['MPointingPos.fDevDec']
+        else:
+            # Getting the telescope drive info
+            drive = input_file['Drive'].arrays(drive_array_list, library="np")
 
-                except KeyError:
-                    LOGGER.warning(
-                        "Pedestals tree not present in file. Cleaning algorithm may fail.")
+            drive_mjd = drive['MReportDrive.fMjd']
+            drive_zd = drive['MReportDrive.fCurrentZd']
+            drive_az = drive['MReportDrive.fCurrentAz']
+            drive_ra = drive['MReportDrive.fRa'] * degrees_per_hour
+            drive_dec = drive['MReportDrive.fDec']
 
-            # Reading pointing information (in units of degrees):
-            if is_mc:
-                # Retrieving the telescope pointing direction
-                pointing = input_file['Events'].arrays(pointing_array_list, library="np")
+            drive_data['mjd'] = np.concatenate((drive_data['mjd'],drive_mjd))
+            drive_data['zd']  = np.concatenate((drive_data['zd'],drive_zd))
+            drive_data['az']  = np.concatenate((drive_data['az'],drive_az))
+            drive_data['ra']  = np.concatenate((drive_data['ra'],drive_ra))
+            drive_data['dec'] = np.concatenate((drive_data['dec'],drive_dec))
 
-                pointing_zd = pointing['MPointingPos.fZd'] - \
-                    pointing['MPointingPos.fDevZd']
-                pointing_az = pointing['MPointingPos.fAz'] - \
-                    pointing['MPointingPos.fDevAz']
-                # N.B. the positive sign here, as HA = local sidereal time - ra
-                pointing_ra = (pointing['MPointingPos.fRa'] +
-                               pointing['MPointingPos.fDevHa']) * degrees_per_hour
-                pointing_dec = pointing['MPointingPos.fDec'] - \
-                    pointing['MPointingPos.fDevDec']
-            else:
-                # Getting the telescope drive info
-                drive = input_file['Drive'].arrays(drive_array_list, library="np")
+            if len(drive_mjd) < 3:
+                LOGGER.warning(f"File {uproot_file.file_path} has only {len(drive_mjd)} drive reports.")
+                if len(drive_mjd) == 0:
+                    raise MissingDriveReportError(f"File {uproot_file.file_path} does not have any drive report. Check if it was merpped correctly.")
 
-                drive_mjd = drive['MReportDrive.fMjd']
-                drive_zd = drive['MReportDrive.fCurrentZd']
-                drive_az = drive['MReportDrive.fCurrentAz']
-                drive_ra = drive['MReportDrive.fRa'] * degrees_per_hour
-                drive_dec = drive['MReportDrive.fDec']
+        # check for bit flips in the stereo event ID:
+        d_x = np.diff(stereo_event_number.astype(np.int))
+        dx_flip_ids_before = np.where(d_x < 0)[0]
+        dx_flip_ids_after = dx_flip_ids_before + 1
+        dx_flipzero_ids_first = np.where(d_x == 0)[0]
+        dx_flipzero_ids_second = dx_flipzero_ids_first + 1
+        if not is_mc:
+            pedestal_ids = np.where(
+                trigger_pattern == PEDESTAL_TRIGGER_PATTERN)[0]
+            # sort out pedestals events from zero-difference steps:
+            dx_flipzero_ids_second = np.array(
+                list(set(dx_flipzero_ids_second) - set(pedestal_ids)))
+            dx_flip_ids_after = np.array(np.union1d(
+                dx_flip_ids_after, dx_flipzero_ids_second), dtype=np.int)
+        else:
+            # for MC, sort out stereo_event_number = 0:
+            orphan_ids = np.where(stereo_event_number == 0)[0]
+            dx_flip_ids_after = np.array(
+                list(set(dx_flip_ids_after) - set(orphan_ids)))
+        dx_flip_ids_before = dx_flip_ids_after - 1
+        max_total_jumps = 100
+        if len(dx_flip_ids_before) > 0:
+            LOGGER.warning("Warning: detected %d bitflips in file %s. Flag affected events as unsuitable" % (
+                len(dx_flip_ids_before), uproot_file.file_path))
+            total_jumped_events = 0
+            for i in dx_flip_ids_before:
+                trigger_pattern[i] = -1
+                trigger_pattern[i+1] = -1
+                if not is_mc:
+                    jumped_events = int(stereo_event_number[i]) - int(stereo_event_number[i+1])
+                    total_jumped_events += jumped_events
+                    LOGGER.warning(f"Jump of L3 number backward from {stereo_event_number[i]} to {stereo_event_number[i+1]}; "
+                        f"total jumped events so far: {total_jumped_events}")
+                    if total_jumped_events > max_total_jumps:
+                        raise L3JumpError(f"Jumps backward in L3 trigger number by {total_jumped_events} in total. You might consider matching events by time instead.")
 
-                drive_data['mjd'] = np.concatenate((drive_data['mjd'],drive_mjd))
-                drive_data['zd']  = np.concatenate((drive_data['zd'],drive_zd))
-                drive_data['az']  = np.concatenate((drive_data['az'],drive_az))
-                drive_data['ra']  = np.concatenate((drive_data['ra'],drive_ra))
-                drive_data['dec'] = np.concatenate((drive_data['dec'],drive_dec))
+        event_data['charge'].append(charge)
+        event_data['arrival_time'].append(arrival_time)
+        event_data['mars_meta'].append(mars_meta)
+        event_data['trigger_pattern'] = np.concatenate(
+            (event_data['trigger_pattern'], trigger_pattern))
+        event_data['stereo_event_number'] = np.concatenate(
+            (event_data['stereo_event_number'], stereo_event_number))
+        if is_mc:
+            event_data['pointing_zd'] = np.concatenate(
+                (event_data['pointing_zd'], pointing_zd))
+            event_data['pointing_az'] = np.concatenate(
+                (event_data['pointing_az'], pointing_az))
+            event_data['pointing_ra'] = np.concatenate(
+                (event_data['pointing_ra'], pointing_ra))
+            event_data['pointing_dec'] = np.concatenate(
+                (event_data['pointing_dec'], pointing_dec))
 
-                if len(drive_mjd) < 3:
-                    LOGGER.warning(f"File {file_name} has only {len(drive_mjd)} drive reports.")
-                    if len(drive_mjd) == 0:
-                        raise MissingDriveReportError(f"File {file_name} does not have any drive report. Check if it was merpped correctly.")
+            mc_info = input_file['Events'].arrays(mc_list, library="np")
+            # N.B.: For MC, there is only one subrun, so do not need to 'append'
+            event_data['true_energy'] = mc_info['MMcEvt.fEnergy']
+            event_data['true_zd'] = mc_info['MMcEvt.fTheta']
+            event_data['true_az'] = mc_info['MMcEvt.fPhi']
+            event_data['true_shower_primary_id'] = mc_info['MMcEvt.fPartId']
+            event_data['true_h_first_int'] = mc_info['MMcEvt.fZFirstInteraction']
+            event_data['true_core_x'] = mc_info['MMcEvt.fCoreX']
+            event_data['true_core_y'] = mc_info['MMcEvt.fCoreY']
 
-            # check for bit flips in the stereo event ID:
-            d_x = np.diff(stereo_event_number.astype(np.int))
-            dx_flip_ids_before = np.where(d_x < 0)[0]
-            dx_flip_ids_after = dx_flip_ids_before + 1
-            dx_flipzero_ids_first = np.where(d_x == 0)[0]
-            dx_flipzero_ids_second = dx_flipzero_ids_first + 1
-            if not is_mc:
-                pedestal_ids = np.where(
-                    trigger_pattern == PEDESTAL_TRIGGER_PATTERN)[0]
-                # sort out pedestals events from zero-difference steps:
-                dx_flipzero_ids_second = np.array(
-                    list(set(dx_flipzero_ids_second) - set(pedestal_ids)))
-                dx_flip_ids_after = np.array(np.union1d(
-                    dx_flip_ids_after, dx_flipzero_ids_second), dtype=np.int)
-            else:
-                # for MC, sort out stereo_event_number = 0:
-                orphan_ids = np.where(stereo_event_number == 0)[0]
-                dx_flip_ids_after = np.array(
-                    list(set(dx_flip_ids_after) - set(orphan_ids)))
-            dx_flip_ids_before = dx_flip_ids_after - 1
-            max_total_jumps = 100
-            if len(dx_flip_ids_before) > 0:
-                LOGGER.warning("Warning: detected %d bitflips in file %s. Flag affected events as unsuitable" % (
-                    len(dx_flip_ids_before), file_name))
-                total_jumped_events = 0
-                for i in dx_flip_ids_before:
-                    trigger_pattern[i] = -1
-                    trigger_pattern[i+1] = -1
-                    if not is_mc:
-                        jumped_events = int(stereo_event_number[i]) - int(stereo_event_number[i+1])
-                        total_jumped_events += jumped_events
-                        LOGGER.warning(f"Jump of L3 number backward from {stereo_event_number[i]} to {stereo_event_number[i+1]}; "
-                            f"total jumped events so far: {total_jumped_events}")
-                        if total_jumped_events > max_total_jumps:
-                            raise L3JumpError(f"Jumps backward in L3 trigger number by {total_jumped_events} in total. You might consider matching events by time instead.")
-
-            event_data['charge'].append(charge)
-            event_data['arrival_time'].append(arrival_time)
-            event_data['mars_meta'].append(mars_meta)
-            event_data['trigger_pattern'] = np.concatenate(
-                (event_data['trigger_pattern'], trigger_pattern))
-            event_data['stereo_event_number'] = np.concatenate(
-                (event_data['stereo_event_number'], stereo_event_number))
-            if is_mc:
-                event_data['pointing_zd'] = np.concatenate(
-                    (event_data['pointing_zd'], pointing_zd))
-                event_data['pointing_az'] = np.concatenate(
-                    (event_data['pointing_az'], pointing_az))
-                event_data['pointing_ra'] = np.concatenate(
-                    (event_data['pointing_ra'], pointing_ra))
-                event_data['pointing_dec'] = np.concatenate(
-                    (event_data['pointing_dec'], pointing_dec))
-
-                mc_info = input_file['Events'].arrays(mc_list, library="np")
-                # N.B.: For MC, there is only one subrun, so do not need to 'append'
-                event_data['true_energy'] = mc_info['MMcEvt.fEnergy']
-                event_data['true_zd'] = mc_info['MMcEvt.fTheta']
-                event_data['true_az'] = mc_info['MMcEvt.fPhi']
-                event_data['true_shower_primary_id'] = mc_info['MMcEvt.fPartId']
-                event_data['true_h_first_int'] = mc_info['MMcEvt.fZFirstInteraction']
-                event_data['true_core_x'] = mc_info['MMcEvt.fCoreX']
-                event_data['true_core_y'] = mc_info['MMcEvt.fCoreY']
-
-            event_data['file_edges'].append(len(event_data['trigger_pattern']))
+        event_data['file_edges'].append(len(event_data['trigger_pattern']))
 
         if not is_mc:
             monitoring_data['badpixelinfo'] = np.array(
@@ -1448,7 +1409,6 @@ class MarsCalibratedRun:
             event_data['pointing_dec'] = drive_dec_pointing_interpolator(event_data['MJD'])
 
         return event_data, monitoring_data
-
 
     def _find_pedestal_events(self):
         """
@@ -1883,6 +1843,7 @@ class MarsCalibratedRun:
             event_data['true_core_y'] = self.event_data[telescope]['true_core_y'][event_id]
 
         return event_data
+
 
 class PixelStatusContainer(Container):
     """
