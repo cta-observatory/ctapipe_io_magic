@@ -55,12 +55,13 @@ __all__ = ['MAGICEventSource', '__version__']
 LOGGER = logging.getLogger(__name__)
 
 # MAGIC telescope positions in m wrt. to the center of CTA simulations
-#MAGIC_TEL_POSITIONS = {
+# MAGIC_TEL_POSITIONS = {
 #    1: [-27.24, -146.66, 50.00] * u.m,
 #    2: [-96.44, -96.77, 51.00] * u.m
-#}
+# }
 
-# MAGIC telescope positions in m wrt. to the center of MAGIC simulations, from reflector input card
+# MAGIC telescope positions in m wrt. to the center of MAGIC simulations, from
+# CORSIKA and reflector input card
 MAGIC_TEL_POSITIONS = {
     1: [31.80, -28.10, 0.00] * u.m,
     2: [-31.80, 28.10, 0.00] * u.m
@@ -69,8 +70,9 @@ MAGIC_TEL_POSITIONS = {
 # Magnetic field values at the MAGIC site (taken from CORSIKA input cards)
 # Reference system is the CORSIKA one, where x-axis points to magnetic north
 # i.e. B y-component is 0
-# MAGIC_Bdec is the magnetic declination i.e. angle between magnetic and geographic
-# north, negative if pointing westwards, positive if pointing eastwards
+# MAGIC_Bdec is the magnetic declination i.e. angle between magnetic and
+# geographic north, negative if pointing westwards, positive if pointing
+# eastwards
 # MAGIC_Binc is the magnetic field inclination
 MAGIC_Bx = u.Quantity(29.5, u.uT)
 MAGIC_Bz = u.Quantity(23.0, u.uT)
@@ -101,13 +103,15 @@ MC_TRIGGER_PATTERN = 1
 PEDESTAL_TRIGGER_PATTERN = 8
 DATA_TRIGGER_PATTERN = 128
 
+
 class MARSDataLevel(Enum):
     """Enum of the different MARS Data Levels"""
 
     CALIBRATED = auto()  # Calibrated images in charge and time (no waveforms)
-    STAR       = auto()  # Cleaned images, with Hillas parametrization
-    SUPERSTAR  = auto()  # Stereo parameters reconstructed
-    MELIBEA    = auto()  # Reconstruction of hadronness, event direction and energy
+    STAR = auto()  # Cleaned images, with Hillas parametrization
+    SUPERSTAR = auto()  # Stereo parameters reconstructed
+    MELIBEA = auto()  # Reconstruction of hadronness, event direction and energy
+
 
 class L3JumpError(Exception):
     """
@@ -117,6 +121,7 @@ class L3JumpError(Exception):
     def __init__(self, message):
         self.message = message
 
+
 class MissingDriveReportError(Exception):
     """
     Exception raised when a subrun does not have drive reports.
@@ -124,6 +129,7 @@ class MissingDriveReportError(Exception):
 
     def __init__(self, message):
         self.message = message
+
 
 class MAGICEventSource(EventSource):
     """
@@ -177,7 +183,10 @@ class MAGICEventSource(EventSource):
         self.current_run = None
 
         self._subarray_info = SubarrayDescription(
-            name='MAGIC', tel_positions=MAGIC_TEL_POSITIONS, tel_descriptions=MAGIC_TEL_DESCRIPTIONS)
+            name='MAGIC',
+            tel_positions=MAGIC_TEL_POSITIONS,
+            tel_descriptions=MAGIC_TEL_DESCRIPTIONS
+        )
         if self.allowed_tels:
             self._subarray_info = self._subarray_info.select_subarray(self.allowed_tels)
 
