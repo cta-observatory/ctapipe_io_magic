@@ -71,6 +71,22 @@ def test_loop(dataset):
 
 
 @pytest.mark.parametrize('dataset', test_calibrated_all)
+def test_run_info(dataset):
+    from ctapipe_io_magic import MAGICEventSource
+
+    with MAGICEventSource(input_url=dataset) as source:
+        run_info = MAGICEventSource.get_run_info_from_name(str(source.input_url))
+        run_number = run_info[0]
+        is_mc = run_info[1]
+        telescope = run_info[2]
+        datalevel = run_info[3]
+        assert run_number == source.run_numbers
+        assert is_mc == source.is_mc
+        assert telescope == source.telescope
+        assert datalevel == source.mars_datalevel
+
+
+@pytest.mark.parametrize('dataset', test_calibrated_all)
 def test_that_event_is_not_modified_after_loop(dataset):
     from ctapipe_io_magic import MAGICEventSource
     n_events = 10
