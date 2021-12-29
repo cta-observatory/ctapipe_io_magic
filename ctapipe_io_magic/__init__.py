@@ -312,6 +312,14 @@ class MAGICEventSource(EventSource):
         return run_number, is_mc, telescope, datalevel
 
     def parse_simulation_header(self):
+        """
+        Parse the simulation information from the RunHeaders tree.
+
+        Returns
+        -------
+        SimulationConfigContainer
+            Container filled with simulation information
+        """
 
         run_header_tree = self.file_['RunHeaders']
         spectral_index  = run_header_tree['MMcCorsikaRunHeader.fSlopeSpec'].array(library="np")[0]
