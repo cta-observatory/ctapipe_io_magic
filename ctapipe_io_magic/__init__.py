@@ -53,6 +53,10 @@ __all__ = ['MAGICEventSource', '__version__']
 
 LOGGER = logging.getLogger(__name__)
 
+degrees_per_hour = 15.0
+seconds_per_day = 86400.0
+seconds_per_hour = 3600.
+
 # MAGIC telescope positions in m wrt. to the center of CTA simulations
 # MAGIC_TEL_POSITIONS = {
 #    1: [-27.24, -146.66, 50.00] * u.m,
@@ -169,6 +173,8 @@ class MAGICEventSource(EventSource):
         self.run_numbers = run_number
         self.is_mc = is_mc
         self.telescope = telescope
+
+        self.metadata = self.parse_metadata_info()
 
         # Retrieving the data level (so far HARDCODED Sorcerer)
         self.datalevel = DataLevel.DL0
@@ -382,6 +388,92 @@ class MAGICEventSource(EventSource):
             datalevel = MARSDataLevel.STAR
 
         return run_number, is_mc, telescope_number, datalevel
+
+    @staticmethod
+    def decode_version_number(version_encoded):
+        """
+        Decodes the version number from an integer
+
+        Parameters
+        ----------
+        version_encoded : int
+            Version number encoded as integer
+
+        Returns
+        -------
+        version_decoded: str
+            Version decoded as major.minor.patch
+        """
+
+        major_version = version_encoded >> 16
+        minor_version = (version_encoded % 65536) >> 8
+        patch_version = (version_encoded % 65536) % 256
+        version_decoded = f'{major_version}.{minor_version}.{patch_version}'
+
+        return version_decoded
+
+    def parse_metadata_info(self):
+        """
+        Parse metadata information from ROOT file
+
+        Returns
+        -------
+        metadata: dict
+            Dictionary containing the metadata information:
+            - run number
+            - real or simulated data
+            - telescope number
+            - subrun number
+            - source RA and DEC
+            - source name (real data only)
+            - observation mode (real data only)
+            - MARS version
+            - ROOT version
+        """
+
+        metadatainfo_array_list_runheaders = [
+            'MRawRunHeader.fSubRunIndex',
+            'MRawRunHeader.fSourceRA',
+            'MRawRunHeader.fSourceDEC',
+            'MRawRunHeader.fSourceName[80]',
+            'MRawRunHeader.fObservationMode[60]',
+        ]
+
+        metadatainfo_array_list_runtails = [
+            'MMarsVersion_sorcerer.fMARSVersionCode',
+            'MMarsVersion_sorcerer.fROOTVersionCode',
+        ]
+
+        metadata = dict()
+        metadata['run_number'] = self.run_numbers
+        metadata['is_simulation'] = self.is_mc
+        metadata['telescope'] = self.telescope
+
+        meta_info_runh = self.file_['RunHeaders'].arrays(
+                metadatainfo_array_list_runheaders, library="np"
+        )
+
+        metadata['number_subrun'] = int(meta_info_runh['MRawRunHeader.fSubRunIndex'][0])
+        metadata['source_ra'] = meta_info_runh['MRawRunHeader.fSourceRA'][0] / \
+            seconds_per_hour * degrees_per_hour * u.deg
+        metadata['source_dec'] = meta_info_runh['MRawRunHeader.fSourceDEC'][0] / \
+            seconds_per_hour * u.deg
+        if not self.is_mc:
+            src_name_array = meta_info_runh['MRawRunHeader.fSourceName[80]'][0]
+            metadata['source_name'] = "".join([chr(item) for item in src_name_array if item != 0])
+            obs_mode_array = meta_info_runh['MRawRunHeader.fObservationMode[60]'][0]
+            metadata['observation_mode'] = "".join([chr(item) for item in obs_mode_array if item != 0])
+
+        meta_info_runt = self.file_['RunTails'].arrays(
+                metadatainfo_array_list_runtails, library="np"
+        )
+
+        mars_version_encoded = int(meta_info_runt['MMarsVersion_sorcerer.fMARSVersionCode'][0])
+        root_version_encoded = int(meta_info_runt['MMarsVersion_sorcerer.fROOTVersionCode'][0])
+        metadata['mars_version_sorcerer'] = self.decode_version_number(mars_version_encoded)
+        metadata['root_version_sorcerer'] = self.decode_version_number(root_version_encoded)
+
+        return metadata
 
     def parse_simulation_header(self):
         """
@@ -1149,10 +1241,6 @@ class MarsCalibratedRun:
         drive_data['az']  = np.array([])
         drive_data['ra']  = np.array([])
         drive_data['dec'] = np.array([])
-
-        degrees_per_hour = 15.0
-        seconds_per_day = 86400.0
-        seconds_per_hour = 3600.
 
         evt_common_list = [
             'MCerPhotEvt.fPixels.fPhot',
