@@ -166,19 +166,16 @@ class MAGICEventSource(EventSource):
         # Retrieving the list of run numbers corresponding to the data files
         self.file_ = uproot.open(self.input_url.expanduser())
         run_info = self.parse_run_info()
-        run_number = run_info[0]
-        is_mc = run_info[1]
-        telescope = run_info[2]
 
-        self.run_numbers = run_number
-        self.is_mc = is_mc
-        self.telescope = telescope
+        self.run_numbers = run_info[0]
+        self.is_mc = run_info[1]
+        self.telescope = run_info[2]
+        self.mars_datalevel = run_info[3]
 
         self.metadata = self.parse_metadata_info()
 
         # Retrieving the data level (so far HARDCODED Sorcerer)
         self.datalevel = DataLevel.DL0
-        self.mars_datalevel = run_info[3]
 
         if self.is_mc:
             self.simulation_config = self.parse_simulation_header()
