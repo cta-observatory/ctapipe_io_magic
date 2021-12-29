@@ -1240,9 +1240,9 @@ class MarsCalibratedRun:
 
         drive_data = dict()
         drive_data['mjd'] = np.array([])
-        drive_data['zd']  = np.array([])
-        drive_data['az']  = np.array([])
-        drive_data['ra']  = np.array([])
+        drive_data['zd'] = np.array([])
+        drive_data['az'] = np.array([])
+        drive_data['ra'] = np.array([])
         drive_data['dec'] = np.array([])
 
         evt_common_list = [
@@ -1314,8 +1314,8 @@ class MarsCalibratedRun:
         trigger_pattern = events['MTriggerPattern.fPrescaled']
         stereo_event_number = events['MRawEvtHeader.fStereoEvtNumber']
 
-        # Reading event timing information:
         if not is_mc:
+            # Reading event timing information:
             event_times = input_file['Events'].arrays(time_array_list, library="np")
             # Computing the event arrival time
 
@@ -1328,37 +1328,30 @@ class MarsCalibratedRun:
             event_data['MJD'] = np.concatenate(
                 (event_data['MJD'], event_mjd))
 
-        # try to read RunHeaders tree (soft fail if not present, to pass current tests)
-        try:
-            # Reading the info only contained in real data
-            if not is_mc:
-                badpixelinfo = input_file['RunHeaders']['MBadPixelsCam.fArray.fInfo'].array(
-                    uproot.interpretation.jagged.AsJagged(uproot.interpretation.numerical.AsDtype(np.dtype('>i4'))), library="np")[0].reshape((4, 1183), order='F')
-                # now we have 4 axes:
-                # 0st axis: empty (?)
-                # 1st axis: Unsuitable pixels
-                # 2nd axis: Uncalibrated pixels (says why pixel is unsuitable)
-                # 3rd axis: Bad hardware pixels (says why pixel is unsuitable)
-                # Each axis cointains a 32bit integer encoding more information about the specific problem, see MARS software, MBADPixelsPix.h
-                # take first axis
-                unsuitable_pix_bitinfo = badpixelinfo[1][:n_camera_pixels]
-                # extract unsuitable bit:
-                unsuitable_pix = np.zeros(n_camera_pixels, dtype=np.bool)
-                for i in range(n_camera_pixels):
-                    unsuitable_pix[i] = int('\t{0:08b}'.format(
-                        unsuitable_pix_bitinfo[i] & 0xff)[-2])
-                monitoring_data['badpixelinfo'].append(unsuitable_pix)
-                # save time interval of badpixel info:
-                monitoring_data['badpixelinfoMJDrange'].append(
-                    [event_mjd[0], event_mjd[-1]])
-
-        except KeyError:
-            LOGGER.warning(
-                "RunHeaders tree not present in file. Cannot read meta information - will assume it is a real data run.")
-            is_mc = False
+            badpixelinfo = input_file['RunHeaders']['MBadPixelsCam.fArray.fInfo'].array(
+                uproot.interpretation.jagged.AsJagged(
+                    uproot.interpretation.numerical.AsDtype(np.dtype('>i4'))
+                ), library="np")[0].reshape((4, 1183), order='F')
+            # now we have 4 axes:
+            # 0st axis: empty (?)
+            # 1st axis: Unsuitable pixels
+            # 2nd axis: Uncalibrated pixels (says why pixel is unsuitable)
+            # 3rd axis: Bad hardware pixels (says why pixel is unsuitable)
+            # Each axis cointains a 32bit integer encoding more information about the
+            # specific problem, see MARS software, MBADPixelsPix.h
+            # take first axis
+            unsuitable_pix_bitinfo = badpixelinfo[1][:n_camera_pixels]
+            # extract unsuitable bit:
+            unsuitable_pix = np.zeros(n_camera_pixels, dtype=np.bool)
+            for i in range(n_camera_pixels):
+                unsuitable_pix[i] = int('\t{0:08b}'.format(
+                    unsuitable_pix_bitinfo[i] & 0xff)[-2])
+            monitoring_data['badpixelinfo'].append(unsuitable_pix)
+            # save time interval of badpixel info:
+            monitoring_data['badpixelinfoMJDrange'].append(
+                [event_mjd[0], event_mjd[-1]])
 
         # try to read Pedestals tree (soft fail if not present)
-        if not is_mc:
             try:
                 pedestal_info = input_file['Pedestals'].arrays(
                     pedestal_array_list, library="np")
@@ -1385,6 +1378,26 @@ class MarsCalibratedRun:
                 LOGGER.warning(
                     "Pedestals tree not present in file. Cleaning algorithm may fail.")
 
+            # Getting the telescope drive info
+            drive = input_file['Drive'].arrays(drive_array_list, library="np")
+
+            drive_mjd = drive['MReportDrive.fMjd']
+            drive_zd = drive['MReportDrive.fCurrentZd']
+            drive_az = drive['MReportDrive.fCurrentAz']
+            drive_ra = drive['MReportDrive.fRa'] * degrees_per_hour
+            drive_dec = drive['MReportDrive.fDec']
+
+            drive_data['mjd'] = np.concatenate((drive_data['mjd'], drive_mjd))
+            drive_data['zd'] = np.concatenate((drive_data['zd'], drive_zd))
+            drive_data['az'] = np.concatenate((drive_data['az'], drive_az))
+            drive_data['ra'] = np.concatenate((drive_data['ra'], drive_ra))
+            drive_data['dec'] = np.concatenate((drive_data['dec'], drive_dec))
+
+            if len(drive_mjd) < 3:
+                LOGGER.warning(f"File {uproot_file.file_path} has only {len(drive_mjd)} drive reports.")
+                if len(drive_mjd) == 0:
+                    raise MissingDriveReportError(f"File {uproot_file.file_path} does not have any drive report. Check if it was merpped correctly.")
+
         # Reading pointing information (in units of degrees):
         if is_mc:
             # Retrieving the telescope pointing direction
@@ -1399,26 +1412,6 @@ class MarsCalibratedRun:
                            pointing['MPointingPos.fDevHa']) * degrees_per_hour
             pointing_dec = pointing['MPointingPos.fDec'] - \
                 pointing['MPointingPos.fDevDec']
-        else:
-            # Getting the telescope drive info
-            drive = input_file['Drive'].arrays(drive_array_list, library="np")
-
-            drive_mjd = drive['MReportDrive.fMjd']
-            drive_zd = drive['MReportDrive.fCurrentZd']
-            drive_az = drive['MReportDrive.fCurrentAz']
-            drive_ra = drive['MReportDrive.fRa'] * degrees_per_hour
-            drive_dec = drive['MReportDrive.fDec']
-
-            drive_data['mjd'] = np.concatenate((drive_data['mjd'],drive_mjd))
-            drive_data['zd']  = np.concatenate((drive_data['zd'],drive_zd))
-            drive_data['az']  = np.concatenate((drive_data['az'],drive_az))
-            drive_data['ra']  = np.concatenate((drive_data['ra'],drive_ra))
-            drive_data['dec'] = np.concatenate((drive_data['dec'],drive_dec))
-
-            if len(drive_mjd) < 3:
-                LOGGER.warning(f"File {uproot_file.file_path} has only {len(drive_mjd)} drive reports.")
-                if len(drive_mjd) == 0:
-                    raise MissingDriveReportError(f"File {uproot_file.file_path} does not have any drive report. Check if it was merpped correctly.")
 
         # check for bit flips in the stereo event ID:
         d_x = np.diff(stereo_event_number.astype(np.int))
@@ -1462,6 +1455,7 @@ class MarsCalibratedRun:
             (event_data['trigger_pattern'], trigger_pattern))
         event_data['stereo_event_number'] = np.concatenate(
             (event_data['stereo_event_number'], stereo_event_number))
+
         if is_mc:
             event_data['pointing_zd'] = np.concatenate(
                 (event_data['pointing_zd'], pointing_zd))
@@ -1502,14 +1496,17 @@ class MarsCalibratedRun:
                     monitoring_data['PedestalFromExtractorRndm'][quantity])
 
             # get only drive reports with unique times, otherwise interpolation fails.
-            drive_mjd_unique, unique_indices = np.unique(drive_data['mjd'], return_index=True)
-            drive_zd_unique  = drive_data['zd'][unique_indices]
-            drive_az_unique  = drive_data['az'][unique_indices]
-            drive_ra_unique  = drive_data['ra'][unique_indices]
+            drive_mjd_unique, unique_indices = np.unique(
+                drive_data['mjd'],
+                return_index=True
+            )
+            drive_zd_unique = drive_data['zd'][unique_indices]
+            drive_az_unique = drive_data['az'][unique_indices]
+            drive_ra_unique = drive_data['ra'][unique_indices]
             drive_dec_unique = drive_data['dec'][unique_indices]
 
             first_drive_report_time = Time(drive_mjd_unique[0], scale='utc', format='mjd')
-            last_drive_report_time  = Time(drive_mjd_unique[-1], scale='utc', format='mjd')
+            last_drive_report_time = Time(drive_mjd_unique[-1], scale='utc', format='mjd')
 
             LOGGER.warning(f"Interpolating events information from {len(drive_data['mjd'])} drive reports.")
             LOGGER.warning(f"Drive reports available from {first_drive_report_time.iso} to {last_drive_report_time.iso}.")
