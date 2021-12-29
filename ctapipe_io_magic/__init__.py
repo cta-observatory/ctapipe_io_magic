@@ -414,6 +414,8 @@ class MAGICEventSource(EventSource):
         trigger_tree = self.file_["Trigger"]
         L3T_tree = self.file_["L3T"]
 
+        # here we take the 2nd element because sometimes the first trigger report
+        # has still the old prescaler values from a previous run
         prescaler = trigger_tree["MTriggerPrescFact.fPrescFact"].array(library="np")[1]
 
         if prescaler == prescaler_mono_nosumt or prescaler == prescaler_mono_sumt:
@@ -425,6 +427,7 @@ class MAGICEventSource(EventSource):
 
         is_sumt = False
         if is_stereo:
+            # here we take the 2nd element for the same reason as above
             L3Table = L3T_tree["MReportL3T.fTablename"].array(library="np")[1]
             if L3Table == L3_table_sumt:
                 is_sumt = True
