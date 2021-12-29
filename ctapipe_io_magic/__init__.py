@@ -348,11 +348,14 @@ class MAGICEventSource(EventSource):
             prod_site_alt=u.Quantity(site_height, u.cm).to(u.m),
             spectral_index=spectral_index,
             num_showers=n_showers,
-            shower_reuse=1, #not written in the magic root file, but since the sim_events already include shower reuse we artificially set it to 1 (actually every shower reused 5 times for std MAGIC MC)
-            shower_prog_id = 1,
-            prod_site_B_total = MAGIC_Btot,
-            prod_site_B_declination = MAGIC_Bdec,
-            prod_site_B_inclination = MAGIC_Binc,
+            shower_reuse=1,
+            # shower_reuse not written in the magic root file, but since the
+            # sim_events already include shower reuse we artificially set it
+            # to 1 (actually every shower reused 5 times for std MAGIC MC)
+            shower_prog_id=1,
+            prod_site_B_total=MAGIC_Btot,
+            prod_site_B_declination=MAGIC_Bdec,
+            prod_site_B_inclination=MAGIC_Binc,
             max_alt=u.Quantity((90. - min_zd), u.deg).to(u.rad),
             min_alt=u.Quantity((90. - max_zd), u.deg).to(u.rad),
             max_az=u.Quantity(max_az, u.deg).to(u.rad),
