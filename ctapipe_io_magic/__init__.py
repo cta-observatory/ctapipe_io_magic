@@ -693,7 +693,9 @@ class MAGICEventSource(EventSource):
                 event_data = self.current_run['data'].get_stereo_event_data(
                     event_i)
 
-                data.meta = event_data['mars_meta']
+                data.meta['origin'] = 'MAGIC'
+                data.meta['input_url'] = self.input_url
+                data.meta['max_events'] = self.max_events
 
                 # Event counter
                 data.count = counter
@@ -877,8 +879,9 @@ class MAGICEventSource(EventSource):
             event_data = self.current_run['data'].get_mono_event_data(
                 event_i, telescope=telescope)
 
-            data.meta = event_data['mars_meta']
-            data.meta["max_events"] = self.max_events
+            data.meta['origin'] = 'MAGIC'
+            data.meta['input_url'] = self.input_url
+            data.meta['max_events'] = self.max_events
 
             data.trigger.event_type = self.current_run['data'].event_data[telescope]['trigger_pattern'][event_order_number]
             data.trigger.tels_with_trigger = tels_with_data
@@ -1043,8 +1046,9 @@ class MAGICEventSource(EventSource):
                 event_data = self.current_run['data'].get_pedestal_event_data(
                     event_i, telescope=telescope)
 
-                data.meta = event_data['mars_meta']
-                data.meta["max_events"] = self.max_events
+                data.meta['origin'] = 'MAGIC'
+                data.meta['input_url'] = self.input_url
+                data.meta['max_events'] = self.max_events
 
                 data.trigger.event_type = self.current_run['data'].event_data[telescope]['trigger_pattern'][event_order_number]
                 data.trigger.tels_with_trigger = tels_with_data
@@ -1210,7 +1214,6 @@ class MarsCalibratedRun:
         event_data['pointing_ra'] = np.array([])
         event_data['pointing_dec'] = np.array([])
         event_data['MJD'] = np.array([])
-        event_data['mars_meta'] = []
 
         # monitoring information (updated from time to time)
         monitoring_data = dict()
@@ -1301,17 +1304,6 @@ class MarsCalibratedRun:
             'MMcEvt.fCoreY'
         ]
 
-        # Metadata, currently not strictly required
-        metainfo_array_list = [
-            'MRawRunHeader.fRunNumber',
-            'MRawRunHeader.fRunType',
-            'MRawRunHeader.fSubRunIndex',
-            'MRawRunHeader.fSourceRA',
-            'MRawRunHeader.fSourceDEC',
-            'MRawRunHeader.fTelescopeNumber',
-            'MRawRunHeader.fSourceName[80]',
-            'MRawRunHeader.fObservationMode[60]']
-
         input_file = uproot_file
 
         events = input_file['Events'].arrays(evt_common_list, library="np")
@@ -1321,11 +1313,6 @@ class MarsCalibratedRun:
         arrival_time = events['MArrivalTime.fData']
         trigger_pattern = events['MTriggerPattern.fPrescaled']
         stereo_event_number = events['MRawEvtHeader.fStereoEvtNumber']
-
-        # Reading run-wise meta information (same for all events in subrun):
-        mars_meta = dict()
-
-        mars_meta['is_simulation'] = is_mc
 
         # Reading event timing information:
         if not is_mc:
@@ -1343,40 +1330,6 @@ class MarsCalibratedRun:
 
         # try to read RunHeaders tree (soft fail if not present, to pass current tests)
         try:
-            meta_info = input_file['RunHeaders'].arrays(
-                metainfo_array_list, library="np")
-
-            mars_meta['origin'] = "MAGIC"
-            mars_meta['input_url'] = uproot_file.file_path
-
-            mars_meta['number'] = int(
-                meta_info['MRawRunHeader.fRunNumber'][0])
-            mars_meta['number_subrun'] = int(
-                meta_info['MRawRunHeader.fSubRunIndex'][0])
-            mars_meta['source_ra'] = meta_info['MRawRunHeader.fSourceRA'][0] / \
-                seconds_per_hour * degrees_per_hour * u.deg
-            mars_meta['source_dec'] = meta_info['MRawRunHeader.fSourceDEC'][0] / \
-                seconds_per_hour * u.deg
-            if not is_mc:
-                src_name_array = meta_info['MRawRunHeader.fSourceName[80]'][0]
-                mars_meta['source_name'] = "".join([chr(item) for item in src_name_array if item != 0])
-                obs_mode_array = meta_info['MRawRunHeader.fObservationMode[60]'][0]
-                mars_meta['observation_mode'] = "".join([chr(item) for item in obs_mode_array if item != 0])
-
-            is_mc_check = int(meta_info['MRawRunHeader.fRunType'][0])
-            if is_mc_check == 0:
-                is_mc_check = False
-            elif is_mc_check == 256:
-                is_mc_check = True
-            else:
-                msg = "Run type (Data or MC) of MAGIC data file not recognised."
-                LOGGER.error(msg)
-                raise ValueError(msg)
-            if is_mc_check != is_mc:
-                msg = "Inconsistent run type (data or MC) between file name and runheader content."
-                LOGGER.error(msg)
-                raise ValueError(msg)
-
             # Reading the info only contained in real data
             if not is_mc:
                 badpixelinfo = input_file['RunHeaders']['MBadPixelsCam.fArray.fInfo'].array(
@@ -1505,7 +1458,6 @@ class MarsCalibratedRun:
 
         event_data['charge'].append(charge)
         event_data['arrival_time'].append(arrival_time)
-        event_data['mars_meta'].append(mars_meta)
         event_data['trigger_pattern'] = np.concatenate(
             (event_data['trigger_pattern'], trigger_pattern))
         event_data['stereo_event_number'] = np.concatenate(
@@ -1876,7 +1828,6 @@ class MarsCalibratedRun:
         event_data['pointing_ra'] = self.event_data[telescope]['pointing_ra'][event_id]
         event_data['pointing_dec'] = self.event_data[telescope]['pointing_dec'][event_id]
         event_data['mjd'] = self.event_data[telescope]['MJD'][event_id]
-        event_data['mars_meta'] = self.event_data[telescope]['mars_meta'][file_num]
 
         return event_data
 
@@ -1940,9 +1891,6 @@ class MarsCalibratedRun:
         event_data['m2_pointing_ra'] = self.event_data['M2']['pointing_ra'][m2_id]
         event_data['m2_pointing_dec'] = self.event_data['M2']['pointing_dec'][m2_id]
 
-        # get information identical for both telescopes from M1:
-        event_data['mars_meta'] = self.event_data['M1']['mars_meta'][m1_file_num]
-
         if not self.is_mc:
             event_data['mjd'] = self.event_data['M1']['MJD'][m1_id]
         else:
@@ -2000,8 +1948,6 @@ class MarsCalibratedRun:
         event_data['pointing_zd'] = self.event_data[telescope]['pointing_zd'][event_id]
         event_data['pointing_ra'] = self.event_data[telescope]['pointing_ra'][event_id]
         event_data['pointing_dec'] = self.event_data[telescope]['pointing_dec'][event_id]
-
-        event_data['mars_meta'] = self.event_data[telescope]['mars_meta'][file_num]
 
         if not self.is_mc:
             event_data['mjd'] = self.event_data[telescope]['MJD'][event_id]
