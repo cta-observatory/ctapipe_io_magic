@@ -180,6 +180,9 @@ class MAGICEventSource(EventSource):
         if self.is_mc:
             self.simulation_config = self.parse_simulation_header()
 
+        if not self.is_mc:
+            self.is_stereo, self.is_sumt = self.parse_data_info()
+
         # # Setting up the current run with the first run present in the data
         # self.current_run = self._set_active_run(run_number=0)
         self.current_run = None
@@ -385,6 +388,55 @@ class MAGICEventSource(EventSource):
             datalevel = MARSDataLevel.STAR
 
         return run_number, is_mc, telescope_number, datalevel
+
+    def parse_data_info(self):
+        """
+        Check if data is stereo/mono and std trigger/SUMT
+
+        Returns
+        -------
+        is_stereo: Bool
+            True if stereo data, False if mono
+        is_sumt: Bool
+            True if SUMT data, False if std trigger
+        """
+
+        prescaler_mono_nosumt = [1, 1, 0, 1, 0, 0, 0, 0]
+        prescaler_mono_sumt = [0, 1, 0, 1, 0, 1, 0, 0]
+        prescaler_stereo = [0, 1, 0, 1, 0, 0, 0, 1]
+
+        # L1_table_mono = "L1_4NN"
+        # L1_table_stereo = "L1_3NN"
+
+        L3_table_nosumt = "L3T_L1L1_100_SYNC"
+        L3_table_sumt = "L3T_SUMSUM_100_SYNC"
+
+        trigger_tree = self.file_["Trigger"]
+        L3T_tree = self.file_["L3T"]
+
+        prescaler = trigger_tree["MTriggerPrescFact.fPrescFact"].array(library="np")[1]
+
+        if prescaler == prescaler_mono_nosumt or prescaler == prescaler_mono_sumt:
+            is_stereo = False
+        elif prescaler == prescaler_stereo:
+            is_stereo = True
+        else:
+            is_stereo = True
+
+        is_sumt = False
+        if is_stereo:
+            L3Table = L3T_tree["MReportL3T.fTablename"].array(library="np")[1]
+            if L3Table == L3_table_sumt:
+                is_sumt = True
+            elif L3Table == L3_table_nosumt:
+                is_sumt = False
+            else:
+                is_sumt = False
+        else:
+            if prescaler == prescaler_mono_sumt:
+                is_sumt = True
+
+        return is_stereo, is_sumt
 
     @staticmethod
     def decode_version_number(version_encoded):
