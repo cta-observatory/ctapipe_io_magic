@@ -340,6 +340,7 @@ class MAGICEventSource(EventSource):
         datalevel: MARSDataLevel
             Data level according to MARS
         """
+
         runinfo_array_list = [
             'MRawRunHeader.fRunNumber',
             'MRawRunHeader.fRunType',
@@ -352,10 +353,16 @@ class MAGICEventSource(EventSource):
         run_type = int(run_info['MRawRunHeader.fRunType'][0])
         telescope_number = int(run_info['MRawRunHeader.fTelescopeNumber'][0])
 
-        # Here the data types
+        # a note about run numbers:
+        # mono data has run numbers starting with 1 or 2 (telescope dependent)
+        # stereo data has run numbers starting with 5
+        # if both telescopes are taking data with no L3,
+        # also in this case run number starts with 5 (e.g. muon runs)
+
+        # Here the data types (from MRawRunHeader.h)
         # std data = 0
         # pedestal = 1 (_P_)
-        # calibration =2 (_C_)
+        # calibration = 2 (_C_)
         # domino calibration = 3 (_L_)
         # linearity calibration = 4 (_N_)
         # point run = 7
@@ -428,6 +435,8 @@ class MAGICEventSource(EventSource):
         is_sumt = False
         if is_stereo:
             # here we take the 2nd element for the same reason as above
+            # L3Table is empty for mono data i.e. taken with one telescope only
+            # if both telescopes take data with no L3, L3Table is filled anyway
             L3Table = L3T_tree["MReportL3T.fTablename"].array(library="np")[1]
             if L3Table == L3_table_sumt:
                 is_sumt = True
