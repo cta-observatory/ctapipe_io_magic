@@ -311,6 +311,70 @@ class MAGICEventSource(EventSource):
 
         return run_number, is_mc, telescope, datalevel
 
+    def parse_run_info(self):
+        """
+        Parses run info from the TTrees in the ROOT file
+
+        Returns
+        -------
+        run_number: int
+            The run number of the file
+        is_mc: Bool
+            Flag to tag MC files
+        telescope_number: int
+            Number of the telescope
+        datalevel: MARSDataLevel
+            Data level according to MARS
+        """
+        runinfo_array_list = [
+            'MRawRunHeader.fRunNumber',
+            'MRawRunHeader.fRunType',
+            'MRawRunHeader.fTelescopeNumber',
+        ]
+
+        run_info = self.file_['RunHeaders'].arrays(
+            runinfo_array_list, library="np")
+        run_number = int(run_info['MRawRunHeader.fRunNumber'][0])
+        run_type = int(run_info['MRawRunHeader.fRunType'][0])
+        telescope_number = int(run_info['MRawRunHeader.fTelescopeNumber'][0])
+
+        # Here the data types
+        # std data = 0
+        # pedestal = 1 (_P_)
+        # calibration =2 (_C_)
+        # domino calibration = 3 (_L_)
+        # linearity calibration = 4 (_N_)
+        # point run = 7
+        # monteCarlo = 256
+        # none = 65535
+
+        mc_data_type = 256
+
+        if run_type == mc_data_type:
+            is_mc = True
+        else:
+            is_mc = False
+
+        events_tree = self.file_['Events']
+
+        melibea_trees = ['MHadronness', 'MStereoParDisp', 'MEnergyEst']
+        superstar_trees = ['MHillas_1', 'MHillas_2', 'MStereoPar']
+        star_trees = ['MHillas']
+
+        datalevel = MARSDataLevel.CALIBRATED
+        events_keys = events_tree.keys()
+        trees_in_file = [tree in events_keys for tree in melibea_trees]
+        if all(trees_in_file):
+            datalevel = MARSDataLevel.MELIBEA
+        trees_in_file = [tree in events_keys for tree in superstar_trees]
+        if all(trees_in_file):
+            datalevel = MARSDataLevel.SUPERSTAR
+        trees_in_file = [tree in events_keys for tree in star_trees]
+        if all(trees_in_file):
+            datalevel = MARSDataLevel.STAR
+
+        return run_number, is_mc, telescope_number, datalevel
+
     def parse_simulation_header(self):
         """
         Parse the simulation information from the RunHeaders tree.
