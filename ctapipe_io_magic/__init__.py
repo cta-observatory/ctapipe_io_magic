@@ -156,13 +156,13 @@ class MAGICEventSource(EventSource):
 
         # Retrieving the list of run numbers corresponding to the data files
         self.file_ = uproot.open(self.input_url.expanduser())
-        run_info = self.get_run_info_from_name(str(input_url))
-        run_numbers = run_info[0]
-        is_mc_runs = run_info[1]
+        run_info = self.parse_run_info()
+        run_number = run_info[0]
+        is_mc = run_info[1]
         telescope = run_info[2]
 
-        self.run_numbers = run_numbers
-        self.is_mc = is_mc_runs
+        self.run_numbers = run_number
+        self.is_mc = is_mc
         self.telescope = telescope
 
         # Retrieving the data level (so far HARDCODED Sorcerer)
