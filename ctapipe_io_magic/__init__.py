@@ -5,7 +5,6 @@
 
 import logging
 
-import glob
 import re
 from enum import Enum, auto
 
