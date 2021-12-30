@@ -48,6 +48,11 @@ from ctapipe.instrument import (
 from ctapipe.coordinates import CameraFrame
 
 from .version import __version__
+from .constants import (
+    MC_TRIGGER_PATTERN,
+    PEDESTAL_TRIGGER_PATTERN,
+    DATA_TRIGGER_PATTERN
+)
 
 __all__ = ['MAGICEventSource', '__version__']
 
@@ -100,11 +105,6 @@ GEOM = MAGICCAM.geometry
 MAGIC_TEL_DESCRIPTION = TelescopeDescription(
     name='MAGIC', tel_type='MAGIC', optics=OPTICS, camera=MAGICCAM)
 MAGIC_TEL_DESCRIPTIONS = {1: MAGIC_TEL_DESCRIPTION, 2: MAGIC_TEL_DESCRIPTION}
-
-# trigger patterns:
-MC_TRIGGER_PATTERN = 1
-PEDESTAL_TRIGGER_PATTERN = 8
-DATA_TRIGGER_PATTERN = 128
 
 
 class MARSDataLevel(Enum):

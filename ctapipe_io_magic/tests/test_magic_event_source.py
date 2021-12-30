@@ -71,6 +71,16 @@ def test_loop(dataset):
 
 
 @pytest.mark.parametrize('dataset', test_calibrated_all)
+def test_loop_pedestal(dataset):
+    from ctapipe_io_magic import MAGICEventSource
+    from ctapipe_io_magic.constants import PEDESTAL_TRIGGER_PATTERN
+    n_events = 10
+    with MAGICEventSource(input_url=dataset, max_events=n_events, use_pedestals=True) as source:
+        for event in source:
+            assert event.trigger.event_type == PEDESTAL_TRIGGER_PATTERN
+
+
+@pytest.mark.parametrize('dataset', test_calibrated_all)
 def test_run_info(dataset):
     from ctapipe_io_magic import MAGICEventSource
 
