@@ -1052,124 +1052,119 @@ class MAGICEventSource(EventSource):
         tel_i = tels_in_file.index(telescope)
         tels_with_data = [tel_i + 1, ]
 
-        # Loop over the available data runs
-        for run_number in self.run_numbers:
+        # Removing the previously read data run from memory
+        if self.current_run is not None:
+            if 'data' in self.current_run:
+                del self.current_run['data']
 
-            # Removing the previously read data run from memory
-            if self.current_run is not None:
-                if 'data' in self.current_run:
-                    del self.current_run['data']
+        # Setting the new active run
+        self.current_run = self._set_active_run(self.run_numbers)
 
-            # Setting the new active run
-            self.current_run = self._set_active_run(run_number)
+        monitoring_data = self.current_run['data'].monitoring_data
 
-            monitoring_data = self.current_run['data'].monitoring_data
+        monitoring_camera = MonitoringCameraContainer()
+        pedestal_info = PedestalContainer()
+        badpixel_info = PixelStatusContainer()
 
-            monitoring_camera = MonitoringCameraContainer()
-            pedestal_info = PedestalContainer()
-            badpixel_info = PixelStatusContainer()
+        time_tmp = Time(monitoring_data['M{:d}'.format(
+            tel_i + 1)]['PedestalMJD'], scale='utc', format='mjd')
+        pedestal_info.sample_time = Time(
+            time_tmp, format='unix', scale='utc', precision=9)
+        pedestal_info.n_events = 500  # hardcoded number of pedestal events averaged over
+        pedestal_info.charge_mean = []
+        pedestal_info.charge_mean.append(
+            monitoring_data['M{:d}'.format(tel_i + 1)]['PedestalFundamental']['Mean'])
+        pedestal_info.charge_mean.append(
+            monitoring_data['M{:d}'.format(tel_i + 1)]['PedestalFromExtractor']['Mean'])
+        pedestal_info.charge_mean.append(monitoring_data['M{:d}'.format(
+            tel_i + 1)]['PedestalFromExtractorRndm']['Mean'])
+        pedestal_info.charge_std = []
+        pedestal_info.charge_std.append(
+            monitoring_data['M{:d}'.format(tel_i + 1)]['PedestalFundamental']['Rms'])
+        pedestal_info.charge_std.append(
+            monitoring_data['M{:d}'.format(tel_i + 1)]['PedestalFromExtractor']['Rms'])
+        pedestal_info.charge_std.append(
+            monitoring_data['M{:d}'.format(tel_i + 1)]['PedestalFromExtractorRndm']['Rms'])
 
-            time_tmp = Time(monitoring_data['M{:d}'.format(
-                tel_i + 1)]['PedestalMJD'], scale='utc', format='mjd')
-            pedestal_info.sample_time = Time(
-                time_tmp, format='unix', scale='utc', precision=9)
-            pedestal_info.n_events = 500 # hardcoded number of pedestal events averaged over
-            pedestal_info.charge_mean = []
-            pedestal_info.charge_mean.append(
-                monitoring_data['M{:d}'.format(tel_i + 1)]['PedestalFundamental']['Mean'])
-            pedestal_info.charge_mean.append(
-                monitoring_data['M{:d}'.format(tel_i + 1)]['PedestalFromExtractor']['Mean'])
-            pedestal_info.charge_mean.append(monitoring_data['M{:d}'.format(
-                tel_i + 1)]['PedestalFromExtractorRndm']['Mean'])
-            pedestal_info.charge_std = []
-            pedestal_info.charge_std.append(
-                monitoring_data['M{:d}'.format(tel_i + 1)]['PedestalFundamental']['Rms'])
-            pedestal_info.charge_std.append(
-                monitoring_data['M{:d}'.format(tel_i + 1)]['PedestalFromExtractor']['Rms'])
-            pedestal_info.charge_std.append(
-                monitoring_data['M{:d}'.format(tel_i + 1)]['PedestalFromExtractorRndm']['Rms'])
+        t_range = Time(monitoring_data['M{:d}'.format(
+            tel_i + 1)]['badpixelinfoMJDrange'], scale='utc', format='mjd')
 
-            t_range = Time(monitoring_data['M{:d}'.format(
-                tel_i + 1)]['badpixelinfoMJDrange'], scale='utc', format='mjd')
+        badpixel_info.hardware_failing_pixels = monitoring_data['M{:d}'.format(
+            tel_i + 1)]['badpixelinfo']
+        badpixel_info.sample_time_range = t_range
 
-            badpixel_info.hardware_failing_pixels = monitoring_data['M{:d}'.format(
-                tel_i + 1)]['badpixelinfo']
-            badpixel_info.sample_time_range = t_range
+        monitoring_camera.pedestal = pedestal_info
+        monitoring_camera.pixel_status = badpixel_info
 
-            monitoring_camera.pedestal = pedestal_info
-            monitoring_camera.pixel_status = badpixel_info
+        data.mon.tel[tel_i + 1] = monitoring_camera
 
-            data.mon.tel[tel_i + 1] = monitoring_camera
+        if telescope == 'M1':
+            n_events = self.current_run['data'].n_pedestal_events_m1
+        else:
+            n_events = self.current_run['data'].n_pedestal_events_m2
 
-            if telescope == 'M1':
-                n_events = self.current_run['data'].n_pedestal_events_m1
-            else:
-                n_events = self.current_run['data'].n_pedestal_events_m2
+        # Loop over the events
+        for event_i in range(n_events):
+            # Event and run ids
+            event_order_number = self.current_run['data'].pedestal_ids[telescope][event_i]
+            event_id = self.current_run['data'].event_data[telescope]['stereo_event_number'][event_order_number]
+            obs_id = self.current_run['number']
 
-            # Loop over the events
-            for event_i in range(n_events):
-                # Event and run ids
-                event_order_number = self.current_run['data'].pedestal_ids[telescope][event_i]
-                event_id = self.current_run['data'].event_data[telescope]['stereo_event_number'][event_order_number]
-                obs_id = self.current_run['number']
+            # Reading event data
+            event_data = self.current_run['data'].get_pedestal_event_data(
+                event_i, telescope=telescope)
 
-                # Reading event data
-                event_data = self.current_run['data'].get_pedestal_event_data(
-                    event_i, telescope=telescope)
+            data.meta['origin'] = 'MAGIC'
+            data.meta['input_url'] = self.input_url
+            data.meta['max_events'] = self.max_events
 
-                data.meta['origin'] = 'MAGIC'
-                data.meta['input_url'] = self.input_url
-                data.meta['max_events'] = self.max_events
+            data.trigger.event_type = self.current_run['data'].event_data[telescope]['trigger_pattern'][event_order_number]
+            data.trigger.tels_with_trigger = tels_with_data
+            if self.allowed_tels:
+                data.trigger.tels_with_trigger = np.intersect1d(
+                    data.trigger.tels_with_trigger,
+                    self.subarray.tel_ids,
+                    assume_unique=True,)
+            if not self.is_mc:
+                # Adding the event arrival time
+                time_tmp = Time(
+                    event_data['mjd'], scale='utc', format='mjd')
+                data.trigger.tel[tel_i + 1] = TelescopeTriggerContainer(time=Time(
+                    time_tmp, format='unix', scale='utc', precision=9))
 
-                data.trigger.event_type = self.current_run['data'].event_data[telescope]['trigger_pattern'][event_order_number]
-                data.trigger.tels_with_trigger = tels_with_data
-                if self.allowed_tels:
-                    data.trigger.tels_with_trigger = np.intersect1d(
-                        data.trigger.tels_with_trigger,
-                        self.subarray.tel_ids,
-                        assume_unique=True,)
-                if not self.is_mc:
-                    # Adding the event arrival time
-                    time_tmp = Time(
-                        event_data['mjd'], scale='utc', format='mjd')
-                    data.trigger.tel[tel_i + 1] = TelescopeTriggerContainer(time=Time(
-                        time_tmp, format='unix', scale='utc', precision=9))
+            # Event counter
+            data.count = counter
+            data.index.obs_id = obs_id
+            data.index.event_id = event_id
 
-                # Event counter
-                data.count = counter
-                data.index.obs_id = obs_id
-                data.index.event_id = event_id
+            # Setting up the R0 container
+            data.r0.tel.clear()
+            data.r1.tel.clear()
+            data.dl0.tel.clear()
+            data.dl1.tel.clear()
+            data.pointing.tel.clear()
 
-                # Setting up the R0 container
-                data.r0.tel.clear()
-                data.r1.tel.clear()
-                data.dl0.tel.clear()
-                data.dl1.tel.clear()
-                data.pointing.tel.clear()
+            # Creating the telescope pointing container
+            pointing = PointingContainer()
+            pointing_tel = TelescopePointingContainer(
+                azimuth=np.deg2rad(event_data['pointing_az']) * u.rad,
+                altitude=np.deg2rad(90 - event_data['pointing_zd']) * u.rad,)
 
-                # Creating the telescope pointing container
-                pointing = PointingContainer()
-                pointing_tel = TelescopePointingContainer(
-                    azimuth = np.deg2rad(
-                    event_data['pointing_az']) * u.rad,
-                    altitude = np.deg2rad(
-                    90 - event_data['pointing_zd']) * u.rad,)
+            pointing.tel[tel_i + 1] = pointing_tel
 
-                pointing.tel[tel_i + 1] = pointing_tel
+            pointing.array_azimuth = np.deg2rad(event_data['pointing_az']) * u.rad
+            pointing.array_altitude = np.deg2rad(90 - event_data['pointing_zd']) * u.rad
+            pointing.array_ra = np.deg2rad(event_data['pointing_ra']) * u.rad
+            pointing.array_dec = np.deg2rad(90 - event_data['pointing_dec']) * u.rad
 
-                pointing.array_azimuth  = np.deg2rad(event_data['pointing_az']) * u.rad
-                pointing.array_altitude = np.deg2rad(90 - event_data['pointing_zd']) * u.rad
-                pointing.array_ra       = np.deg2rad(event_data['pointing_ra']) * u.rad
-                pointing.array_dec      = np.deg2rad(90 - event_data['pointing_dec']) * u.rad
+            data.pointing = pointing
 
-                data.pointing = pointing
+            # Adding event charge and peak positions per pixel
+            data.dl1.tel[tel_i + 1].image = event_data['image']
+            data.dl1.tel[tel_i + 1].peak_time = event_data['pulse_time']
 
-                # Adding event charge and peak positions per pixel
-                data.dl1.tel[tel_i + 1].image = event_data['image']
-                data.dl1.tel[tel_i + 1].peak_time = event_data['pulse_time']
-
-                yield data
-                counter += 1
+            yield data
+            counter += 1
 
         return
 
