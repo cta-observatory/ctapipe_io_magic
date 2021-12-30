@@ -22,8 +22,8 @@ import uproot
 from ctapipe.io.eventsource import EventSource
 from ctapipe.io.datalevels import DataLevel
 
-from ctapipe.core import Container
-from ctapipe.core import Field
+from ctapipe.core import Container, Field
+from ctapipe.core.traits import Bool
 
 from ctapipe.containers import (
     ArrayEventContainer,
@@ -140,6 +140,13 @@ class MAGICEventSource(EventSource):
 
     This class operates with the MAGIC data subrun-wise for calibrated data.
     """
+
+    use_pedestals = Bool(
+           default_value=False,
+           help=(
+               'If true, extract pedestal evens instead of cosmic events.'
+           ),
+    ).tag(config=False)
 
     def __init__(self, input_url=None, config=None, parent=None, **kwargs):
         """
@@ -653,7 +660,10 @@ class MAGICEventSource(EventSource):
         """
 
         if self.mars_datalevel == MARSDataLevel.CALIBRATED:
-            return self._mono_event_generator(telescope=f"M{self.telescope}")
+            if self.use_pedestals:
+                return self._pedestal_event_generator(telescope=f"M{self.telescope}")
+            else:
+                return self._mono_event_generator(telescope=f"M{self.telescope}")
 
     def _stereo_event_generator(self):
         """
