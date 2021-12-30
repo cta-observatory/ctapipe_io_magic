@@ -872,15 +872,14 @@ class MAGICEventSource(EventSource):
         counter = 0
         telescope = telescope.upper()
 
-        # Data container - is initialized once, and data is replaced within it after each yield
+        # Data container - is initialized once, and data is replaced after each yield
         data = ArrayEventContainer()
 
         # Telescopes with data:
         tels_in_file = ["M1", "M2"]
 
         if telescope not in tels_in_file:
-            raise ValueError("Specified telescope {:s} is not in the allowed list {}".format(
-                telescope, tels_in_file))
+            raise ValueError(f"Specified telescope {telescope} is not in the allowed list {tels_in_file}")
 
         tel_i = tels_in_file.index(telescope)
         tels_with_data = [tel_i + 1, ]
@@ -906,7 +905,7 @@ class MAGICEventSource(EventSource):
                 tel_i + 1)]['PedestalMJD'], scale='utc', format='mjd')
             pedestal_info.sample_time = Time(
                 time_tmp, format='unix', scale='utc', precision=9)
-            pedestal_info.n_events = 500 # hardcoded number of pedestal events averaged over
+            pedestal_info.n_events = 500  # hardcoded number of pedestal events averaged over
             pedestal_info.charge_mean = []
             pedestal_info.charge_mean.append(
                 monitoring_data['M{:d}'.format(tel_i + 1)]['PedestalFundamental']['Mean'])
@@ -983,17 +982,15 @@ class MAGICEventSource(EventSource):
             # Creating the telescope pointing container
             pointing = PointingContainer()
             pointing_tel = TelescopePointingContainer(
-                azimuth = np.deg2rad(
-                event_data['pointing_az']) * u.rad,
-                altitude = np.deg2rad(
-                90 - event_data['pointing_zd']) * u.rad,)
+                azimuth=np.deg2rad(event_data['pointing_az']) * u.rad,
+                altitude=np.deg2rad(90 - event_data['pointing_zd']) * u.rad,)
 
             pointing.tel[tel_i + 1] = pointing_tel
 
-            pointing.array_azimuth  = np.deg2rad(event_data['pointing_az']) * u.rad
+            pointing.array_azimuth = np.deg2rad(event_data['pointing_az']) * u.rad
             pointing.array_altitude = np.deg2rad(90 - event_data['pointing_zd']) * u.rad
-            pointing.array_ra       = np.deg2rad(event_data['pointing_ra']) * u.rad
-            pointing.array_dec      = np.deg2rad(90 - event_data['pointing_dec']) * u.rad
+            pointing.array_ra = np.deg2rad(event_data['pointing_ra']) * u.rad
+            pointing.array_dec = np.deg2rad(90 - event_data['pointing_dec']) * u.rad
 
             data.pointing = pointing
 
@@ -1007,13 +1004,13 @@ class MAGICEventSource(EventSource):
                 # magnetic north is 7 deg westward w.r.t. geographical north
                 data.simulation = SimulatedEventContainer()
                 data.simulation.shower = SimulatedShowerContainer(
-                    energy = u.Quantity(event_data['true_energy'], u.GeV),
-                    alt = Angle((np.pi/2 - event_data['true_zd']), u.rad),
-                    az = Angle(-1 * (event_data['true_az'] - (np.pi/2 + MAGIC_Bdec.value)), u.rad),
-                    shower_primary_id = 1 - event_data['true_shower_primary_id'],
-                    h_first_int = u.Quantity(event_data['true_h_first_int'], u.cm),
-                    core_x = u.Quantity((event_data['true_core_x']*np.cos(-MAGIC_Bdec) - event_data['true_core_y']*np.sin(-MAGIC_Bdec)).value, u.cm),
-                    core_y = u.Quantity((event_data['true_core_x']*np.sin(-MAGIC_Bdec) + event_data['true_core_y']*np.cos(-MAGIC_Bdec)).value, u.cm),
+                    energy=u.Quantity(event_data['true_energy'], u.GeV),
+                    alt=Angle((np.pi/2 - event_data['true_zd']), u.rad),
+                    az=Angle(-1 * (event_data['true_az'] - (np.pi/2 + MAGIC_Bdec.value)), u.rad),
+                    shower_primary_id=(1 - event_data['true_shower_primary_id']),
+                    h_first_int=u.Quantity(event_data['true_h_first_int'], u.cm),
+                    core_x=u.Quantity((event_data['true_core_x']*np.cos(-MAGIC_Bdec) - event_data['true_core_y']*np.sin(-MAGIC_Bdec)).value, u.cm),
+                    core_y=u.Quantity((event_data['true_core_x']*np.sin(-MAGIC_Bdec) + event_data['true_core_y']*np.cos(-MAGIC_Bdec)).value, u.cm),
                 )
 
             yield data
@@ -1039,15 +1036,14 @@ class MAGICEventSource(EventSource):
         counter = 0
         telescope = telescope.upper()
 
-        # Data container - is initialized once, and data is replaced within it after each yield
+        # Data container - is initialized once, and data is replaced after each yield
         data = ArrayEventContainer()
 
         # Telescopes with data:
         tels_in_file = ["M1", "M2"]
 
         if telescope not in tels_in_file:
-            raise ValueError("Specified telescope {:s} is not in the allowed list {}".format(
-                telescope, tels_in_file))
+            raise ValueError(f"Specified telescope {telescope} is not in the allowed list {tels_in_file}")
 
         tel_i = tels_in_file.index(telescope)
         tels_with_data = [tel_i + 1, ]
