@@ -521,7 +521,7 @@ class MAGICEventSource(EventSource):
                 metadatainfo_array_list_runheaders, library="np"
         )
 
-        metadata['number_subrun'] = int(meta_info_runh['MRawRunHeader.fSubRunIndex'][0])
+        metadata['subrun_number'] = int(meta_info_runh['MRawRunHeader.fSubRunIndex'][0])
         metadata['source_ra'] = meta_info_runh['MRawRunHeader.fSourceRA'][0] / \
             seconds_per_hour * degrees_per_hour * u.deg
         metadata['source_dec'] = meta_info_runh['MRawRunHeader.fSourceDEC'][0] / \
