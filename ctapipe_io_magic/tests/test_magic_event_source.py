@@ -70,7 +70,7 @@ def test_loop(dataset):
             break
 
 
-@pytest.mark.parametrize('dataset', test_calibrated_all)
+@pytest.mark.parametrize('dataset', test_calibrated_real)
 def test_loop_pedestal(dataset):
     from ctapipe_io_magic import MAGICEventSource
     from ctapipe_io_magic.constants import PEDESTAL_TRIGGER_PATTERN
