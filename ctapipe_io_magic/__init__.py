@@ -116,15 +116,6 @@ class MARSDataLevel(Enum):
     MELIBEA = auto()  # Reconstruction of hadronness, event direction and energy
 
 
-class L3JumpError(Exception):
-    """
-    Exception raised when L3 trigger number jumps backward.
-    """
-
-    def __init__(self, message):
-        self.message = message
-
-
 class MissingDriveReportError(Exception):
     """
     Exception raised when a subrun does not have drive reports.
@@ -1506,10 +1497,17 @@ class MarsCalibratedRun:
                 if not is_mc:
                     jumped_events = int(stereo_event_number[i]) - int(stereo_event_number[i+1])
                     total_jumped_events += jumped_events
-                    LOGGER.warning(f"Jump of L3 number backward from {stereo_event_number[i]} to {stereo_event_number[i+1]}; "
-                        f"total jumped events so far: {total_jumped_events}")
-                    if total_jumped_events > max_total_jumps:
-                        raise L3JumpError(f"Jumps backward in L3 trigger number by {total_jumped_events} in total. You might consider matching events by time instead.")
+                    LOGGER.warning(
+                        f"Jump of L3 number backward from {stereo_event_number[i]} to "
+                        f"{stereo_event_number[i+1]}; total jumped events so far: "
+                        f"{total_jumped_events}"
+                    )
+
+            if total_jumped_events > max_total_jumps:
+                LOGGER.warning(
+                    f"More than {max_total_jumps} in stereo trigger number; "
+                    f"you may have to match events by timestamp at a later stage."
+                )
 
         event_data['charge'].append(charge)
         event_data['arrival_time'].append(arrival_time)
