@@ -542,6 +542,23 @@ class MAGICEventSource(EventSource):
         -------
         SimulationConfigContainer
             Container filled with simulation information
+
+        Notes
+        -----
+        Information is extracted from the RunHeaders tree within the ROOT file.
+        Within it, the MMcCorsikaRunHeader and MMcRunHeader branches are used.
+        Here below the units of the members extracted, for reference:
+        * fSlopeSpec: float
+        * fELowLim, fEUppLim: GeV
+        * fCorsikaVersion: int
+        * fHeightLev[10]: centimeter
+        * fAtmosphericModel: int
+        * fRandomPointingConeSemiAngle: deg
+        * fImpactMax: centimeter
+        * fNumSimulatedShowers: int
+        * fShowerThetaMax, fShowerThetaMin: deg
+        * fShowerPhiMax, fShowerPhiMin: deg
+        * fCWaveUpper, fCWaveLower: nanometer
         """
 
         run_header_tree = self.file_['RunHeaders']
