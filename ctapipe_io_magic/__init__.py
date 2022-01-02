@@ -130,6 +130,29 @@ class MAGICEventSource(EventSource):
     EventSource for MAGIC calibrated data.
 
     This class operates with the MAGIC data subrun-wise for calibrated data.
+
+    Attributes
+    ----------
+    current_run : MarsCalibratedRun
+        Object containing the info needed to fill the ctapipe Containers
+    datalevel : DataLevel
+        Data level according to the definition in ctapipe
+    file_ : uproot.ReadOnlyFile
+        A ROOT file opened with uproot
+    is_mc : bool
+        Flag indicating real or simulated data
+    mars_datalevel : int
+        Data level according to MARS convention
+    metadata : dict
+        Dictionary containing metadata
+    run_numbers : int
+        Run number of the file
+    simulation_config : SimulationConfigContainer
+        Container filled with the information about the simulation
+    telescope : int
+        The number of the telescope
+    use_pedestals : bool
+        Flag indicating if pedestal events should be returned by the generator
     """
 
     use_pedestals = Bool(
