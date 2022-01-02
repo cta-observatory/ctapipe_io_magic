@@ -1299,11 +1299,12 @@ class MarsCalibratedRun:
         drive_data['dec'] = np.array([])
 
         evt_common_list = [
-            'MCerPhotEvt.fPixels.fPhot',
             'MArrivalTime.fData',
-            'MTriggerPattern.fPrescaled',
-            'MRawEvtHeader.fStereoEvtNumber',
+            'MCerPhotEvt.fPixels.fPhot',
             'MRawEvtHeader.fDAQEvtNumber',
+            'MRawEvtHeader.fStereoEvtNumber',
+            'MTriggerPattern.fPrescaled',
+            'MTriggerPattern.fSkipEvent',
         ]
 
         # Separately, because only used with pre-processed MARS data
