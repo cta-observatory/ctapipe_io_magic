@@ -1,0 +1,9 @@
+include README.md
+include setup.cfg
+
+prune ctapipe_io_magic/_dev_version
+prune .github
+exclude .gitignore
+exclude .codacy.yml
+
+global-exclude *.pyc *.o
