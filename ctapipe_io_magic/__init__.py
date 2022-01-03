@@ -51,7 +51,7 @@ from .version import __version__
 from .constants import (
     MC_STEREO_TRIGGER_PATTERN,
     PEDESTAL_TRIGGER_PATTERN,
-    DATA_TRIGGER_PATTERN
+    DATA_STEREO_TRIGGER_PATTERN
 )
 
 __all__ = ['MAGICEventSource', '__version__']
@@ -1670,8 +1670,8 @@ class MarsCalibratedRun:
             return stereo_ids
 
         if not self.is_mc:
-            stereo_m1_data = self.event_data['M1']['stereo_event_number'][np.where(self.event_data['M1']['trigger_pattern'] == DATA_TRIGGER_PATTERN)]
-            stereo_m2_data = self.event_data['M2']['stereo_event_number'][np.where(self.event_data['M2']['trigger_pattern'] == DATA_TRIGGER_PATTERN)]
+            stereo_m1_data = self.event_data['M1']['stereo_event_number'][np.where(self.event_data['M1']['trigger_pattern'] == DATA_STEREO_TRIGGER_PATTERN)]
+            stereo_m2_data = self.event_data['M2']['stereo_event_number'][np.where(self.event_data['M2']['trigger_pattern'] == DATA_STEREO_TRIGGER_PATTERN)]
 
             # find common values between M1 and M2 stereo events, see https://numpy.org/doc/stable/reference/generated/numpy.intersect1d.html
             stereo_numbers = np.intersect1d(stereo_m1_data, stereo_m2_data)
@@ -1753,11 +1753,11 @@ class MarsCalibratedRun:
 
         if not self.is_mc:
             if (n_m1_events != 0) and (n_m2_events != 0):
-                m1_data = self.event_data['M1']['stereo_event_number'][np.where(self.event_data['M1']['trigger_pattern'] == DATA_TRIGGER_PATTERN)]
-                m2_data = self.event_data['M2']['stereo_event_number'][np.where(self.event_data['M2']['trigger_pattern'] == DATA_TRIGGER_PATTERN)]
+                m1_data = self.event_data['M1']['stereo_event_number'][np.where(self.event_data['M1']['trigger_pattern'] == DATA_STEREO_TRIGGER_PATTERN)]
+                m2_data = self.event_data['M2']['stereo_event_number'][np.where(self.event_data['M2']['trigger_pattern'] == DATA_STEREO_TRIGGER_PATTERN)]
 
-                m1_ids_data = np.where(self.event_data['M1']['trigger_pattern'] == DATA_TRIGGER_PATTERN)[0]
-                m2_ids_data = np.where(self.event_data['M2']['trigger_pattern'] == DATA_TRIGGER_PATTERN)[0]
+                m1_ids_data = np.where(self.event_data['M1']['trigger_pattern'] == DATA_STEREO_TRIGGER_PATTERN)[0]
+                m2_ids_data = np.where(self.event_data['M2']['trigger_pattern'] == DATA_STEREO_TRIGGER_PATTERN)[0]
 
                 stereo_numbers = np.intersect1d(m1_data, m2_data)
 
@@ -1780,10 +1780,10 @@ class MarsCalibratedRun:
                 mono_ids['M1'] = m1_ids_mono.tolist()
                 mono_ids['M2'] = m2_ids_mono.tolist()
             elif (n_m1_events != 0) and (n_m2_events == 0):
-                m1_ids_data = np.where(self.event_data['M1']['trigger_pattern'] == DATA_TRIGGER_PATTERN)[0]
+                m1_ids_data = np.where(self.event_data['M1']['trigger_pattern'] == DATA_STEREO_TRIGGER_PATTERN)[0]
                 mono_ids['M1'] = m1_ids_data.tolist()
             elif (n_m1_events == 0) and (n_m2_events != 0):
-                m2_ids_data = np.where(self.event_data['M2']['trigger_pattern'] == DATA_TRIGGER_PATTERN)[0]
+                m2_ids_data = np.where(self.event_data['M2']['trigger_pattern'] == DATA_STEREO_TRIGGER_PATTERN)[0]
                 mono_ids['M2'] = m2_ids_data.tolist()
         else:
             # just find ids where event stereo number is 0 (which is given to mono events) and pattern is MC trigger
