@@ -33,11 +33,20 @@ with MAGICEventSource(input_url=file_name) as event_source:
 ```
 
 With more recent versions of *ctapipe*, only one file at a time can be read. This means that in the case of MAGIC calibrated files,
-data is loaded subrun by subrun. No stereo matching is performed at this level.
+data is loaded subrun by subrun. No matching of the events is performed at this level (if stereo data).
 
-The reader is able to handle data or Monte Carlo files, which are automatically recognized. Note that the names of input files have to follow the convention:
+By default, assuming a calibrated file as input, the event generator will generate:
+- if real data taken in stereo mode, cosmic events (trigger pattern = 128) from the corresponding telescope
+- if real data taken in mono mode (either as a single telescope or with both telescopes independently), cosmic events (trigger pattern = 1) from the corresponding telescope
+- if simulated data in stereo mode, cosmic events (trigger pattern = 1) from the corresponding telescope
+
+Pedestal events (trigger pattern = 8) and simulated events triggered by only one telescope (trigger pattern = 1 and stereo trigger number = 0) can be generated as well.
+
+The reader is able to handle real data or Monte Carlo files, which are automatically recognized. Note that the names of input files have to follow the convention:
 - `*_M[1-2]_RUNNUMBER.SUBRUNNR_Y_*.root` for real data
 - `*_M[1-2]_za??to??_?_RUNNUMBER_Y_*.root` for simulated data.
+
+However, the information which can be extracted from the file names is read directly from within the ROOT files.
 
 ##### More usage
 Select a single run:
@@ -53,11 +62,11 @@ for n in range(run['data'].n_pedestal_events_m1):
 
 Select mono/pedestal events over event generator:
 ```python
-event_generator = event_source
-for m1_mono_event in event_generator:
+event_generator = MAGICEventSource(input_url=file_name)
+for mono_event in event_generator:
     ...some processing...
 
-pedestal_event_generator = event_source._pedestal_event_generator(telescope='M1')
+pedestal_event_generator = MAGICEventSource(input_url=file_name, use_pedestals=True)
 ...
 ```
 
