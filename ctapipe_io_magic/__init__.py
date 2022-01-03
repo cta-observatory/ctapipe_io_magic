@@ -49,7 +49,7 @@ from ctapipe.coordinates import CameraFrame
 
 from .version import __version__
 from .constants import (
-    MC_TRIGGER_PATTERN,
+    MC_STEREO_TRIGGER_PATTERN,
     PEDESTAL_TRIGGER_PATTERN,
     DATA_TRIGGER_PATTERN
 )
@@ -1684,8 +1684,8 @@ class MarsCalibratedRun:
             # make list of tuples, see https://stackoverflow.com/questions/2407398/how-to-merge-lists-into-a-list-of-tuples
             stereo_ids = list(zip(m1_ids, m2_ids))
         else:
-            stereo_m1_data = self.event_data['M1']['stereo_event_number'][np.where(self.event_data['M1']['trigger_pattern'] == MC_TRIGGER_PATTERN)]
-            stereo_m2_data = self.event_data['M2']['stereo_event_number'][np.where(self.event_data['M2']['trigger_pattern'] == MC_TRIGGER_PATTERN)]
+            stereo_m1_data = self.event_data['M1']['stereo_event_number'][np.where(self.event_data['M1']['trigger_pattern'] == MC_STEREO_TRIGGER_PATTERN)]
+            stereo_m2_data = self.event_data['M2']['stereo_event_number'][np.where(self.event_data['M2']['trigger_pattern'] == MC_STEREO_TRIGGER_PATTERN)]
             # remove events with 0 stereo number, which are mono events
             stereo_m1_data = stereo_m1_data[np.where(stereo_m1_data != 0)]
             stereo_m2_data = stereo_m2_data[np.where(stereo_m2_data != 0)]
@@ -1787,8 +1787,8 @@ class MarsCalibratedRun:
                 mono_ids['M2'] = m2_ids_data.tolist()
         else:
             # just find ids where event stereo number is 0 (which is given to mono events) and pattern is MC trigger
-            m1_mono_mask = np.logical_and(self.event_data['M1']['trigger_pattern'] == MC_TRIGGER_PATTERN, self.event_data['M1']['stereo_event_number'] == 0)
-            m2_mono_mask = np.logical_and(self.event_data['M2']['trigger_pattern'] == MC_TRIGGER_PATTERN, self.event_data['M2']['stereo_event_number'] == 0)
+            m1_mono_mask = np.logical_and(self.event_data['M1']['trigger_pattern'] == MC_STEREO_TRIGGER_PATTERN, self.event_data['M1']['stereo_event_number'] == 0)
+            m2_mono_mask = np.logical_and(self.event_data['M2']['trigger_pattern'] == MC_STEREO_TRIGGER_PATTERN, self.event_data['M2']['stereo_event_number'] == 0)
 
             m1_ids = np.where(m1_mono_mask == True)[0].tolist()
             m2_ids = np.where(m2_mono_mask == True)[0].tolist()
