@@ -138,6 +138,20 @@ def test_loop_pedestal(dataset):
 
 
 @pytest.mark.parametrize('dataset', test_calibrated_all)
+def test_number_of_events(dataset):
+    from ctapipe_io_magic import MAGICEventSource
+
+    with MAGICEventSource(input_url=dataset) as source:
+        run = MAGICEventSource._set_active_run(source.run_numbers[0])
+        if '_M1_' in dataset.name:
+            assert run.n_mono_events_m1 == data_dict[source.input_url.name]['n_events_stereo']
+            assert run.n_pedestal_events_m1 == data_dict[source.input_url.name]['n_events_pedestal']
+        if '_M2_' in dataset.name:
+            assert run.n_mono_events_m2 == data_dict[source.input_url.name]['n_events_stereo']
+            assert run.n_pedestal_events_m2 == data_dict[source.input_url.name]['n_events_pedestal']
+
+
+@pytest.mark.parametrize('dataset', test_calibrated_all)
 def test_run_info(dataset):
     from ctapipe_io_magic import MAGICEventSource
 
