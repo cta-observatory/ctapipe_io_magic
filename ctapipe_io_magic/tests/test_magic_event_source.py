@@ -24,21 +24,15 @@ test_calibrated_simulated = [
 test_calibrated_all = test_calibrated_real+test_calibrated_simulated
 
 data_dict = dict()
-event_info = {
-    "n_events_tot": 0,
-    "n_events_stereo": 0,
-    "n_events_pedestal": 0,
-    "n_events_mc_mono": 0,
-}
 
-data_dict['20210314_M1_05095172.001_Y_CrabNebula-W0.40+035.root'] = event_info
-data_dict['20210314_M1_05095172.002_Y_CrabNebula-W0.40+035.root'] = event_info
-data_dict['20210314_M2_05095172.001_Y_CrabNebula-W0.40+035.root'] = event_info
-data_dict['20210314_M2_05095172.002_Y_CrabNebula-W0.40+035.root'] = event_info
-data_dict['GA_M1_za35to50_8_824318_Y_w0.root'] = event_info
-data_dict['GA_M1_za35to50_8_824319_Y_w0.root'] = event_info
-data_dict['GA_M2_za35to50_8_824318_Y_w0.root'] = event_info
-data_dict['GA_M2_za35to50_8_824319_Y_w0.root'] = event_info
+data_dict['20210314_M1_05095172.001_Y_CrabNebula-W0.40+035.root'] = dict()
+data_dict['20210314_M1_05095172.002_Y_CrabNebula-W0.40+035.root'] = dict()
+data_dict['20210314_M2_05095172.001_Y_CrabNebula-W0.40+035.root'] = dict()
+data_dict['20210314_M2_05095172.002_Y_CrabNebula-W0.40+035.root'] = dict()
+data_dict['GA_M1_za35to50_8_824318_Y_w0.root'] = dict()
+data_dict['GA_M1_za35to50_8_824319_Y_w0.root'] = dict()
+data_dict['GA_M2_za35to50_8_824318_Y_w0.root'] = dict()
+data_dict['GA_M2_za35to50_8_824319_Y_w0.root'] = dict()
 
 data_dict['20210314_M1_05095172.001_Y_CrabNebula-W0.40+035.root']['n_events_tot'] = 15055
 data_dict['20210314_M1_05095172.001_Y_CrabNebula-W0.40+035.root']['n_events_stereo'] = 13659
