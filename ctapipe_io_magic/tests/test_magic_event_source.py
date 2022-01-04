@@ -23,6 +23,63 @@ test_calibrated_simulated = [
 
 test_calibrated_all = test_calibrated_real+test_calibrated_simulated
 
+data_dict = dict()
+event_info = {
+    "n_events_tot": 0,
+    "n_events_stereo": 0,
+    "n_events_pedestal": 0,
+    "n_events_mc_mono": 0,
+}
+
+data_dict['20210314_M1_05095172.001_Y_CrabNebula-W0.40+035.root'] = event_info
+data_dict['20210314_M1_05095172.002_Y_CrabNebula-W0.40+035.root'] = event_info
+data_dict['20210314_M2_05095172.001_Y_CrabNebula-W0.40+035.root'] = event_info
+data_dict['20210314_M2_05095172.002_Y_CrabNebula-W0.40+035.root'] = event_info
+data_dict['GA_M1_za35to50_8_824318_Y_w0.root'] = event_info
+data_dict['GA_M1_za35to50_8_824319_Y_w0.root'] = event_info
+data_dict['GA_M2_za35to50_8_824318_Y_w0.root'] = event_info
+data_dict['GA_M2_za35to50_8_824319_Y_w0.root'] = event_info
+
+data_dict['20210314_M1_05095172.001_Y_CrabNebula-W0.40+035.root']['n_events_tot'] = 15055
+data_dict['20210314_M1_05095172.001_Y_CrabNebula-W0.40+035.root']['n_events_stereo'] = 13659
+data_dict['20210314_M1_05095172.001_Y_CrabNebula-W0.40+035.root']['n_events_pedestal'] = 1393
+data_dict['20210314_M1_05095172.001_Y_CrabNebula-W0.40+035.root']['n_events_mc_mono'] = 0
+
+data_dict['20210314_M1_05095172.002_Y_CrabNebula-W0.40+035.root']['n_events_tot'] = 14992
+data_dict['20210314_M1_05095172.002_Y_CrabNebula-W0.40+035.root']['n_events_stereo'] = 13532
+data_dict['20210314_M1_05095172.002_Y_CrabNebula-W0.40+035.root']['n_events_pedestal'] = 1459
+data_dict['20210314_M1_05095172.002_Y_CrabNebula-W0.40+035.root']['n_events_mc_mono'] = 0
+
+data_dict['20210314_M2_05095172.001_Y_CrabNebula-W0.40+035.root']['n_events_tot'] = 15086
+data_dict['20210314_M2_05095172.001_Y_CrabNebula-W0.40+035.root']['n_events_stereo'] = 13734
+data_dict['20210314_M2_05095172.001_Y_CrabNebula-W0.40+035.root']['n_events_pedestal'] = 1352
+data_dict['20210314_M2_05095172.001_Y_CrabNebula-W0.40+035.root']['n_events_mc_mono'] = 0
+
+data_dict['20210314_M2_05095172.002_Y_CrabNebula-W0.40+035.root']['n_events_tot'] = 15016
+data_dict['20210314_M2_05095172.002_Y_CrabNebula-W0.40+035.root']['n_events_stereo'] = 13583
+data_dict['20210314_M2_05095172.002_Y_CrabNebula-W0.40+035.root']['n_events_pedestal'] = 1433
+data_dict['20210314_M2_05095172.002_Y_CrabNebula-W0.40+035.root']['n_events_mc_mono'] = 0
+
+data_dict['GA_M1_za35to50_8_824318_Y_w0.root']['n_events_tot'] = 99
+data_dict['GA_M1_za35to50_8_824318_Y_w0.root']['n_events_stereo'] = 67
+data_dict['GA_M1_za35to50_8_824318_Y_w0.root']['n_events_pedestal'] = 0
+data_dict['GA_M1_za35to50_8_824318_Y_w0.root']['n_events_mc_mono'] = 32
+
+data_dict['GA_M1_za35to50_8_824319_Y_w0.root']['n_events_tot'] = 111
+data_dict['GA_M1_za35to50_8_824319_Y_w0.root']['n_events_stereo'] = 80
+data_dict['GA_M1_za35to50_8_824319_Y_w0.root']['n_events_pedestal'] = 0
+data_dict['GA_M1_za35to50_8_824319_Y_w0.root']['n_events_mc_mono'] = 31
+
+data_dict['GA_M2_za35to50_8_824318_Y_w0.root']['n_events_tot'] = 118
+data_dict['GA_M2_za35to50_8_824318_Y_w0.root']['n_events_stereo'] = 67
+data_dict['GA_M2_za35to50_8_824318_Y_w0.root']['n_events_pedestal'] = 0
+data_dict['GA_M2_za35to50_8_824318_Y_w0.root']['n_events_mc_mono'] = 51
+
+data_dict['GA_M2_za35to50_8_824319_Y_w0.root']['n_events_tot'] = 132
+data_dict['GA_M2_za35to50_8_824319_Y_w0.root']['n_events_stereo'] = 80
+data_dict['GA_M2_za35to50_8_824319_Y_w0.root']['n_events_pedestal'] = 0
+data_dict['GA_M2_za35to50_8_824319_Y_w0.root']['n_events_mc_mono'] = 52
+
 
 @pytest.mark.parametrize('dataset', test_calibrated_all)
 def test_event_source_for_magic_file(dataset):
