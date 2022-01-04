@@ -144,11 +144,11 @@ def test_number_of_events(dataset):
     with MAGICEventSource(input_url=dataset) as source:
         run = source._set_active_run(run_number=source.run_numbers)
         if '_M1_' in dataset.name:
-            assert run.n_mono_events_m1 == data_dict[source.input_url.name]['n_events_stereo']
-            assert run.n_pedestal_events_m1 == data_dict[source.input_url.name]['n_events_pedestal']
+            assert run['data'].n_mono_events_m1 == data_dict[source.input_url.name]['n_events_stereo']
+            assert run['data'].n_pedestal_events_m1 == data_dict[source.input_url.name]['n_events_pedestal']
         if '_M2_' in dataset.name:
-            assert run.n_mono_events_m2 == data_dict[source.input_url.name]['n_events_stereo']
-            assert run.n_pedestal_events_m2 == data_dict[source.input_url.name]['n_events_pedestal']
+            assert run['data'].n_mono_events_m2 == data_dict[source.input_url.name]['n_events_stereo']
+            assert run['data'].n_pedestal_events_m2 == data_dict[source.input_url.name]['n_events_pedestal']
 
 
 @pytest.mark.parametrize('dataset', test_calibrated_all)
