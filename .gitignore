@@ -9,8 +9,8 @@ test_data
 __pycache__
 
 # ignore version cache file (generated automatically when setup.py is run)
-ctapipe_io_lst/_version.py
-ctapipe_io_lst/_version_cache.py
+ctapipe_io_magic/_version.py
+ctapipe_io_magic/_version_cache.py
 
 # Eclipse editor project files
 .project
