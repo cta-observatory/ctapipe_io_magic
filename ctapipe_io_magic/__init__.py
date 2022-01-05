@@ -108,7 +108,9 @@ MAGIC_TEL_DESCRIPTIONS = {1: MAGIC_TEL_DESCRIPTION, 2: MAGIC_TEL_DESCRIPTION}
 
 
 class MARSDataLevel(Enum):
-    """Enum of the different MARS Data Levels"""
+    """
+    Enum of the different MARS Data Levels
+    """
 
     CALIBRATED = auto()  # Calibrated images in charge and time (no waveforms)
     STAR = auto()  # Cleaned images, with Hillas parametrization
@@ -217,9 +219,26 @@ class MAGICEventSource(EventSource):
             self._subarray_info = self._subarray_info.select_subarray(self.allowed_tels)
 
     def __exit__(self, exc_type, exc_val, exc_tb):
+        """
+        Releases resources (e.g. open files).
+
+        Parameters
+        ----------
+        exc_type : Exception
+            Class of the exception
+        exc_val : BaseException
+            Type of the exception
+        exc_tb : TracebackType
+            The traceback
+        """
+
         self.close()
 
     def close(self):
+        """
+        Closes open ROOT file.
+        """
+
         self.file_.close()
 
     @staticmethod
