@@ -5,74 +5,118 @@
 
 import logging
 
-import glob
 import re
-import os.path
-from pathlib import Path
+from enum import Enum, auto
 
 import numpy as np
 
 import scipy
 import scipy.interpolate
 
+from astropy.coordinates import Angle
 from astropy import units as u
 from astropy.time import Time
+
+import uproot
 
 from ctapipe.io.eventsource import EventSource
 from ctapipe.io.datalevels import DataLevel
 
-from ctapipe.core import Container
-from ctapipe.core import Field
+from ctapipe.core import Container, Field
+from ctapipe.core.traits import Bool
 
-from ctapipe.containers import DataContainer
-from ctapipe.containers import EventAndMonDataContainer
-from ctapipe.containers import PointingContainer, TelescopePointingContainer
-from ctapipe.containers import MonitoringCameraContainer
-from ctapipe.containers import PedestalContainer
+from ctapipe.containers import (
+    ArrayEventContainer,
+    SimulatedEventContainer,
+    SimulatedShowerContainer,
+    SimulationConfigContainer,
+    PointingContainer,
+    TelescopePointingContainer,
+    TelescopeTriggerContainer,
+    MonitoringCameraContainer,
+    PedestalContainer,
+)
 
-from ctapipe.instrument import TelescopeDescription
-from ctapipe.instrument import SubarrayDescription
-from ctapipe.instrument import OpticsDescription
-from ctapipe.instrument import CameraDescription
+from ctapipe.instrument import (
+    TelescopeDescription,
+    SubarrayDescription,
+    OpticsDescription,
+    CameraDescription,
+    CameraReadout,
+)
 
+from ctapipe.coordinates import CameraFrame
 
-__all__ = ['MAGICEventSource']
+from .version import __version__
+from .constants import (
+    MC_STEREO_TRIGGER_PATTERN,
+    PEDESTAL_TRIGGER_PATTERN,
+    DATA_STEREO_TRIGGER_PATTERN
+)
+
+__all__ = ['MAGICEventSource', '__version__']
 
 LOGGER = logging.getLogger(__name__)
 
+degrees_per_hour = 15.0
+seconds_per_day = 86400.0
+seconds_per_hour = 3600.
 
 # MAGIC telescope positions in m wrt. to the center of CTA simulations
-#MAGIC_TEL_POSITIONS = {
+# MAGIC_TEL_POSITIONS = {
 #    1: [-27.24, -146.66, 50.00] * u.m,
 #    2: [-96.44, -96.77, 51.00] * u.m
-#}
+# }
 
-# MAGIC telescope positions in m wrt. to the center of MAGIC simulations, from reflector input card
+# MAGIC telescope positions in m wrt. to the center of MAGIC simulations, from
+# CORSIKA and reflector input card
 MAGIC_TEL_POSITIONS = {
     1: [31.80, -28.10, 0.00] * u.m,
     2: [-31.80, 28.10, 0.00] * u.m
 }
 
+# Magnetic field values at the MAGIC site (taken from CORSIKA input cards)
+# Reference system is the CORSIKA one, where x-axis points to magnetic north
+# i.e. B y-component is 0
+# MAGIC_Bdec is the magnetic declination i.e. angle between magnetic and
+# geographic north, negative if pointing westwards, positive if pointing
+# eastwards
+# MAGIC_Binc is the magnetic field inclination
+MAGIC_Bx = u.Quantity(29.5, u.uT)
+MAGIC_Bz = u.Quantity(23.0, u.uT)
+MAGIC_Btot = np.sqrt(MAGIC_Bx**2+MAGIC_Bz**2)
+MAGIC_Bdec = u.Quantity(-7.0, u.deg).to(u.rad)
+MAGIC_Binc = u.Quantity(np.arctan2(-MAGIC_Bz.value, MAGIC_Bx.value), u.rad)
+
 # MAGIC telescope description
 OPTICS = OpticsDescription.from_name('MAGIC')
 MAGICCAM = CameraDescription.from_name("MAGICCam")
+pulse_shape_lo_gain = np.array([0., 1., 2., 1., 0.])
+pulse_shape_hi_gain = np.array([1., 2., 3., 2., 1.])
+pulse_shape = np.vstack((pulse_shape_lo_gain, pulse_shape_lo_gain))
+MAGICCAM.readout = CameraReadout(
+    camera_name='MAGICCam',
+    sampling_rate=u.Quantity(1.64, u.GHz),
+    reference_pulse_shape=pulse_shape,
+    reference_pulse_sample_width=u.Quantity(0.5, u.ns)
+)
+MAGICCAM.geometry.frame = CameraFrame(focal_length=OPTICS.equivalent_focal_length)
 GEOM = MAGICCAM.geometry
 MAGIC_TEL_DESCRIPTION = TelescopeDescription(
     name='MAGIC', tel_type='MAGIC', optics=OPTICS, camera=MAGICCAM)
 MAGIC_TEL_DESCRIPTIONS = {1: MAGIC_TEL_DESCRIPTION, 2: MAGIC_TEL_DESCRIPTION}
 
-# trigger patterns:
-MC_TRIGGER_PATTERN = 1
-PEDESTAL_TRIGGER_PATTERN = 8
-DATA_TRIGGER_PATTERN = 128
 
-class L3JumpError(Exception):
+class MARSDataLevel(Enum):
     """
-    Exception raised when L3 trigger number jumps backward.
+    Enum of the different MARS Data Levels
     """
 
-    def __init__(self, message):
-        self.message = message
+    CALIBRATED = auto()  # Calibrated images in charge and time (no waveforms)
+    STAR = auto()  # Cleaned images, with Hillas parametrization
+    SUPERSTAR = auto()  # Stereo parameters reconstructed
+    MELIBEA = auto()  # Reconstruction of hadronness, event direction and energy
+
 
 class MissingDriveReportError(Exception):
     """
@@ -82,16 +126,45 @@ class MissingDriveReportError(Exception):
     def __init__(self, message):
         self.message = message
 
+
 class MAGICEventSource(EventSource):
     """
     EventSource for MAGIC calibrated data.
 
-    This class operates with the MAGIC data run-wise. This means that the files
-    corresponding to the same data run are loaded and processed together.
-    """
-    _count = 0
+    This class operates with the MAGIC data subrun-wise for calibrated data.
 
-    def __init__(self, config=None, tool=None, **kwargs):
+    Attributes
+    ----------
+    current_run : MarsCalibratedRun
+        Object containing the info needed to fill the ctapipe Containers
+    datalevel : DataLevel
+        Data level according to the definition in ctapipe
+    file_ : uproot.ReadOnlyFile
+        A ROOT file opened with uproot
+    is_mc : bool
+        Flag indicating real or simulated data
+    mars_datalevel : int
+        Data level according to MARS convention
+    metadata : dict
+        Dictionary containing metadata
+    run_numbers : int
+        Run number of the file
+    simulation_config : SimulationConfigContainer
+        Container filled with the information about the simulation
+    telescope : int
+        The number of the telescope
+    use_pedestals : bool
+        Flag indicating if pedestal events should be returned by the generator
+    """
+
+    use_pedestals = Bool(
+           default_value=False,
+           help=(
+               'If true, extract pedestal evens instead of cosmic events.'
+           ),
+    ).tag(config=False)
+
+    def __init__(self, input_url=None, config=None, parent=None, **kwargs):
         """
         Constructor
 
@@ -101,7 +174,7 @@ class MAGICEventSource(EventSource):
             Configuration specified by config file or cmdline arguments.
             Used to set traitlet values.
             Set to None if no configuration to pass.
-        tool: ctapipe.core.Tool
+        parent : ctapipe.core.Tool
             Tool executable that is calling this component.
             Passes the correct logger to the component.
             Set to None if no Tool to pass.
@@ -111,45 +184,65 @@ class MAGICEventSource(EventSource):
             the 'input_url' parameter.
         """
 
-        file_path = Path(kwargs['input_url'])
-        self.file_list = glob.glob(str(file_path.absolute()))
-        if not self.file_list:
-            raise ValueError("Unreadable or wrong wildcard file path given.")
-        self.file_list.sort()
-
-        # EventSource can not handle file wild cards as input_url
-        # To overcome this we substitute the input_url with first file matching
-        # the specified file mask.
-        del kwargs['input_url']
-        super().__init__(input_url=self.file_list[0], **kwargs)
+        super().__init__(input_url=input_url, config=config, parent=parent, **kwargs)
 
         # Retrieving the list of run numbers corresponding to the data files
-        run_info = list(map(self.get_run_info_from_name, self.file_list))
-        run_numbers = [i[0] for i in run_info]
-        is_mc_runs = [i[1] for i in run_info]
+        self.file_ = uproot.open(self.input_url.expanduser())
+        run_info = self.parse_run_info()
 
-        self.run_numbers, indices = np.unique(run_numbers, return_index=True)
-        is_mc_runs = [is_mc_runs[i] for i in indices]
-        is_mc_runs = np.unique(is_mc_runs)
+        self.run_numbers = run_info[0]
+        self.is_mc = run_info[1]
+        self.telescope = run_info[2]
+        self.mars_datalevel = run_info[3]
 
-        # Checking if runt type (data/MC) is consistent:
-        if len(is_mc_runs) > 1:
-            raise ValueError(
-                "Loaded files contain data and MC runs. Please load only data OR Monte Carlos.")
-        self.is_mc = is_mc_runs[0]
+        self.metadata = self.parse_metadata_info()
 
         # Retrieving the data level (so far HARDCODED Sorcerer)
-        self.datalevel = DataLevel.DL1_IMAGES
+        self.datalevel = DataLevel.DL0
+
+        if self.is_mc:
+            self.simulation_config = self.parse_simulation_header()
+
+        if not self.is_mc:
+            self.is_stereo, self.is_sumt = self.parse_data_info()
 
         # # Setting up the current run with the first run present in the data
         # self.current_run = self._set_active_run(run_number=0)
         self.current_run = None
 
         self._subarray_info = SubarrayDescription(
-            'MAGIC', MAGIC_TEL_POSITIONS, MAGIC_TEL_DESCRIPTIONS)
+            name='MAGIC',
+            tel_positions=MAGIC_TEL_POSITIONS,
+            tel_descriptions=MAGIC_TEL_DESCRIPTIONS
+        )
+        if self.allowed_tels:
+            self._subarray_info = self._subarray_info.select_subarray(self.allowed_tels)
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        """
+        Releases resources (e.g. open files).
+
+        Parameters
+        ----------
+        exc_type : Exception
+            Class of the exception
+        exc_val : BaseException
+            Type of the exception
+        exc_tb : TracebackType
+            The traceback
+        """
+
+        self.close()
+
+    def close(self):
+        """
+        Closes open ROOT file.
+        """
+
+        self.file_.close()
 
     @staticmethod
-    def is_compatible(file_mask):
+    def is_compatible(file_path):
         """
         This method checks if the specified file mask corresponds
         to MAGIC data files. The result will be True only if all
@@ -157,8 +250,8 @@ class MAGICEventSource(EventSource):
 
         Parameters
         ----------
-        file_mask: str
-            A file mask to check
+        file_path: str
+            Path to file
 
         Returns
         -------
@@ -169,23 +262,15 @@ class MAGICEventSource(EventSource):
 
         is_magic_root_file = True
 
-        file_list = glob.glob(file_mask)
-
-        for file_path in file_list:
-            try:
-                import uproot
-
-                try:
-                    with uproot.open(file_path) as input_data:
-                        if 'Events' not in input_data:
-                            is_magic_root_file = False
-                except ValueError:
-                    # uproot raises ValueError if the file is not a ROOT file
+        try:
+            with uproot.open(file_path) as input_data:
+                mandatory_trees = ['Events', 'RunHeaders', 'RunTails']
+                trees_in_file = [tree in input_data for tree in mandatory_trees]
+                if not all(trees_in_file):
                     is_magic_root_file = False
-
-            except ImportError:
-                if re.match(r'.+_m\d_.+root', file_path.lower()) is None:
-                    is_magic_root_file = False
+        except ValueError:
+            # uproot raises ValueError if the file is not a ROOT file
+            is_magic_root_file = False
 
         return is_magic_root_file
 
@@ -197,36 +282,382 @@ class MAGICEventSource(EventSource):
 
         Parameters
         ----------
-        file_name: str
+        file_name : str
             A file name to process.
 
         Returns
         -------
-        int:
-            A run number of the file.
+        run_number: int
+            The run number of the file.
+        is_mc: Bool
+            Flag to tag MC files
+        telescope: int
+            Number of the telescope
+        datalevel: MARSDataLevel
+            Data level according to MARS
+
+        Raises
+        ------
+        IndexError
+            Description
         """
 
-        mask_data = r".*\d+_M\d+_(\d+)\.\d+_Y_.*"
-        mask_mc = r".*_M\d_za\d+to\d+_\d_(\d+)_Y_.*"
-        mask_mc_alt = r".*_M\d_\d_(\d+)_.*"
-        if re.findall(mask_data, file_name):
-            parsed_info = re.findall(mask_data, file_name)
+        mask_data_calibrated = r"\d{6}_M(\d+)_(\d+)\.\d+_Y_.*"
+        mask_data_star       = r"\d{6}_M(\d+)_(\d+)\.\d+_I_.*"
+        mask_data_superstar  = r"\d{6}_(\d+)_S_.*"
+        mask_data_melibea    = r"\d{6}_(\d+)_Q_.*"
+        mask_mc_calibrated   = r"GA_M(\d)_za\d+to\d+_\d_(\d+)_Y_.*"
+        mask_mc_star         = r"GA_M(\d)_za\d+to\d+_\d_(\d+)_I_.*"
+        mask_mc_superstar    = r"GA_za\d+to\d+_\d_S_.*"
+        mask_mc_melibea      = r"GA_za\d+to\d+_\d_Q_.*"
+        if re.findall(mask_data_calibrated, file_name):
+            parsed_info = re.findall(mask_data_calibrated, file_name)
+            telescope  = int(parsed_info[0][0])
+            run_number = int(parsed_info[0][1])
+            datalevel  = MARSDataLevel.CALIBRATED
             is_mc = False
-        elif re.findall(mask_mc, file_name):
-            parsed_info = re.findall(mask_mc, file_name)
+        elif re.findall(mask_data_star, file_name):
+            parsed_info = re.findall(mask_data_star, file_name)
+            telescope  = int(parsed_info[0][0])
+            run_number = int(parsed_info[0][1])
+            datalevel  = MARSDataLevel.STAR
+            is_mc = False
+        elif re.findall(mask_data_superstar, file_name):
+            parsed_info = re.findall(mask_data_superstar, file_name)
+            telescope  = None
+            run_number = int(parsed_info[0])
+            datalevel  = MARSDataLevel.SUPERSTAR
+            is_mc = False
+        elif re.findall(mask_data_melibea, file_name):
+            parsed_info = re.findall(mask_data_melibea, file_name)
+            telescope  = None
+            run_number = int(parsed_info[0])
+            datalevel  = MARSDataLevel.MELIBEA
+            is_mc = False
+        elif re.findall(mask_mc_calibrated, file_name):
+            parsed_info = re.findall(mask_mc_calibrated, file_name)
+            telescope  = int(parsed_info[0][0])
+            run_number = int(parsed_info[0][1])
+            datalevel  = MARSDataLevel.CALIBRATED
+            is_mc = True
+        elif re.findall(mask_mc_star, file_name):
+            parsed_info = re.findall(mask_mc_star, file_name)
+            telescope  = int(parsed_info[0][0])
+            run_number = int(parsed_info[0][1])
+            datalevel  = MARSDataLevel.STAR
+            is_mc = True
+        elif re.findall(mask_mc_superstar, file_name):
+            parsed_info = re.findall(mask_mc_superstar, file_name)
+            telescope  = None
+            run_number = None
+            datalevel  = MARSDataLevel.SUPERSTAR
+            is_mc = True
+        elif re.findall(mask_mc_melibea, file_name):
+            parsed_info = re.findall(mask_mc_melibea, file_name)
+            telescope  = None
+            run_number = None
+            datalevel  = MARSDataLevel.MELIBEA
             is_mc = True
         else:
-            parsed_info = re.findall(mask_mc_alt, file_name)
-            is_mc = True
-
-        try:
-            run_number = int(parsed_info[0])
-        except IndexError:
             raise IndexError(
                 'Can not identify the run number and type (data/MC) of the file'
                 '{:s}'.format(file_name))
 
-        return run_number, is_mc
+        return run_number, is_mc, telescope, datalevel
+
+    def parse_run_info(self):
+        """
+        Parses run info from the TTrees in the ROOT file
+
+        Returns
+        -------
+        run_number: int
+            The run number of the file
+        is_mc: Bool
+            Flag to tag MC files
+        telescope_number: int
+            Number of the telescope
+        datalevel: MARSDataLevel
+            Data level according to MARS
+        """
+
+        runinfo_array_list = [
+            'MRawRunHeader.fRunNumber',
+            'MRawRunHeader.fRunType',
+            'MRawRunHeader.fTelescopeNumber',
+        ]
+
+        run_info = self.file_['RunHeaders'].arrays(
+            runinfo_array_list, library="np")
+        run_number = int(run_info['MRawRunHeader.fRunNumber'][0])
+        run_type = int(run_info['MRawRunHeader.fRunType'][0])
+        telescope_number = int(run_info['MRawRunHeader.fTelescopeNumber'][0])
+
+        # a note about run numbers:
+        # mono data has run numbers starting with 1 or 2 (telescope dependent)
+        # stereo data has run numbers starting with 5
+        # if both telescopes are taking data with no L3,
+        # also in this case run number starts with 5 (e.g. muon runs)
+
+        # Here the data types (from MRawRunHeader.h)
+        # std data = 0
+        # pedestal = 1 (_P_)
+        # calibration = 2 (_C_)
+        # domino calibration = 3 (_L_)
+        # linearity calibration = 4 (_N_)
+        # point run = 7
+        # monteCarlo = 256
+        # none = 65535
+
+        mc_data_type = 256
+
+        if run_type == mc_data_type:
+            is_mc = True
+        else:
+            is_mc = False
+
+        events_tree = self.file_['Events']
+
+        melibea_trees = ['MHadronness', 'MStereoParDisp', 'MEnergyEst']
+        superstar_trees = ['MHillas_1', 'MHillas_2', 'MStereoPar']
+        star_trees = ['MHillas']
+
+        datalevel = MARSDataLevel.CALIBRATED
+        events_keys = events_tree.keys()
+        trees_in_file = [tree in events_keys for tree in melibea_trees]
+        if all(trees_in_file):
+            datalevel = MARSDataLevel.MELIBEA
+        trees_in_file = [tree in events_keys for tree in superstar_trees]
+        if all(trees_in_file):
+            datalevel = MARSDataLevel.SUPERSTAR
+        trees_in_file = [tree in events_keys for tree in star_trees]
+        if all(trees_in_file):
+            datalevel = MARSDataLevel.STAR
+
+        return run_number, is_mc, telescope_number, datalevel
+
+    def parse_data_info(self):
+        """
+        Check if data is stereo/mono and std trigger/SUMT
+
+        Returns
+        -------
+        is_stereo: Bool
+            True if stereo data, False if mono
+        is_sumt: Bool
+            True if SUMT data, False if std trigger
+        """
+
+        prescaler_mono_nosumt = [1, 1, 0, 1, 0, 0, 0, 0]
+        prescaler_mono_sumt = [0, 1, 0, 1, 0, 1, 0, 0]
+        prescaler_stereo = [0, 1, 0, 1, 0, 0, 0, 1]
+
+        # L1_table_mono = "L1_4NN"
+        # L1_table_stereo = "L1_3NN"
+
+        L3_table_nosumt = "L3T_L1L1_100_SYNC"
+        L3_table_sumt = "L3T_SUMSUM_100_SYNC"
+
+        trigger_tree = self.file_["Trigger"]
+        L3T_tree = self.file_["L3T"]
+
+        # here we take the 2nd element because sometimes the first trigger report
+        # has still the old prescaler values from a previous run
+        prescaler = trigger_tree["MTriggerPrescFact.fPrescFact"].array(library="np")[1]
+
+        if prescaler == prescaler_mono_nosumt or prescaler == prescaler_mono_sumt:
+            is_stereo = False
+        elif prescaler == prescaler_stereo:
+            is_stereo = True
+        else:
+            is_stereo = True
+
+        is_sumt = False
+        if is_stereo:
+            # here we take the 2nd element for the same reason as above
+            # L3Table is empty for mono data i.e. taken with one telescope only
+            # if both telescopes take data with no L3, L3Table is filled anyway
+            L3Table = L3T_tree["MReportL3T.fTablename"].array(library="np")[1]
+            if L3Table == L3_table_sumt:
+                is_sumt = True
+            elif L3Table == L3_table_nosumt:
+                is_sumt = False
+            else:
+                is_sumt = False
+        else:
+            if prescaler == prescaler_mono_sumt:
+                is_sumt = True
+
+        return is_stereo, is_sumt
+
+    @staticmethod
+    def decode_version_number(version_encoded):
+        """
+        Decodes the version number from an integer
+
+        Parameters
+        ----------
+        version_encoded : int
+            Version number encoded as integer
+
+        Returns
+        -------
+        version_decoded: str
+            Version decoded as major.minor.patch
+        """
+
+        major_version = version_encoded >> 16
+        minor_version = (version_encoded % 65536) >> 8
+        patch_version = (version_encoded % 65536) % 256
+        version_decoded = f'{major_version}.{minor_version}.{patch_version}'
+
+        return version_decoded
+
+    def parse_metadata_info(self):
+        """
+        Parse metadata information from ROOT file
+
+        Returns
+        -------
+        metadata: dict
+            Dictionary containing the metadata information:
+            - run number
+            - real or simulated data
+            - telescope number
+            - subrun number
+            - source RA and DEC
+            - source name (real data only)
+            - observation mode (real data only)
+            - MARS version
+            - ROOT version
+        """
+
+        metadatainfo_array_list_runheaders = [
+            'MRawRunHeader.fSubRunIndex',
+            'MRawRunHeader.fSourceRA',
+            'MRawRunHeader.fSourceDEC',
+            'MRawRunHeader.fSourceName[80]',
+            'MRawRunHeader.fObservationMode[60]',
+        ]
+
+        metadatainfo_array_list_runtails = [
+            'MMarsVersion_sorcerer.fMARSVersionCode',
+            'MMarsVersion_sorcerer.fROOTVersionCode',
+        ]
+
+        metadata = dict()
+        metadata['run_number'] = self.run_numbers
+        metadata['is_simulation'] = self.is_mc
+        metadata['telescope'] = self.telescope
+
+        meta_info_runh = self.file_['RunHeaders'].arrays(
+                metadatainfo_array_list_runheaders, library="np"
+        )
+
+        metadata['subrun_number'] = int(meta_info_runh['MRawRunHeader.fSubRunIndex'][0])
+        metadata['source_ra'] = meta_info_runh['MRawRunHeader.fSourceRA'][0] / \
+            seconds_per_hour * degrees_per_hour * u.deg
+        metadata['source_dec'] = meta_info_runh['MRawRunHeader.fSourceDEC'][0] / \
+            seconds_per_hour * u.deg
+        if not self.is_mc:
+            src_name_array = meta_info_runh['MRawRunHeader.fSourceName[80]'][0]
+            metadata['source_name'] = "".join([chr(item) for item in src_name_array if item != 0])
+            obs_mode_array = meta_info_runh['MRawRunHeader.fObservationMode[60]'][0]
+            metadata['observation_mode'] = "".join([chr(item) for item in obs_mode_array if item != 0])
+
+        meta_info_runt = self.file_['RunTails'].arrays(
+                metadatainfo_array_list_runtails, library="np"
+        )
+
+        mars_version_encoded = int(meta_info_runt['MMarsVersion_sorcerer.fMARSVersionCode'][0])
+        root_version_encoded = int(meta_info_runt['MMarsVersion_sorcerer.fROOTVersionCode'][0])
+        metadata['mars_version_sorcerer'] = self.decode_version_number(mars_version_encoded)
+        metadata['root_version_sorcerer'] = self.decode_version_number(root_version_encoded)
+
+        return metadata
+
+    def parse_simulation_header(self):
+        """
+        Parse the simulation information from the RunHeaders tree.
+
+        Returns
+        -------
+        SimulationConfigContainer
+            Container filled with simulation information
+
+        Notes
+        -----
+        Information is extracted from the RunHeaders tree within the ROOT file.
+        Within it, the MMcCorsikaRunHeader and MMcRunHeader branches are used.
+        Here below the units of the members extracted, for reference:
+        * fSlopeSpec: float
+        * fELowLim, fEUppLim: GeV
+        * fCorsikaVersion: int
+        * fHeightLev[10]: centimeter
+        * fAtmosphericModel: int
+        * fRandomPointingConeSemiAngle: deg
+        * fImpactMax: centimeter
+        * fNumSimulatedShowers: int
+        * fShowerThetaMax, fShowerThetaMin: deg
+        * fShowerPhiMax, fShowerPhiMin: deg
+        * fCWaveUpper, fCWaveLower: nanometer
+        """
+
+        run_header_tree = self.file_['RunHeaders']
+        spectral_index  = run_header_tree['MMcCorsikaRunHeader.fSlopeSpec'].array(library="np")[0]
+        e_low           = run_header_tree['MMcCorsikaRunHeader.fELowLim'].array(library="np")[0]
+        e_high          = run_header_tree['MMcCorsikaRunHeader.fEUppLim'].array(library="np")[0]
+        corsika_version = run_header_tree['MMcCorsikaRunHeader.fCorsikaVersion'].array(library="np")[0]
+        site_height     = run_header_tree['MMcCorsikaRunHeader.fHeightLev[10]'].array(library="np")[0][0]
+        atm_model       = run_header_tree['MMcCorsikaRunHeader.fAtmosphericModel'].array(library="np")[0]
+        if self.mars_datalevel in [MARSDataLevel.CALIBRATED, MARSDataLevel.STAR]:
+            view_cone       = run_header_tree['MMcRunHeader.fRandomPointingConeSemiAngle'].array(library="np")[0]
+            max_impact      = run_header_tree['MMcRunHeader.fImpactMax'].array(library="np")[0]
+            n_showers       = np.sum(run_header_tree['MMcRunHeader.fNumSimulatedShowers'].array(library="np"))
+            max_zd          = run_header_tree['MMcRunHeader.fShowerThetaMax'].array(library="np")[0]
+            min_zd          = run_header_tree['MMcRunHeader.fShowerThetaMin'].array(library="np")[0]
+            max_az          = run_header_tree['MMcRunHeader.fShowerPhiMax'].array(library="np")[0]
+            min_az          = run_header_tree['MMcRunHeader.fShowerPhiMin'].array(library="np")[0]
+            max_wavelength  = run_header_tree['MMcRunHeader.fCWaveUpper'].array(library="np")[0]
+            min_wavelength  = run_header_tree['MMcRunHeader.fCWaveLower'].array(library="np")[0]
+        elif self.mars_datalevel in [MARSDataLevel.SUPERSTAR, MARSDataLevel.MELIBEA]:
+            view_cone       = run_header_tree['MMcRunHeader_1.fRandomPointingConeSemiAngle'].array(library="np")[0]
+            max_impact      = run_header_tree['MMcRunHeader_1.fImpactMax'].array(library="np")[0]
+            n_showers       = np.sum(run_header_tree['MMcRunHeader_1.fNumSimulatedShowers'].array(library="np"))
+            max_zd          = run_header_tree['MMcRunHeader_1.fShowerThetaMax'].array(library="np")[0]
+            min_zd          = run_header_tree['MMcRunHeader_1.fShowerThetaMin'].array(library="np")[0]
+            max_az          = run_header_tree['MMcRunHeader_1.fShowerPhiMax'].array(library="np")[0]
+            min_az          = run_header_tree['MMcRunHeader_1.fShowerPhiMin'].array(library="np")[0]
+            max_wavelength  = run_header_tree['MMcRunHeader_1.fCWaveUpper'].array(library="np")[0]
+            min_wavelength  = run_header_tree['MMcRunHeader_1.fCWaveLower'].array(library="np")[0]
+
+        return SimulationConfigContainer(
+            corsika_version=corsika_version,
+            energy_range_min=u.Quantity(e_low, u.GeV).to(u.TeV),
+            energy_range_max=u.Quantity(e_high, u.GeV).to(u.TeV),
+            prod_site_alt=u.Quantity(site_height, u.cm).to(u.m),
+            spectral_index=spectral_index,
+            num_showers=n_showers,
+            shower_reuse=1,
+            # shower_reuse not written in the magic root file, but since the
+            # sim_events already include shower reuse we artificially set it
+            # to 1 (actually every shower reused 5 times for std MAGIC MC)
+            shower_prog_id=1,
+            prod_site_B_total=MAGIC_Btot,
+            prod_site_B_declination=MAGIC_Bdec,
+            prod_site_B_inclination=MAGIC_Binc,
+            max_alt=u.Quantity((90. - min_zd), u.deg).to(u.rad),
+            min_alt=u.Quantity((90. - max_zd), u.deg).to(u.rad),
+            max_az=u.Quantity(max_az, u.deg).to(u.rad),
+            min_az=u.Quantity(min_az, u.deg).to(u.rad),
+            max_viewcone_radius=view_cone * u.deg,
+            min_viewcone_radius=0.0 * u.deg,
+            max_scatter_range=u.Quantity(max_impact, u.cm).to(u.m),
+            min_scatter_range=0.0 * u.m,
+            atmosphere=atm_model,
+            corsika_wlen_min=min_wavelength * u.nm,
+            corsika_wlen_max=max_wavelength * u.nm,
+        )
 
     def _set_active_run(self, run_number):
         """
@@ -239,18 +670,15 @@ class MAGICEventSource(EventSource):
 
         Returns
         -------
-        MarsRun:
+        run: MarsRun
             The run to use
         """
-
-        this_run_mask = os.path.join(self.input_url.parents[0],
-                                     '*{:d}*root'.format(run_number))
 
         run = dict()
         run['number'] = run_number
         run['read_events'] = 0
-        run['data'] = MarsRun(run_file_mask=this_run_mask,
-                              filter_list=self.file_list)
+        if self.mars_datalevel == MARSDataLevel.CALIBRATED:
+            run['data'] = MarsCalibratedRun(self.file_, self.is_mc)
 
         return run
 
@@ -267,8 +695,9 @@ class MAGICEventSource(EventSource):
         return (self.datalevel, )
 
     @property
-    def obs_id(self):
-        return self.run_numbers
+    def obs_ids(self):
+        # ToCheck: will this be compatible in the future, e.g. with merged MC files
+        return [self.run_numbers]
 
     def _generator(self):
         """
@@ -280,7 +709,11 @@ class MAGICEventSource(EventSource):
 
         """
 
-        return self._stereo_event_generator()
+        if self.mars_datalevel == MARSDataLevel.CALIBRATED:
+            if self.use_pedestals:
+                return self._pedestal_event_generator(telescope=f"M{self.telescope}")
+            else:
+                return self._mono_event_generator(telescope=f"M{self.telescope}")
 
     def _stereo_event_generator(self):
         """
@@ -295,14 +728,11 @@ class MAGICEventSource(EventSource):
         counter = 0
 
         # Data container - is initialized once, and data is replaced within it after each yield
-        if not self.is_mc:
-            data = EventAndMonDataContainer()
-        else:
-            data = DataContainer()
+        data = ArrayEventContainer()
 
         # Telescopes with data:
         tels_in_file = ["m1", "m2"]
-        tels_with_data = {1, 2}
+        tels_with_data = [1, 2]
 
         # Loop over the available data runs
         for run_number in self.run_numbers:
@@ -356,7 +786,7 @@ class MAGICEventSource(EventSource):
                     monitoring_camera.pedestal = pedestal_info
                     monitoring_camera.pixel_status = badpixel_info
 
-                    data.mon.tels_with_data = {1, 2}
+                    data.mon.tels_with_data = [1, 2]
                     data.mon.tel[tel_i + 1] = monitoring_camera
             else:
                 assert self.current_run['data'].mcheader_data['M1'] == self.current_run['data'].mcheader_data['M2'], "Simulation configurations are different for M1 and M2 !!!"
@@ -384,7 +814,9 @@ class MAGICEventSource(EventSource):
                 event_data = self.current_run['data'].get_stereo_event_data(
                     event_i)
 
-                data.meta = event_data['mars_meta']
+                data.meta['origin'] = 'MAGIC'
+                data.meta['input_url'] = self.input_url
+                data.meta['max_events'] = self.max_events
 
                 # Event counter
                 data.count = counter
@@ -490,222 +922,28 @@ class MAGICEventSource(EventSource):
         counter = 0
         telescope = telescope.upper()
 
-        # Data container - is initialized once, and data is replaced within it after each yield
+        # Data container - is initialized once, and data is replaced after each yield
+        data = ArrayEventContainer()
+
+        # Telescopes with data:
+        tels_in_file = ["M1", "M2"]
+
+        if telescope not in tels_in_file:
+            raise ValueError(f"Specified telescope {telescope} is not in the allowed list {tels_in_file}")
+
+        tel_i = tels_in_file.index(telescope)
+        tels_with_data = [tel_i + 1, ]
+
+        # Removing the previously read data run from memory
+        if self.current_run is not None:
+            if 'data' in self.current_run:
+                del self.current_run['data']
+
+        # Setting the new active run
+        self.current_run = self._set_active_run(self.run_numbers)
+
+        # Set monitoring data:
         if not self.is_mc:
-            data = EventAndMonDataContainer()
-        else:
-            data = DataContainer()
-
-        # Telescopes with data:
-        tels_in_file = ["M1", "M2"]
-
-        if telescope not in tels_in_file:
-            raise ValueError("Specified telescope {:s} is not in the allowed list {}".format(
-                telescope, tels_in_file))
-
-        tel_i = tels_in_file.index(telescope)
-        tels_with_data = {tel_i + 1, }
-
-        # Loop over the available data runs
-        for run_number in self.run_numbers:
-
-            # Removing the previously read data run from memory
-            if self.current_run is not None:
-                if 'data' in self.current_run:
-                    del self.current_run['data']
-
-            # Setting the new active run
-            self.current_run = self._set_active_run(run_number)
-
-            # Set monitoring data:
-            if not self.is_mc:
-
-                monitoring_data = self.current_run['data'].monitoring_data
-
-                monitoring_camera = MonitoringCameraContainer()
-                pedestal_info = PedestalContainer()
-                badpixel_info = PixelStatusContainer()
-
-                time_tmp = Time(monitoring_data['M{:d}'.format(
-                    tel_i + 1)]['PedestalMJD'], scale='utc', format='mjd')
-                pedestal_info.sample_time = Time(
-                    time_tmp, format='unix', scale='utc', precision=9)
-                pedestal_info.n_events = 500 # hardcoded number of pedestal events averaged over
-                pedestal_info.charge_mean = []
-                pedestal_info.charge_mean.append(
-                    monitoring_data['M{:d}'.format(tel_i + 1)]['PedestalFundamental']['Mean'])
-                pedestal_info.charge_mean.append(
-                    monitoring_data['M{:d}'.format(tel_i + 1)]['PedestalFromExtractor']['Mean'])
-                pedestal_info.charge_mean.append(monitoring_data['M{:d}'.format(
-                    tel_i + 1)]['PedestalFromExtractorRndm']['Mean'])
-                pedestal_info.charge_std = []
-                pedestal_info.charge_std.append(
-                    monitoring_data['M{:d}'.format(tel_i + 1)]['PedestalFundamental']['Rms'])
-                pedestal_info.charge_std.append(
-                    monitoring_data['M{:d}'.format(tel_i + 1)]['PedestalFromExtractor']['Rms'])
-                pedestal_info.charge_std.append(
-                    monitoring_data['M{:d}'.format(tel_i + 1)]['PedestalFromExtractorRndm']['Rms'])
-
-                t_range = Time(monitoring_data['M{:d}'.format(
-                    tel_i + 1)]['badpixelinfoMJDrange'], scale='utc', format='mjd')
-
-                badpixel_info.hardware_failing_pixels = monitoring_data['M{:d}'.format(
-                    tel_i + 1)]['badpixelinfo']
-                badpixel_info.sample_time_range = t_range
-
-                monitoring_camera.pedestal = pedestal_info
-                monitoring_camera.pixel_status = badpixel_info
-
-                data.mon.tels_with_data = tels_with_data
-                data.mon.tel[tel_i + 1] = monitoring_camera
-
-             #fdp (mono version not fully tested)
-            else:
-                data.mcheader.num_showers = self.current_run['data'].mcheader_data[telescope]['sim_nevents'] # total, including reuse
-                data.mcheader.shower_reuse = self.current_run['data'].mcheader_data[telescope]['sim_reuse']
-                data.mcheader.energy_range_min = (self.current_run['data'].mcheader_data[telescope]['sim_emin']).to(u.TeV) # GeV->TeV
-                data.mcheader.energy_range_max = (self.current_run['data'].mcheader_data[telescope]['sim_emax']).to(u.TeV) # GeV->TeV
-                data.mcheader.spectral_index = self.current_run['data'].mcheader_data[telescope]['sim_eslope'] 
-                data.mcheader.max_scatter_range = (self.current_run['data'].mcheader_data[telescope]['sim_max_impact']).to(u.m) # cm->m
-                data.mcheader.max_viewcone_radius = (self.current_run['data'].mcheader_data[telescope]['sim_conesemiangle']).to(u.deg) # deg->deg
-
-
-            if telescope == 'M1':
-                n_events = self.current_run['data'].n_mono_events_m1
-            else:
-                n_events = self.current_run['data'].n_mono_events_m2
-
-            # Loop over the events
-            for event_i in range(n_events):
-                # Event and run ids
-                event_order_number = self.current_run['data'].mono_ids[telescope][event_i]
-                event_id = self.current_run['data'].event_data[telescope]['stereo_event_number'][event_order_number]
-                obs_id = self.current_run['number']
-
-                # Reading event data
-                event_data = self.current_run['data'].get_mono_event_data(
-                    event_i, telescope=telescope)
-
-                data.meta = event_data['mars_meta']
-
-                # Event counter
-                data.count = counter
-                data.index.obs_id = obs_id
-                data.index.event_id = event_id
-
-                # Setting up the R0 container
-                data.r0.tel.clear()
-                data.r0.tel[tel_i + 1].trigger_type = self.current_run['data'].event_data[telescope]['trigger_pattern'][event_order_number]
-
-                # Setting up the R1 container
-                data.r1.tel.clear()
-                data.r1.tel[tel_i + 1].trigger_type = self.current_run['data'].event_data[telescope]['trigger_pattern'][event_order_number]
-
-                # Setting up the DL0 container
-                data.dl0.tel.clear()
-                data.dl0.tel[tel_i + 1].trigger_type = self.current_run['data'].event_data[telescope]['trigger_pattern'][event_order_number]
-
-                # Setting up the DL1 container
-                data.dl1.tel.clear()
-
-                # Creating the telescope pointing container
-                pointing = PointingContainer()
-                pointing_tel = TelescopePointingContainer()
-
-                pointing_tel.azimuth = np.deg2rad(
-                    event_data['pointing_az']) * u.rad
-                pointing_tel.altitude = np.deg2rad(
-                    90 - event_data['pointing_zd']) * u.rad
-                #pointing.ra = np.deg2rad(event_data['pointing_ra']) * u.rad
-                #pointing.dec = np.deg2rad(event_data['pointing_dec']) * u.rad
-                
-                pointing.tel[tel_i + 1] = pointing_tel
-                
-                pointing.array_azimuth = np.deg2rad(event_data['pointing_az']) * u.rad
-                pointing.array_altitude = np.deg2rad(90 - event_data['pointing_zd']) * u.rad
-                pointing.array_ra = np.deg2rad(event_data['pointing_ra']) * u.rad
-                pointing.array_dec = np.deg2rad(90 - event_data['pointing_dec']) * u.rad
-                
-                data.pointing = pointing
-
-                # Adding event charge and peak positions per pixel
-                data.dl1.tel[tel_i + 1].image = event_data['image']
-                data.dl1.tel[tel_i + 1].peak_time = event_data['pulse_time']
-
-                if not self.is_mc:
-                    # Adding the event arrival time
-                    time_tmp = Time(
-                        event_data['mjd'], scale='utc', format='mjd')
-                    data.trigger.time = Time(
-                        time_tmp, format='unix', scale='utc', precision=9)
-                else:
-                    data.mc.energy = event_data['true_energy'] * u.GeV
-                    data.mc.alt = (np.pi/2 - event_data['true_zd']) * u.rad
-                    # check meaning of 7deg transformation (I.Vovk)
-                    data.mc.az = -1 * \
-                        (event_data['true_az'] - np.deg2rad(180 - 7)) * u.rad
-                    data.mc.shower_primary_id = 1 - \
-                        event_data['true_shower_primary_id']
-                    data.mc.h_first_int = event_data['true_h_first_int'] * u.cm
-
-                    # adding a 7deg rotation between the orientation of corsika (x axis = magnetic north) and MARS (x axis = geographical north) frames
-                    # magnetic north is 7 deg westward w.r.t. geographical north
-                    rot_corsika = 7 *u.deg
-                    data.mc.core_x = (event_data['true_core_x']*np.cos(rot_corsika) - event_data['true_core_y']*np.sin(rot_corsika))* u.cm
-                    data.mc.core_y = (event_data['true_core_x']*np.sin(rot_corsika) + event_data['true_core_y']*np.cos(rot_corsika))* u.cm
-
-                # Setting the telescopes with data
-                data.r0.tels_with_data = tels_with_data
-                data.r1.tels_with_data = tels_with_data
-                data.dl0.tels_with_data = tels_with_data
-                data.trigger.tels_with_trigger = tels_with_data
-
-                yield data
-                counter += 1
-
-        return
-
-    def _pedestal_event_generator(self, telescope):
-        """
-        Pedestal event generator. Yields DataContainer instances, filled
-        with the read event data.
-
-        Parameters
-        ----------
-        telescope: str
-            The telescope for which to return events. Can be either "M1" or "M2".
-
-        Returns
-        -------
-
-        """
-
-        counter = 0
-        telescope = telescope.upper()
-
-        # Data container - is initialized once, and data is replaced within it after each yield
-        data = EventAndMonDataContainer()
-
-        # Telescopes with data:
-        tels_in_file = ["M1", "M2"]
-
-        if telescope not in tels_in_file:
-            raise ValueError("Specified telescope {:s} is not in the allowed list {}".format(
-                telescope, tels_in_file))
-
-        tel_i = tels_in_file.index(telescope)
-        tels_with_data = {tel_i + 1, }
-
-        # Loop over the available data runs
-        for run_number in self.run_numbers:
-
-            # Removing the previously read data run from memory
-            if self.current_run is not None:
-                if 'data' in self.current_run:
-                    del self.current_run['data']
-
-            # Setting the new active run
-            self.current_run = self._set_active_run(run_number)
 
             monitoring_data = self.current_run['data'].monitoring_data
 
@@ -717,7 +955,7 @@ class MAGICEventSource(EventSource):
                 tel_i + 1)]['PedestalMJD'], scale='utc', format='mjd')
             pedestal_info.sample_time = Time(
                 time_tmp, format='unix', scale='utc', precision=9)
-            pedestal_info.n_events = 500 # hardcoded number of pedestal events averaged over
+            pedestal_info.n_events = 500  # hardcoded number of pedestal events averaged over
             pedestal_info.charge_mean = []
             pedestal_info.charge_mean.append(
                 monitoring_data['M{:d}'.format(tel_i + 1)]['PedestalFundamental']['Mean'])
@@ -743,140 +981,271 @@ class MAGICEventSource(EventSource):
             monitoring_camera.pedestal = pedestal_info
             monitoring_camera.pixel_status = badpixel_info
 
-            data.mon.tels_with_data = tels_with_data
             data.mon.tel[tel_i + 1] = monitoring_camera
 
-            if telescope == 'M1':
-                n_events = self.current_run['data'].n_pedestal_events_m1
-            else:
-                n_events = self.current_run['data'].n_pedestal_events_m2
+        if telescope == 'M1':
+            n_events = self.current_run['data'].n_mono_events_m1
+        else:
+            n_events = self.current_run['data'].n_mono_events_m2
 
-            # Loop over the events
-            for event_i in range(n_events):
-                # Event and run ids
-                event_order_number = self.current_run['data'].pedestal_ids[telescope][event_i]
-                event_id = self.current_run['data'].event_data[telescope]['stereo_event_number'][event_order_number]
-                obs_id = self.current_run['number']
+        # Loop over the events
+        for event_i in range(n_events):
+            # Event and run ids
+            event_order_number = self.current_run['data'].mono_ids[telescope][event_i]
+            event_id = self.current_run['data'].event_data[telescope]['stereo_event_number'][event_order_number]
+            obs_id = self.current_run['number']
 
-                # Reading event data
-                event_data = self.current_run['data'].get_pedestal_event_data(
-                    event_i, telescope=telescope)
+            # Reading event data
+            event_data = self.current_run['data'].get_mono_event_data(
+                event_i, telescope=telescope)
 
-                data.meta = event_data['mars_meta']
+            data.meta['origin'] = 'MAGIC'
+            data.meta['input_url'] = self.input_url
+            data.meta['max_events'] = self.max_events
 
-                # Event counter
-                data.count = counter
-                data.index.obs_id = obs_id
-                data.index.event_id = event_id
-
-                # Setting up the R0 container
-                data.r0.tel.clear()
-                data.r0.tel[tel_i + 1].trigger_type = self.current_run['data'].event_data[telescope]['trigger_pattern'][event_order_number]
-
-                # Setting up the R1 container
-                data.r1.tel.clear()
-                data.r1.tel[tel_i + 1].trigger_type = self.current_run['data'].event_data[telescope]['trigger_pattern'][event_order_number]
-
-                # Setting up the DL0 container
-                data.dl0.tel.clear()
-                data.dl0.tel[tel_i + 1].trigger_type = self.current_run['data'].event_data[telescope]['trigger_pattern'][event_order_number]
-
-                # Creating the telescope pointing container
-                pointing = TelescopePointingContainer()
-                pointing.azimuth = np.deg2rad(
-                    event_data['pointing_az']) * u.rad
-                pointing.altitude = np.deg2rad(
-                    90 - event_data['pointing_zd']) * u.rad
-                #pointing.ra = np.deg2rad(event_data['pointing_ra']) * u.rad
-                #pointing.dec = np.deg2rad(event_data['pointing_dec']) * u.rad
-
-                # Adding the pointing container to the event data
-                data.pointing.tel[tel_i + 1] = pointing
-
-                # Adding event charge and peak positions per pixel
-                data.dl1.tel[tel_i + 1].image = event_data['image']
-                data.dl1.tel[tel_i + 1].peak_time = event_data['pulse_time']
-
+            data.trigger.event_type = self.current_run['data'].event_data[telescope]['trigger_pattern'][event_order_number]
+            data.trigger.tels_with_trigger = tels_with_data
+            if self.allowed_tels:
+                data.trigger.tels_with_trigger = np.intersect1d(
+                    data.trigger.tels_with_trigger,
+                    self.subarray.tel_ids,
+                    assume_unique=True,)
+            if not self.is_mc:
                 # Adding the event arrival time
-                time_tmp = Time(event_data['mjd'], scale='utc', format='mjd')
-                data.trigger.time = Time(
-                    time_tmp, format='unix', scale='utc', precision=9)
+                time_tmp = Time(
+                    event_data['mjd'], scale='utc', format='mjd')
+                data.trigger.tel[tel_i + 1] = TelescopeTriggerContainer(time=Time(
+                    time_tmp, format='unix', scale='utc', precision=9))
 
-                # Setting the telescopes with data
-                data.r0.tels_with_data = tels_with_data
-                data.r1.tels_with_data = tels_with_data
-                data.dl0.tels_with_data = tels_with_data
-                data.trigger.tels_with_trigger = tels_with_data
+            # Event counter
+            data.count = counter
+            data.index.obs_id = obs_id
+            data.index.event_id = event_id
 
-                yield data
-                counter += 1
+            # Setting up the R0 container
+            data.r0.tel.clear()
+            data.r1.tel.clear()
+            data.dl0.tel.clear()
+            data.dl1.tel.clear()
+            data.pointing.tel.clear()
+
+            # Creating the telescope pointing container
+            pointing = PointingContainer()
+            pointing_tel = TelescopePointingContainer(
+                azimuth=np.deg2rad(event_data['pointing_az']) * u.rad,
+                altitude=np.deg2rad(90 - event_data['pointing_zd']) * u.rad,)
+
+            pointing.tel[tel_i + 1] = pointing_tel
+
+            pointing.array_azimuth = np.deg2rad(event_data['pointing_az']) * u.rad
+            pointing.array_altitude = np.deg2rad(90 - event_data['pointing_zd']) * u.rad
+            pointing.array_ra = np.deg2rad(event_data['pointing_ra']) * u.rad
+            pointing.array_dec = np.deg2rad(90 - event_data['pointing_dec']) * u.rad
+
+            data.pointing = pointing
+
+            # Adding event charge and peak positions per pixel
+            data.dl1.tel[tel_i + 1].image = event_data['image']
+            data.dl1.tel[tel_i + 1].peak_time = event_data['pulse_time']
+
+            if self.is_mc:
+                # check meaning of 7deg transformation (I.Vovk)
+                # adding a 7deg rotation between the orientation of corsika (x axis = magnetic north) and MARS (x axis = geographical north) frames
+                # magnetic north is 7 deg westward w.r.t. geographical north
+                data.simulation = SimulatedEventContainer()
+                data.simulation.shower = SimulatedShowerContainer(
+                    energy=u.Quantity(event_data['true_energy'], u.GeV),
+                    alt=Angle((np.pi/2 - event_data['true_zd']), u.rad),
+                    az=Angle(-1 * (event_data['true_az'] - (np.pi/2 + MAGIC_Bdec.value)), u.rad),
+                    shower_primary_id=(1 - event_data['true_shower_primary_id']),
+                    h_first_int=u.Quantity(event_data['true_h_first_int'], u.cm),
+                    core_x=u.Quantity((event_data['true_core_x']*np.cos(-MAGIC_Bdec) - event_data['true_core_y']*np.sin(-MAGIC_Bdec)).value, u.cm),
+                    core_y=u.Quantity((event_data['true_core_x']*np.sin(-MAGIC_Bdec) + event_data['true_core_y']*np.cos(-MAGIC_Bdec)).value, u.cm),
+                )
+
+            yield data
+            counter += 1
+
+        return
+
+    def _pedestal_event_generator(self, telescope):
+        """
+        Pedestal event generator. Yields DataContainer instances, filled
+        with the read event data.
+
+        Parameters
+        ----------
+        telescope: str
+            The telescope for which to return events. Can be either "M1" or "M2".
+
+        Returns
+        -------
+
+        """
+
+        counter = 0
+        telescope = telescope.upper()
+
+        # Data container - is initialized once, and data is replaced after each yield
+        data = ArrayEventContainer()
+
+        # Telescopes with data:
+        tels_in_file = ["M1", "M2"]
+
+        if telescope not in tels_in_file:
+            raise ValueError(f"Specified telescope {telescope} is not in the allowed list {tels_in_file}")
+
+        tel_i = tels_in_file.index(telescope)
+        tels_with_data = [tel_i + 1, ]
+
+        # Removing the previously read data run from memory
+        if self.current_run is not None:
+            if 'data' in self.current_run:
+                del self.current_run['data']
+
+        # Setting the new active run
+        self.current_run = self._set_active_run(self.run_numbers)
+
+        monitoring_data = self.current_run['data'].monitoring_data
+
+        monitoring_camera = MonitoringCameraContainer()
+        pedestal_info = PedestalContainer()
+        badpixel_info = PixelStatusContainer()
+
+        time_tmp = Time(monitoring_data['M{:d}'.format(
+            tel_i + 1)]['PedestalMJD'], scale='utc', format='mjd')
+        pedestal_info.sample_time = Time(
+            time_tmp, format='unix', scale='utc', precision=9)
+        pedestal_info.n_events = 500  # hardcoded number of pedestal events averaged over
+        pedestal_info.charge_mean = []
+        pedestal_info.charge_mean.append(
+            monitoring_data['M{:d}'.format(tel_i + 1)]['PedestalFundamental']['Mean'])
+        pedestal_info.charge_mean.append(
+            monitoring_data['M{:d}'.format(tel_i + 1)]['PedestalFromExtractor']['Mean'])
+        pedestal_info.charge_mean.append(monitoring_data['M{:d}'.format(
+            tel_i + 1)]['PedestalFromExtractorRndm']['Mean'])
+        pedestal_info.charge_std = []
+        pedestal_info.charge_std.append(
+            monitoring_data['M{:d}'.format(tel_i + 1)]['PedestalFundamental']['Rms'])
+        pedestal_info.charge_std.append(
+            monitoring_data['M{:d}'.format(tel_i + 1)]['PedestalFromExtractor']['Rms'])
+        pedestal_info.charge_std.append(
+            monitoring_data['M{:d}'.format(tel_i + 1)]['PedestalFromExtractorRndm']['Rms'])
+
+        t_range = Time(monitoring_data['M{:d}'.format(
+            tel_i + 1)]['badpixelinfoMJDrange'], scale='utc', format='mjd')
+
+        badpixel_info.hardware_failing_pixels = monitoring_data['M{:d}'.format(
+            tel_i + 1)]['badpixelinfo']
+        badpixel_info.sample_time_range = t_range
+
+        monitoring_camera.pedestal = pedestal_info
+        monitoring_camera.pixel_status = badpixel_info
+
+        data.mon.tel[tel_i + 1] = monitoring_camera
+
+        if telescope == 'M1':
+            n_events = self.current_run['data'].n_pedestal_events_m1
+        else:
+            n_events = self.current_run['data'].n_pedestal_events_m2
+
+        # Loop over the events
+        for event_i in range(n_events):
+            # Event and run ids
+            event_order_number = self.current_run['data'].pedestal_ids[telescope][event_i]
+            event_id = self.current_run['data'].event_data[telescope]['stereo_event_number'][event_order_number]
+            obs_id = self.current_run['number']
+
+            # Reading event data
+            event_data = self.current_run['data'].get_pedestal_event_data(
+                event_i, telescope=telescope)
+
+            data.meta['origin'] = 'MAGIC'
+            data.meta['input_url'] = self.input_url
+            data.meta['max_events'] = self.max_events
+
+            data.trigger.event_type = self.current_run['data'].event_data[telescope]['trigger_pattern'][event_order_number]
+            data.trigger.tels_with_trigger = tels_with_data
+            if self.allowed_tels:
+                data.trigger.tels_with_trigger = np.intersect1d(
+                    data.trigger.tels_with_trigger,
+                    self.subarray.tel_ids,
+                    assume_unique=True,)
+            if not self.is_mc:
+                # Adding the event arrival time
+                time_tmp = Time(
+                    event_data['mjd'], scale='utc', format='mjd')
+                data.trigger.tel[tel_i + 1] = TelescopeTriggerContainer(time=Time(
+                    time_tmp, format='unix', scale='utc', precision=9))
+
+            # Event counter
+            data.count = counter
+            data.index.obs_id = obs_id
+            data.index.event_id = event_id
+
+            # Setting up the R0 container
+            data.r0.tel.clear()
+            data.r1.tel.clear()
+            data.dl0.tel.clear()
+            data.dl1.tel.clear()
+            data.pointing.tel.clear()
+
+            # Creating the telescope pointing container
+            pointing = PointingContainer()
+            pointing_tel = TelescopePointingContainer(
+                azimuth=np.deg2rad(event_data['pointing_az']) * u.rad,
+                altitude=np.deg2rad(90 - event_data['pointing_zd']) * u.rad,)
+
+            pointing.tel[tel_i + 1] = pointing_tel
+
+            pointing.array_azimuth = np.deg2rad(event_data['pointing_az']) * u.rad
+            pointing.array_altitude = np.deg2rad(90 - event_data['pointing_zd']) * u.rad
+            pointing.array_ra = np.deg2rad(event_data['pointing_ra']) * u.rad
+            pointing.array_dec = np.deg2rad(90 - event_data['pointing_dec']) * u.rad
+
+            data.pointing = pointing
+
+            # Adding event charge and peak positions per pixel
+            data.dl1.tel[tel_i + 1].image = event_data['image']
+            data.dl1.tel[tel_i + 1].peak_time = event_data['pulse_time']
+
+            yield data
+            counter += 1
 
         return
 
 
-class MarsRun:
+class MarsCalibratedRun:
     """
-    This class implements reading of the event data from a single MAGIC data run.
+    This class implements reading of the event data from a single MAGIC calibrated run.
     """
 
-    def __init__(self, run_file_mask, filter_list=None):
+    def __init__(self, uproot_file, is_mc):
         """
         Constructor of the class. Defines the run to use and the camera pixel arrangement.
 
         Parameters
         ----------
-        run_file_mask: str
-            A path mask for files belonging to the run. Must correspond to a single run
-            or an exception will be raised. Must correspond to calibrated ("sorcerer"-level)
-            data.
-        filter_list: list, optional
-            A list of files, to which the run_file_mask should be applied. If None, all the
-            files satisfying run_file_mask will be used. Defaults to None.
+        uproot_file: str
+            A file opened by uproot via uproot.open(file_name)
         """
 
         self.n_camera_pixels = GEOM.n_pixels
 
-        self.run_file_mask = run_file_mask
+        self.file_name = uproot_file.file_path
 
-        # Preparing the lists of M1/2 data files
-        file_list = glob.glob(run_file_mask)
+        self.is_mc = is_mc
 
-        # Filtering out extra files if necessary
-        if filter_list is not None:
-            file_list = list(set(file_list) & set(filter_list))
-
-        self.m1_file_list = list(
-            filter(lambda name: '_M1_' in name, file_list))
-        self.m2_file_list = list(
-            filter(lambda name: '_M2_' in name, file_list))
-        self.m1_file_list.sort()
-        self.m2_file_list.sort()
-
-        # Retrieving the list of run numbers corresponding to the data files
-        run_info = list(
-            map(MAGICEventSource.get_run_info_from_name, file_list))
-        run_numbers = [i[0] for i in run_info]
-        is_mc_runs = [i[1] for i in run_info]
-
-        run_numbers = np.unique(run_numbers)
-        is_mc_runs = np.unique(is_mc_runs)
-        # Checking if run type (data/MC) is consistent:
-        if len(is_mc_runs) > 1:
-            raise ValueError(
-                "Run type is not consistently data or MC: {}".format(is_mc_runs))
-
-        self.is_mc = is_mc_runs[0]
-
-        # Checking if a single run is going to be read
-        if len(run_numbers) > 1:
-            raise ValueError(
-                "Run mask corresponds to more than one run: {}".format(run_numbers))
-
-        # Reading the data
-        m1_data = self.load_events(
-            self.m1_file_list, self.is_mc, self.n_camera_pixels)
-        m2_data = self.load_events(
-            self.m2_file_list, self.is_mc, self.n_camera_pixels)
+        if '_M1_' in self.file_name:
+            m1_data = self.load_events(
+                uproot_file, self.is_mc, self.n_camera_pixels)
+            m2_data = self.load_events(
+                None, self.is_mc, self.n_camera_pixels)
+        if '_M2_' in self.file_name:
+            m1_data = self.load_events(
+                None, self.is_mc, self.n_camera_pixels)
+            m2_data = self.load_events(
+                uproot_file, self.is_mc, self.n_camera_pixels)
 
         # Getting the event data
         self.event_data = dict()
@@ -888,18 +1257,15 @@ class MarsRun:
         self.monitoring_data['M1'] = m1_data[1]
         self.monitoring_data['M2'] = m2_data[1]
 
-        # Getting the run-wise MC header data
-        if self.is_mc:
-            self.mcheader_data = dict()
-            self.mcheader_data['M1'] = m1_data[2]
-            self.mcheader_data['M2'] = m2_data[2]
-
         # Detecting pedestal events
         self.pedestal_ids = self._find_pedestal_events()
         # Detecting stereo events
         self.stereo_ids = self._find_stereo_events()
         # Detecting mono events
-        self.mono_ids = self._find_mono_events()
+        if self.is_mc:
+            self.mono_ids = self._find_stereo_mc_events()
+        else:
+            self.mono_ids = self._find_mono_events()
 
     @property
     def n_events_m1(self):
@@ -930,7 +1296,7 @@ class MarsRun:
         return len(self.pedestal_ids['M2'])
 
     @staticmethod
-    def load_events(file_list, is_mc, n_camera_pixels):
+    def load_events(uproot_file, is_mc, n_camera_pixels):
         """
         This method loads events and monitoring data from the pre-defiled file and returns them as a dictionary.
 
@@ -949,12 +1315,6 @@ class MarsRun:
             A dictionary with the even properties: charge / arrival time data, trigger, direction etc.
         """
 
-        try:
-            import uproot
-        except ImportError:
-            msg = "The `uproot` python module is required to access the MAGIC data"
-            raise ImportError(msg)
-
         event_data = dict()
 
         event_data['charge'] = []
@@ -966,7 +1326,6 @@ class MarsRun:
         event_data['pointing_ra'] = np.array([])
         event_data['pointing_dec'] = np.array([])
         event_data['MJD'] = np.array([])
-        event_data['mars_meta'] = []
 
         # monitoring information (updated from time to time)
         monitoring_data = dict()
@@ -984,33 +1343,27 @@ class MarsRun:
         monitoring_data['PedestalFromExtractorRndm']['Mean'] = []
         monitoring_data['PedestalFromExtractorRndm']['Rms'] = []
 
-        #MC Header information, dictionary always created, but filled only in case of MC run
-        mcheader_data = dict()
-
         event_data['file_edges'] = [0]
 
         # if no file in the list (e.g. when reading mono information), then simply
         # return empty dicts/array
-        if len(file_list) == 0:
-            return event_data, monitoring_data, mcheader_data
+        if uproot_file is None:
+            return event_data, monitoring_data
 
         drive_data = dict()
         drive_data['mjd'] = np.array([])
-        drive_data['zd']  = np.array([])
-        drive_data['az']  = np.array([])
-        drive_data['ra']  = np.array([])
+        drive_data['zd'] = np.array([])
+        drive_data['az'] = np.array([])
+        drive_data['ra'] = np.array([])
         drive_data['dec'] = np.array([])
 
-        degrees_per_hour = 15.0
-        seconds_per_day = 86400.0
-        seconds_per_hour = 3600.
-
         evt_common_list = [
-            'MCerPhotEvt.fPixels.fPhot',
             'MArrivalTime.fData',
-            'MTriggerPattern.fPrescaled',
-            'MRawEvtHeader.fStereoEvtNumber',
+            'MCerPhotEvt.fPixels.fPhot',
             'MRawEvtHeader.fDAQEvtNumber',
+            'MRawEvtHeader.fStereoEvtNumber',
+            'MTriggerPattern.fPrescaled',
+            'MTriggerPattern.fSkipEvent',
         ]
 
         # Separately, because only used with pre-processed MARS data
@@ -1063,253 +1416,187 @@ class MarsRun:
             'MMcEvt.fCoreX',
             'MMcEvt.fCoreY'
         ]
-        
-        mcheader_list = [
-            #'MMcRunHeader.fNumSimulatedShowers',
-            'MMcRunHeader.fNumEvents',
-            'MMcCorsikaRunHeader.fELowLim', #GeV
-            'MMcCorsikaRunHeader.fEUppLim', #GeV
-            'MMcCorsikaRunHeader.fSlopeSpec',
-            'MMcRunHeader.fImpactMax', #cm
-            #'MMcCorsikaRunHeader.fViewconeAngles',
-            'MMcRunHeader.fRandomPointingConeSemiAngle' # deg
-        ]
 
-        # Metadata, currently not strictly required
-        metainfo_array_list = [
-            'MRawRunHeader.fRunNumber',
-            'MRawRunHeader.fRunType',
-            'MRawRunHeader.fSubRunIndex',
-            'MRawRunHeader.fSourceRA',
-            'MRawRunHeader.fSourceDEC',
-            'MRawRunHeader.fTelescopeNumber']
+        input_file = uproot_file
 
-        for file_name in file_list:
+        events = input_file['Events'].arrays(evt_common_list, library="np")
 
-            input_file = uproot.open(file_name)
+        # Reading the info common to MC and real data
+        charge = events['MCerPhotEvt.fPixels.fPhot']
+        arrival_time = events['MArrivalTime.fData']
+        trigger_pattern = events['MTriggerPattern.fPrescaled']
+        stereo_event_number = events['MRawEvtHeader.fStereoEvtNumber']
 
-            events = input_file['Events'].arrays(evt_common_list, library="np")
-
-            # Reading the info common to MC and real data
-            charge = events['MCerPhotEvt.fPixels.fPhot']
-            arrival_time = events['MArrivalTime.fData']
-            trigger_pattern = events['MTriggerPattern.fPrescaled']
-            stereo_event_number = events['MRawEvtHeader.fStereoEvtNumber']
-
-            # Reading run-wise meta information (same for all events in subrun):
-            mars_meta = dict()
-
-            mars_meta['is_simulation'] = is_mc
-
-            if is_mc:
-                mc_header_info = input_file['RunHeaders'].arrays(mcheader_list, library="np")
-                mcheader_data['sim_nevents']=int(mc_header_info['MMcRunHeader.fNumEvents'][0]) #std: 5000
-                mcheader_data['sim_reuse']= 1 #this value is not written in the magic root file, but since the sim_events already include shower reuse we artificially set it to 1 (actually every shower reused 5 times for std MAGIC MC)
-                mcheader_data['sim_emin']=mc_header_info['MMcCorsikaRunHeader.fELowLim'][0]*u.GeV
-                mcheader_data['sim_emax']=mc_header_info['MMcCorsikaRunHeader.fEUppLim'][0]*u.GeV
-                mcheader_data['sim_eslope']=mc_header_info['MMcCorsikaRunHeader.fSlopeSpec'][0] #std: -1.6
-                mcheader_data['sim_max_impact']=mc_header_info['MMcRunHeader.fImpactMax'][0]*u.cm
-                mcheader_data['sim_conesemiangle']=mc_header_info['MMcRunHeader.fRandomPointingConeSemiAngle'][0]*u.deg #std: 2.5 deg, also corsika viewcone is defined by "half of the cone angle".
-
+        if not is_mc:
             # Reading event timing information:
-            if not is_mc:
-                event_times = input_file['Events'].arrays(time_array_list, library="np")
-                # Computing the event arrival time
+            event_times = input_file['Events'].arrays(time_array_list, library="np")
+            # Computing the event arrival time
 
-                event_mjd = event_times['MTime.fMjd']
-                event_millisec = event_times['MTime.fTime.fMilliSec']
-                event_nanosec = event_times['MTime.fNanoSec']
+            event_mjd = event_times['MTime.fMjd']
+            event_millisec = event_times['MTime.fTime.fMilliSec']
+            event_nanosec = event_times['MTime.fNanoSec']
 
-                event_mjd = event_mjd + \
-                    (event_millisec / 1e3 + event_nanosec / 1e9) / seconds_per_day
-                event_data['MJD'] = np.concatenate(
-                    (event_data['MJD'], event_mjd))
+            event_mjd = event_mjd + \
+                (event_millisec / 1e3 + event_nanosec / 1e9) / seconds_per_day
+            event_data['MJD'] = np.concatenate(
+                (event_data['MJD'], event_mjd))
 
-            # try to read RunHeaders tree (soft fail if not present, to pass current tests)
+            badpixelinfo = input_file['RunHeaders']['MBadPixelsCam.fArray.fInfo'].array(
+                uproot.interpretation.jagged.AsJagged(
+                    uproot.interpretation.numerical.AsDtype(np.dtype('>i4'))
+                ), library="np")[0].reshape((4, 1183), order='F')
+            # now we have 4 axes:
+            # 0st axis: empty (?)
+            # 1st axis: Unsuitable pixels
+            # 2nd axis: Uncalibrated pixels (says why pixel is unsuitable)
+            # 3rd axis: Bad hardware pixels (says why pixel is unsuitable)
+            # Each axis cointains a 32bit integer encoding more information about the
+            # specific problem, see MARS software, MBADPixelsPix.h
+            # take first axis
+            unsuitable_pix_bitinfo = badpixelinfo[1][:n_camera_pixels]
+            # extract unsuitable bit:
+            unsuitable_pix = np.zeros(n_camera_pixels, dtype=np.bool)
+            for i in range(n_camera_pixels):
+                unsuitable_pix[i] = int('\t{0:08b}'.format(
+                    unsuitable_pix_bitinfo[i] & 0xff)[-2])
+            monitoring_data['badpixelinfo'].append(unsuitable_pix)
+            # save time interval of badpixel info:
+            monitoring_data['badpixelinfoMJDrange'].append(
+                [event_mjd[0], event_mjd[-1]])
+
+        # try to read Pedestals tree (soft fail if not present)
             try:
-                meta_info = input_file['RunHeaders'].arrays(
-                    metainfo_array_list, library="np")
+                pedestal_info = input_file['Pedestals'].arrays(
+                    pedestal_array_list, library="np")
 
-                mars_meta['origin'] = "MAGIC"
-                mars_meta['input_url'] = file_name
-
-                mars_meta['number'] = int(
-                    meta_info['MRawRunHeader.fRunNumber'][0])
-                mars_meta['number_subrun'] = int(
-                    meta_info['MRawRunHeader.fSubRunIndex'][0])
-                mars_meta['source_ra'] = meta_info['MRawRunHeader.fSourceRA'][0] / \
-                    seconds_per_hour * degrees_per_hour * u.deg
-                mars_meta['source_dec'] = meta_info['MRawRunHeader.fSourceDEC'][0] / \
-                    seconds_per_hour * u.deg
-
-                is_mc_check = int(meta_info['MRawRunHeader.fRunType'][0])
-                if is_mc_check == 0:
-                    is_mc_check = False
-                elif is_mc_check == 256:
-                    is_mc_check = True
-                else:
-                    msg = "Run type (Data or MC) of MAGIC data file not recognised."
-                    LOGGER.error(msg)
-                    raise ValueError(msg)
-                if is_mc_check != is_mc:
-                    msg = "Inconsistent run type (data or MC) between file name and runheader content."
-                    LOGGER.error(msg)
-                    raise ValueError(msg)
-
-                # Reading the info only contained in real data
-                if not is_mc:
-                    badpixelinfo = input_file['RunHeaders']['MBadPixelsCam.fArray.fInfo'].array(
-                        uproot.interpretation.jagged.AsJagged(uproot.interpretation.numerical.AsDtype(np.dtype('>i4'))), library="np")[0].reshape((4, 1183), order='F')
-                    # now we have 4 axes:
-                    # 0st axis: empty (?)
-                    # 1st axis: Unsuitable pixels
-                    # 2nd axis: Uncalibrated pixels (says why pixel is unsuitable)
-                    # 3rd axis: Bad hardware pixels (says why pixel is unsuitable)
-                    # Each axis cointains a 32bit integer encoding more information about the specific problem, see MARS software, MBADPixelsPix.h
-                    # take first axis
-                    unsuitable_pix_bitinfo = badpixelinfo[1][:n_camera_pixels]
-                    # extract unsuitable bit:
-                    unsuitable_pix = np.zeros(n_camera_pixels, dtype=np.bool)
-                    for i in range(n_camera_pixels):
-                        unsuitable_pix[i] = int('\t{0:08b}'.format(
-                            unsuitable_pix_bitinfo[i] & 0xff)[-2])
-                    monitoring_data['badpixelinfo'].append(unsuitable_pix)
-                    # save time interval of badpixel info:
-                    monitoring_data['badpixelinfoMJDrange'].append(
-                        [event_mjd[0], event_mjd[-1]])
+                pedestal_mjd = pedestal_info['MTimePedestals.fMjd']
+                pedestal_millisec = pedestal_info['MTimePedestals.fTime.fMilliSec']
+                pedestal_nanosec = pedestal_info['MTimePedestals.fNanoSec']
+                n_pedestals = len(pedestal_mjd)
+                pedestal_mjd = pedestal_mjd + \
+                    (pedestal_millisec / 1e3 +
+                     pedestal_nanosec / 1e9) / seconds_per_day
+                monitoring_data['PedestalMJD'] = np.concatenate(
+                    (monitoring_data['PedestalMJD'], pedestal_mjd))
+                for quantity in ['Mean', 'Rms']:
+                    for i_pedestal in range(n_pedestals):
+                        monitoring_data['PedestalFundamental'][quantity].append(
+                            pedestal_info[f'MPedPhotFundamental.fArray.f{quantity}'][i_pedestal][:n_camera_pixels])
+                        monitoring_data['PedestalFromExtractor'][quantity].append(
+                            pedestal_info[f'MPedPhotFromExtractor.fArray.f{quantity}'][i_pedestal][:n_camera_pixels])
+                        monitoring_data['PedestalFromExtractorRndm'][quantity].append(
+                            pedestal_info[f'MPedPhotFromExtractorRndm.fArray.f{quantity}'][i_pedestal][:n_camera_pixels])
 
             except KeyError:
                 LOGGER.warning(
-                    "RunHeaders tree not present in file. Cannot read meta information - will assume it is a real data run.")
-                is_mc = False
+                    "Pedestals tree not present in file. Cleaning algorithm may fail.")
 
-            # try to read Pedestals tree (soft fail if not present)
-            if not is_mc:
-                try:
-                    pedestal_info = input_file['Pedestals'].arrays(
-                        pedestal_array_list, library="np")
+            # Getting the telescope drive info
+            drive = input_file['Drive'].arrays(drive_array_list, library="np")
 
-                    pedestal_mjd = pedestal_info['MTimePedestals.fMjd']
-                    pedestal_millisec = pedestal_info['MTimePedestals.fTime.fMilliSec']
-                    pedestal_nanosec = pedestal_info['MTimePedestals.fNanoSec']
-                    n_pedestals = len(pedestal_mjd)
-                    pedestal_mjd = pedestal_mjd + \
-                        (pedestal_millisec / 1e3 +
-                         pedestal_nanosec / 1e9) / seconds_per_day
-                    monitoring_data['PedestalMJD'] = np.concatenate(
-                        (monitoring_data['PedestalMJD'], pedestal_mjd))
-                    for quantity in ['Mean', 'Rms']:
-                        for i_pedestal in range(n_pedestals):
-                            monitoring_data['PedestalFundamental'][quantity].append(
-                                pedestal_info[f'MPedPhotFundamental.fArray.f{quantity}'][i_pedestal][:n_camera_pixels])
-                            monitoring_data['PedestalFromExtractor'][quantity].append(
-                                pedestal_info[f'MPedPhotFromExtractor.fArray.f{quantity}'][i_pedestal][:n_camera_pixels])
-                            monitoring_data['PedestalFromExtractorRndm'][quantity].append(
-                                pedestal_info[f'MPedPhotFromExtractorRndm.fArray.f{quantity}'][i_pedestal][:n_camera_pixels])
+            drive_mjd = drive['MReportDrive.fMjd']
+            drive_zd = drive['MReportDrive.fCurrentZd']
+            drive_az = drive['MReportDrive.fCurrentAz']
+            drive_ra = drive['MReportDrive.fRa'] * degrees_per_hour
+            drive_dec = drive['MReportDrive.fDec']
 
-                except KeyError:
+            drive_data['mjd'] = np.concatenate((drive_data['mjd'], drive_mjd))
+            drive_data['zd'] = np.concatenate((drive_data['zd'], drive_zd))
+            drive_data['az'] = np.concatenate((drive_data['az'], drive_az))
+            drive_data['ra'] = np.concatenate((drive_data['ra'], drive_ra))
+            drive_data['dec'] = np.concatenate((drive_data['dec'], drive_dec))
+
+            if len(drive_mjd) < 3:
+                LOGGER.warning(f"File {uproot_file.file_path} has only {len(drive_mjd)} drive reports.")
+                if len(drive_mjd) == 0:
+                    raise MissingDriveReportError(f"File {uproot_file.file_path} does not have any drive report. Check if it was merpped correctly.")
+
+        # Reading pointing information (in units of degrees):
+        if is_mc:
+            # Retrieving the telescope pointing direction
+            pointing = input_file['Events'].arrays(pointing_array_list, library="np")
+
+            pointing_zd = pointing['MPointingPos.fZd'] - \
+                pointing['MPointingPos.fDevZd']
+            pointing_az = pointing['MPointingPos.fAz'] - \
+                pointing['MPointingPos.fDevAz']
+            # N.B. the positive sign here, as HA = local sidereal time - ra
+            pointing_ra = (pointing['MPointingPos.fRa'] +
+                           pointing['MPointingPos.fDevHa']) * degrees_per_hour
+            pointing_dec = pointing['MPointingPos.fDec'] - \
+                pointing['MPointingPos.fDevDec']
+
+        # check for bit flips in the stereo event ID:
+        d_x = np.diff(stereo_event_number.astype(np.int))
+        dx_flip_ids_before = np.where(d_x < 0)[0]
+        dx_flip_ids_after = dx_flip_ids_before + 1
+        dx_flipzero_ids_first = np.where(d_x == 0)[0]
+        dx_flipzero_ids_second = dx_flipzero_ids_first + 1
+        if not is_mc:
+            pedestal_ids = np.where(
+                trigger_pattern == PEDESTAL_TRIGGER_PATTERN)[0]
+            # sort out pedestals events from zero-difference steps:
+            dx_flipzero_ids_second = np.array(
+                list(set(dx_flipzero_ids_second) - set(pedestal_ids)))
+            dx_flip_ids_after = np.array(np.union1d(
+                dx_flip_ids_after, dx_flipzero_ids_second), dtype=np.int)
+        else:
+            # for MC, sort out stereo_event_number = 0:
+            orphan_ids = np.where(stereo_event_number == 0)[0]
+            dx_flip_ids_after = np.array(
+                list(set(dx_flip_ids_after) - set(orphan_ids)))
+        dx_flip_ids_before = dx_flip_ids_after - 1
+        max_total_jumps = 100
+        if len(dx_flip_ids_before) > 0:
+            LOGGER.warning("Warning: detected %d bitflips in file %s. Flag affected events as unsuitable" % (
+                len(dx_flip_ids_before), uproot_file.file_path))
+            total_jumped_events = 0
+            for i in dx_flip_ids_before:
+                trigger_pattern[i] = -1
+                trigger_pattern[i+1] = -1
+                if not is_mc:
+                    jumped_events = int(stereo_event_number[i]) - int(stereo_event_number[i+1])
+                    total_jumped_events += jumped_events
                     LOGGER.warning(
-                        "Pedestals tree not present in file. Cleaning algorithm may fail.")
+                        f"Jump of L3 number backward from {stereo_event_number[i]} to "
+                        f"{stereo_event_number[i+1]}; total jumped events so far: "
+                        f"{total_jumped_events}"
+                    )
 
-            # Reading pointing information (in units of degrees):
-            if is_mc:
-                # Retrieving the telescope pointing direction
-                pointing = input_file['Events'].arrays(pointing_array_list, library="np")
+            if total_jumped_events > max_total_jumps:
+                LOGGER.warning(
+                    f"More than {max_total_jumps} in stereo trigger number; "
+                    f"you may have to match events by timestamp at a later stage."
+                )
 
-                pointing_zd = pointing['MPointingPos.fZd'] - \
-                    pointing['MPointingPos.fDevZd']
-                pointing_az = pointing['MPointingPos.fAz'] - \
-                    pointing['MPointingPos.fDevAz']
-                # N.B. the positive sign here, as HA = local sidereal time - ra
-                pointing_ra = (pointing['MPointingPos.fRa'] +
-                               pointing['MPointingPos.fDevHa']) * degrees_per_hour
-                pointing_dec = pointing['MPointingPos.fDec'] - \
-                    pointing['MPointingPos.fDevDec']
-            else:
-                # Getting the telescope drive info
-                drive = input_file['Drive'].arrays(drive_array_list, library="np")
+        event_data['charge'].append(charge)
+        event_data['arrival_time'].append(arrival_time)
+        event_data['trigger_pattern'] = np.concatenate(
+            (event_data['trigger_pattern'], trigger_pattern))
+        event_data['stereo_event_number'] = np.concatenate(
+            (event_data['stereo_event_number'], stereo_event_number))
 
-                drive_mjd = drive['MReportDrive.fMjd']
-                drive_zd = drive['MReportDrive.fCurrentZd']
-                drive_az = drive['MReportDrive.fCurrentAz']
-                drive_ra = drive['MReportDrive.fRa'] * degrees_per_hour
-                drive_dec = drive['MReportDrive.fDec']
+        if is_mc:
+            event_data['pointing_zd'] = np.concatenate(
+                (event_data['pointing_zd'], pointing_zd))
+            event_data['pointing_az'] = np.concatenate(
+                (event_data['pointing_az'], pointing_az))
+            event_data['pointing_ra'] = np.concatenate(
+                (event_data['pointing_ra'], pointing_ra))
+            event_data['pointing_dec'] = np.concatenate(
+                (event_data['pointing_dec'], pointing_dec))
 
-                drive_data['mjd'] = np.concatenate((drive_data['mjd'],drive_mjd))
-                drive_data['zd']  = np.concatenate((drive_data['zd'],drive_zd))
-                drive_data['az']  = np.concatenate((drive_data['az'],drive_az))
-                drive_data['ra']  = np.concatenate((drive_data['ra'],drive_ra))
-                drive_data['dec'] = np.concatenate((drive_data['dec'],drive_dec))
+            mc_info = input_file['Events'].arrays(mc_list, library="np")
+            # N.B.: For MC, there is only one subrun, so do not need to 'append'
+            event_data['true_energy'] = mc_info['MMcEvt.fEnergy']
+            event_data['true_zd'] = mc_info['MMcEvt.fTheta']
+            event_data['true_az'] = mc_info['MMcEvt.fPhi']
+            event_data['true_shower_primary_id'] = mc_info['MMcEvt.fPartId']
+            event_data['true_h_first_int'] = mc_info['MMcEvt.fZFirstInteraction']
+            event_data['true_core_x'] = mc_info['MMcEvt.fCoreX']
+            event_data['true_core_y'] = mc_info['MMcEvt.fCoreY']
 
-                if len(drive_mjd) < 3:
-                    LOGGER.warning(f"File {file_name} has only {len(drive_mjd)} drive reports.")
-                    if len(drive_mjd) == 0:
-                        raise MissingDriveReportError(f"File {file_name} does not have any drive report. Check if it was merpped correctly.")
-
-            # check for bit flips in the stereo event ID:
-            d_x = np.diff(stereo_event_number.astype(np.int))
-            dx_flip_ids_before = np.where(d_x < 0)[0]
-            dx_flip_ids_after = dx_flip_ids_before + 1
-            dx_flipzero_ids_first = np.where(d_x == 0)[0]
-            dx_flipzero_ids_second = dx_flipzero_ids_first + 1
-            if not is_mc:
-                pedestal_ids = np.where(
-                    trigger_pattern == PEDESTAL_TRIGGER_PATTERN)[0]
-                # sort out pedestals events from zero-difference steps:
-                dx_flipzero_ids_second = np.array(
-                    list(set(dx_flipzero_ids_second) - set(pedestal_ids)))
-                dx_flip_ids_after = np.array(np.union1d(
-                    dx_flip_ids_after, dx_flipzero_ids_second), dtype=np.int)
-            else:
-                # for MC, sort out stereo_event_number = 0:
-                orphan_ids = np.where(stereo_event_number == 0)[0]
-                dx_flip_ids_after = np.array(
-                    list(set(dx_flip_ids_after) - set(orphan_ids)))
-            dx_flip_ids_before = dx_flip_ids_after - 1
-            max_total_jumps = 100
-            if len(dx_flip_ids_before) > 0:
-                LOGGER.warning("Warning: detected %d bitflips in file %s. Flag affected events as unsuitable" % (
-                    len(dx_flip_ids_before), file_name))
-                total_jumped_events = 0
-                for i in dx_flip_ids_before:
-                    trigger_pattern[i] = -1
-                    trigger_pattern[i+1] = -1
-                    if not is_mc:
-                        jumped_events = int(stereo_event_number[i]) - int(stereo_event_number[i+1])
-                        total_jumped_events += jumped_events
-                        LOGGER.warning(f"Jump of L3 number backward from {stereo_event_number[i]} to {stereo_event_number[i+1]}; "
-                            f"total jumped events so far: {total_jumped_events}")
-                        if total_jumped_events > max_total_jumps:
-                            raise L3JumpError(f"Jumps backward in L3 trigger number by {total_jumped_events} in total. You might consider matching events by time instead.")
-
-            event_data['charge'].append(charge)
-            event_data['arrival_time'].append(arrival_time)
-            event_data['mars_meta'].append(mars_meta)
-            event_data['trigger_pattern'] = np.concatenate(
-                (event_data['trigger_pattern'], trigger_pattern))
-            event_data['stereo_event_number'] = np.concatenate(
-                (event_data['stereo_event_number'], stereo_event_number))
-            if is_mc:
-                event_data['pointing_zd'] = np.concatenate(
-                    (event_data['pointing_zd'], pointing_zd))
-                event_data['pointing_az'] = np.concatenate(
-                    (event_data['pointing_az'], pointing_az))
-                event_data['pointing_ra'] = np.concatenate(
-                    (event_data['pointing_ra'], pointing_ra))
-                event_data['pointing_dec'] = np.concatenate(
-                    (event_data['pointing_dec'], pointing_dec))
-
-                mc_info = input_file['Events'].arrays(mc_list, library="np")
-                # N.B.: For MC, there is only one subrun, so do not need to 'append'
-                event_data['true_energy'] = mc_info['MMcEvt.fEnergy']
-                event_data['true_zd'] = mc_info['MMcEvt.fTheta']
-                event_data['true_az'] = mc_info['MMcEvt.fPhi']
-                event_data['true_shower_primary_id'] = mc_info['MMcEvt.fPartId']
-                event_data['true_h_first_int'] = mc_info['MMcEvt.fZFirstInteraction']
-                event_data['true_core_x'] = mc_info['MMcEvt.fCoreX']
-                event_data['true_core_y'] = mc_info['MMcEvt.fCoreY']
-
-            event_data['file_edges'].append(len(event_data['trigger_pattern']))
+        event_data['file_edges'].append(len(event_data['trigger_pattern']))
 
         if not is_mc:
             monitoring_data['badpixelinfo'] = np.array(
@@ -1329,14 +1616,17 @@ class MarsRun:
                     monitoring_data['PedestalFromExtractorRndm'][quantity])
 
             # get only drive reports with unique times, otherwise interpolation fails.
-            drive_mjd_unique, unique_indices = np.unique(drive_data['mjd'], return_index=True)
-            drive_zd_unique  = drive_data['zd'][unique_indices]
-            drive_az_unique  = drive_data['az'][unique_indices]
-            drive_ra_unique  = drive_data['ra'][unique_indices]
+            drive_mjd_unique, unique_indices = np.unique(
+                drive_data['mjd'],
+                return_index=True
+            )
+            drive_zd_unique = drive_data['zd'][unique_indices]
+            drive_az_unique = drive_data['az'][unique_indices]
+            drive_ra_unique = drive_data['ra'][unique_indices]
             drive_dec_unique = drive_data['dec'][unique_indices]
 
             first_drive_report_time = Time(drive_mjd_unique[0], scale='utc', format='mjd')
-            last_drive_report_time  = Time(drive_mjd_unique[-1], scale='utc', format='mjd')
+            last_drive_report_time = Time(drive_mjd_unique[-1], scale='utc', format='mjd')
 
             LOGGER.warning(f"Interpolating events information from {len(drive_data['mjd'])} drive reports.")
             LOGGER.warning(f"Drive reports available from {first_drive_report_time.iso} to {last_drive_report_time.iso}.")
@@ -1359,8 +1649,7 @@ class MarsRun:
             event_data['pointing_ra'] = drive_ra_pointing_interpolator(event_data['MJD'])
             event_data['pointing_dec'] = drive_dec_pointing_interpolator(event_data['MJD'])
 
-        return event_data, monitoring_data, mcheader_data
-
+        return event_data, monitoring_data
 
     def _find_pedestal_events(self):
         """
@@ -1400,8 +1689,8 @@ class MarsRun:
             return stereo_ids
 
         if not self.is_mc:
-            stereo_m1_data = self.event_data['M1']['stereo_event_number'][np.where(self.event_data['M1']['trigger_pattern'] == DATA_TRIGGER_PATTERN)]
-            stereo_m2_data = self.event_data['M2']['stereo_event_number'][np.where(self.event_data['M2']['trigger_pattern'] == DATA_TRIGGER_PATTERN)]
+            stereo_m1_data = self.event_data['M1']['stereo_event_number'][np.where(self.event_data['M1']['trigger_pattern'] == DATA_STEREO_TRIGGER_PATTERN)]
+            stereo_m2_data = self.event_data['M2']['stereo_event_number'][np.where(self.event_data['M2']['trigger_pattern'] == DATA_STEREO_TRIGGER_PATTERN)]
 
             # find common values between M1 and M2 stereo events, see https://numpy.org/doc/stable/reference/generated/numpy.intersect1d.html
             stereo_numbers = np.intersect1d(stereo_m1_data, stereo_m2_data)
@@ -1414,8 +1703,8 @@ class MarsRun:
             # make list of tuples, see https://stackoverflow.com/questions/2407398/how-to-merge-lists-into-a-list-of-tuples
             stereo_ids = list(zip(m1_ids, m2_ids))
         else:
-            stereo_m1_data = self.event_data['M1']['stereo_event_number'][np.where(self.event_data['M1']['trigger_pattern'] == MC_TRIGGER_PATTERN)]
-            stereo_m2_data = self.event_data['M2']['stereo_event_number'][np.where(self.event_data['M2']['trigger_pattern'] == MC_TRIGGER_PATTERN)]
+            stereo_m1_data = self.event_data['M1']['stereo_event_number'][np.where(self.event_data['M1']['trigger_pattern'] == MC_STEREO_TRIGGER_PATTERN)]
+            stereo_m2_data = self.event_data['M2']['stereo_event_number'][np.where(self.event_data['M2']['trigger_pattern'] == MC_STEREO_TRIGGER_PATTERN)]
             # remove events with 0 stereo number, which are mono events
             stereo_m1_data = stereo_m1_data[np.where(stereo_m1_data != 0)]
             stereo_m2_data = stereo_m2_data[np.where(stereo_m2_data != 0)]
@@ -1441,6 +1730,28 @@ class MarsRun:
 
         return stereo_ids
 
+    def _find_stereo_mc_events(self):
+        """
+        This internal methods identifies stereo events in the run.
+
+        Returns
+        -------
+        list:
+            A list of pairs (M1_id, M2_id) corresponding to stereo events in the run.
+        """
+
+        mono_ids = dict()
+        mono_ids['M1'] = []
+        mono_ids['M2'] = []
+
+        m1_ids = np.argwhere(self.event_data['M1']['stereo_event_number'])
+        m2_ids = np.argwhere(self.event_data['M2']['stereo_event_number'])
+
+        mono_ids['M1'] = list(m1_ids.flatten())
+        mono_ids['M2'] = list(m2_ids.flatten())
+
+        return mono_ids
+
     def _find_mono_events(self):
         """
         This internal method identifies the IDs (order numbers) of the
@@ -1461,11 +1772,11 @@ class MarsRun:
 
         if not self.is_mc:
             if (n_m1_events != 0) and (n_m2_events != 0):
-                m1_data = self.event_data['M1']['stereo_event_number'][np.where(self.event_data['M1']['trigger_pattern'] == DATA_TRIGGER_PATTERN)]
-                m2_data = self.event_data['M2']['stereo_event_number'][np.where(self.event_data['M2']['trigger_pattern'] == DATA_TRIGGER_PATTERN)]
+                m1_data = self.event_data['M1']['stereo_event_number'][np.where(self.event_data['M1']['trigger_pattern'] == DATA_STEREO_TRIGGER_PATTERN)]
+                m2_data = self.event_data['M2']['stereo_event_number'][np.where(self.event_data['M2']['trigger_pattern'] == DATA_STEREO_TRIGGER_PATTERN)]
 
-                m1_ids_data = np.where(self.event_data['M1']['trigger_pattern'] == DATA_TRIGGER_PATTERN)[0]
-                m2_ids_data = np.where(self.event_data['M2']['trigger_pattern'] == DATA_TRIGGER_PATTERN)[0]
+                m1_ids_data = np.where(self.event_data['M1']['trigger_pattern'] == DATA_STEREO_TRIGGER_PATTERN)[0]
+                m2_ids_data = np.where(self.event_data['M2']['trigger_pattern'] == DATA_STEREO_TRIGGER_PATTERN)[0]
 
                 stereo_numbers = np.intersect1d(m1_data, m2_data)
 
@@ -1488,15 +1799,15 @@ class MarsRun:
                 mono_ids['M1'] = m1_ids_mono.tolist()
                 mono_ids['M2'] = m2_ids_mono.tolist()
             elif (n_m1_events != 0) and (n_m2_events == 0):
-                m1_ids_data = np.where(self.event_data['M1']['trigger_pattern'] == DATA_TRIGGER_PATTERN)[0]
+                m1_ids_data = np.where(self.event_data['M1']['trigger_pattern'] == DATA_STEREO_TRIGGER_PATTERN)[0]
                 mono_ids['M1'] = m1_ids_data.tolist()
             elif (n_m1_events == 0) and (n_m2_events != 0):
-                m2_ids_data = np.where(self.event_data['M2']['trigger_pattern'] == DATA_TRIGGER_PATTERN)[0]
+                m2_ids_data = np.where(self.event_data['M2']['trigger_pattern'] == DATA_STEREO_TRIGGER_PATTERN)[0]
                 mono_ids['M2'] = m2_ids_data.tolist()
         else:
             # just find ids where event stereo number is 0 (which is given to mono events) and pattern is MC trigger
-            m1_mono_mask = np.logical_and(self.event_data['M1']['trigger_pattern'] == MC_TRIGGER_PATTERN, self.event_data['M1']['stereo_event_number'] == 0)
-            m2_mono_mask = np.logical_and(self.event_data['M2']['trigger_pattern'] == MC_TRIGGER_PATTERN, self.event_data['M2']['stereo_event_number'] == 0)
+            m1_mono_mask = np.logical_and(self.event_data['M1']['trigger_pattern'] == MC_STEREO_TRIGGER_PATTERN, self.event_data['M1']['stereo_event_number'] == 0)
+            m2_mono_mask = np.logical_and(self.event_data['M2']['trigger_pattern'] == MC_STEREO_TRIGGER_PATTERN, self.event_data['M2']['stereo_event_number'] == 0)
 
             m1_ids = np.where(m1_mono_mask == True)[0].tolist()
             m2_ids = np.where(m2_mono_mask == True)[0].tolist()
@@ -1634,7 +1945,6 @@ class MarsRun:
         event_data['pointing_ra'] = self.event_data[telescope]['pointing_ra'][event_id]
         event_data['pointing_dec'] = self.event_data[telescope]['pointing_dec'][event_id]
         event_data['mjd'] = self.event_data[telescope]['MJD'][event_id]
-        event_data['mars_meta'] = self.event_data[telescope]['mars_meta'][file_num]
 
         return event_data
 
@@ -1698,9 +2008,6 @@ class MarsRun:
         event_data['m2_pointing_ra'] = self.event_data['M2']['pointing_ra'][m2_id]
         event_data['m2_pointing_dec'] = self.event_data['M2']['pointing_dec'][m2_id]
 
-        # get information identical for both telescopes from M1:
-        event_data['mars_meta'] = self.event_data['M1']['mars_meta'][m1_file_num]
-
         if not self.is_mc:
             event_data['mjd'] = self.event_data['M1']['MJD'][m1_id]
         else:
@@ -1752,14 +2059,12 @@ class MarsRun:
         arrival_times = self.event_data[telescope]['arrival_time'][file_num][id_in_file][:self.n_camera_pixels]
 
         event_data = dict()
-        event_data['image'] = photon_content
-        event_data['pulse_time'] = arrival_times
+        event_data['image'] = np.array(photon_content, dtype=np.float)
+        event_data['pulse_time'] = np.array(arrival_times, dtype=np.float)
         event_data['pointing_az'] = self.event_data[telescope]['pointing_az'][event_id]
         event_data['pointing_zd'] = self.event_data[telescope]['pointing_zd'][event_id]
         event_data['pointing_ra'] = self.event_data[telescope]['pointing_ra'][event_id]
         event_data['pointing_dec'] = self.event_data[telescope]['pointing_dec'][event_id]
-
-        event_data['mars_meta'] = self.event_data[telescope]['mars_meta'][file_num]
 
         if not self.is_mc:
             event_data['mjd'] = self.event_data[telescope]['MJD'][event_id]
