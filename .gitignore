@@ -1,12 +1,42 @@
-/.project
-/build/
-/.project
-/.pydevproject
-/ctapipe_io_magic.egg-info/
-ctapipe_io_magic.egg-info/PKG-INFO
-ctapipe_io_magic.egg-info/dependency_links.txt
-ctapipe_io_magic.egg-info/requires.txt
-ctapipe_io_magic.egg-info/SOURCES.txt
-ctapipe_io_magic.egg-info/top_level.txt
-dist/
-ctapipe_io_magic/__pycache__/__init__.cpython-36.pyc
+test_data
+.pytest_cache
+
+# Compiled files
+*.py[co]
+*.a
+*.o
+*.so
+__pycache__
+
+# ignore version cache file (generated automatically when setup.py is run)
+ctapipe_io_magic/_version.py
+ctapipe_io_magic/_version_cache.py
+
+# Eclipse editor project files
+.project
+.pydevproject
+
+# Other
+.*.swp
+*~
+\#*
+.\#*
+
+# Packages/installer info
+*.egg
+*.eggs
+*.egg-info
+dist
+build
+eggs
+parts
+bin
+var
+sdist
+develop-eggs
+.installed.cfg
+distribute-*.tar.gz
+
+# Other generated files
+htmlcov
+.coverage
