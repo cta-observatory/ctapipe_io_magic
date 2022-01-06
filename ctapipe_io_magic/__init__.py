@@ -1242,7 +1242,7 @@ class MarsCalibratedRun:
 
         self.n_camera_pixels = GEOM.n_pixels
 
-        self.file_name = uproot_file.file.file_path
+        self.file_name = uproot_file.file_path
 
         self.is_mc = is_mc
 
