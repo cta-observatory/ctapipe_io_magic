@@ -27,7 +27,6 @@ from ctapipe.containers import (
     SimulationConfigContainer,
     PointingContainer,
     TelescopePointingContainer,
-    # TelescopeTriggerContainer,
     MonitoringCameraContainer,
     PedestalContainer,
 )
@@ -817,8 +816,7 @@ class MAGICEventSource(EventSource):
                 obs_id = self.current_run['number']
 
                 # Reading event data
-                event_data = self.current_run['data'].get_stereo_event_data(
-                    event_i)
+                event_data = self.current_run['data'].get_stereo_event_data(event_i)
 
                 data.meta['origin'] = 'MAGIC'
                 data.meta['input_url'] = self.input_url
@@ -878,11 +876,18 @@ class MAGICEventSource(EventSource):
                 data.pointing = pointing
 
                 if not self.is_mc:
-                    # Adding the event arrival time
-                    time_tmp = Time(
-                        event_data['mjd'], scale='utc', format='mjd')
-                    data.trigger.time = Time(
-                        time_tmp, format='unix', scale='utc', precision=9)
+
+                    for tel_i, tel_id in enumerate(tels_in_file):
+
+                        time_tmp = Time(event_data[f'{tel_id}_MJD'], scale='utc', format='mjd')
+
+                        data.trigger.tel[tel_i + 1] = TelescopeTriggerContainer(
+                            time=Time(time_tmp, format='unix', scale='utc', precision=9),
+                            mjd=event_data[f'{tel_id}_mjd'],
+                            millisec=event_data[f'{tel_id}_millisec'],
+                            nanosec=event_data[f'{tel_id}_nanosec']
+                        )
+
                 else:
                     data.mc.energy = event_data['true_energy'] * u.GeV
                     data.mc.alt = (np.pi/2 - event_data['true_zd']) * u.rad
@@ -1183,10 +1188,14 @@ class MAGICEventSource(EventSource):
                     assume_unique=True,)
             if not self.is_mc:
                 # Adding the event arrival time
-                time_tmp = Time(
-                    event_data['mjd'], scale='utc', format='mjd')
-                data.trigger.tel[tel_i + 1] = TelescopeTriggerContainer(time=Time(
-                    time_tmp, format='unix', scale='utc', precision=9))
+                time_tmp = Time(event_data['MJD'], scale='utc', format='mjd')
+
+                data.trigger.tel[tel_i + 1] = TelescopeTriggerContainer(
+                    time=Time(time_tmp, format='unix', scale='utc', precision=9),
+                    mjd=event_data['mjd'],
+                    millisec=event_data['millisec'],
+                    nanosec=event_data['nanosec']
+                )
 
             # Event counter
             data.count = counter
@@ -1453,15 +1462,15 @@ class MarsCalibratedRun:
             event_data['millisec'] = np.concatenate((event_data['millisec'], event_millisec))
             event_data['nanosec'] = np.concatenate((event_data['nanosec'], event_nanosec))
 
-            event_mjd = event_mjd + \
-                (event_millisec / 1e3 + event_nanosec / 1e9) / seconds_per_day
-            event_data['MJD'] = np.concatenate(
-                (event_data['MJD'], event_mjd))
+            event_mjd = event_mjd + (event_millisec / 1e3 + event_nanosec / 1e9) / seconds_per_day
+
+            event_data['MJD'] = np.concatenate((event_data['MJD'], event_mjd))
 
             badpixelinfo = input_file['RunHeaders']['MBadPixelsCam.fArray.fInfo'].array(
                 uproot.interpretation.jagged.AsJagged(
                     uproot.interpretation.numerical.AsDtype(np.dtype('>i4'))
                 ), library="np")[0].reshape((4, 1183), order='F')
+
             # now we have 4 axes:
             # 0st axis: empty (?)
             # 1st axis: Unsuitable pixels
@@ -1961,7 +1970,10 @@ class MarsCalibratedRun:
         event_data['pointing_zd'] = self.event_data[telescope]['pointing_zd'][event_id]
         event_data['pointing_ra'] = self.event_data[telescope]['pointing_ra'][event_id]
         event_data['pointing_dec'] = self.event_data[telescope]['pointing_dec'][event_id]
-        event_data['mjd'] = self.event_data[telescope]['MJD'][event_id]
+        event_data['mjd'] = self.event_data[telescope]['mjd'][event_id]
+        event_data['millisec'] = self.event_data[telescope]['millisec'][event_id]
+        event_data['nanosec'] = self.event_data[telescope]['nanosec'][event_id]
+        event_data['MJD'] = self.event_data[telescope]['MJD'][event_id]
 
         return event_data
 
@@ -2026,14 +2038,15 @@ class MarsCalibratedRun:
         event_data['m2_pointing_dec'] = self.event_data['M2']['pointing_dec'][m2_id]
 
         if not self.is_mc:
-
-            event_data['mjd'] = self.event_data['M1']['MJD'][m1_id]
-            # === added here ===
+            event_data['m1_mjd'] = self.event_data['M1']['mjd'][m1_id]
             event_data['m1_millisec'] = self.event_data['M1']['millisec'][m1_id]
             event_data['m1_nanosec'] = self.event_data['M1']['nanosec'][m1_id]
-            event_data['m2_millisec'] =self.event_data['M2']['millisec'][m1_id]
-            event_data['m2_nanosec'] = self.event_data['M2']['nanosec'][m1_id]
-            # === added here ===
+            event_data['m1_MJD'] = self.event_data['M1']['MJD'][m1_id]
+            event_data['m2_mjd'] = self.event_data['M2']['mjd'][m2_id]
+            event_data['m2_millisec'] =self.event_data['M2']['millisec'][m2_id]
+            event_data['m2_nanosec'] = self.event_data['M2']['nanosec'][m2_id]
+            event_data['m2_MJD'] = self.event_data['M2']['MJD'][m2_id]
+
         else:
             event_data['true_energy'] = self.event_data['M1']['true_energy'][m1_id]
             event_data['true_zd'] = self.event_data['M1']['true_zd'][m1_id]
@@ -2091,12 +2104,11 @@ class MarsCalibratedRun:
         event_data['pointing_dec'] = self.event_data[telescope]['pointing_dec'][event_id]
 
         if not self.is_mc:
-            event_data['MJD'] = self.event_data[telescope]['MJD'][event_id]
-            # === added here ===
             event_data['mjd'] = self.event_data[telescope]['mjd'][event_id]
             event_data['millisec'] = self.event_data[telescope]['millisec'][event_id]
             event_data['nanosec'] = self.event_data[telescope]['nanosec'][event_id]
-            # === added here === 
+            event_data['MJD'] = self.event_data[telescope]['MJD'][event_id]
+
         else:
             event_data['true_energy'] = self.event_data[telescope]['true_energy'][event_id]
             event_data['true_zd'] = self.event_data[telescope]['true_zd'][event_id]
