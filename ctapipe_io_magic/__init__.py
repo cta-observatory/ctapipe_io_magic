@@ -3,27 +3,22 @@
 # Requires uproot package (https://github.com/scikit-hep/uproot).
 """
 
-import logging
-
 import re
-from enum import Enum, auto
-
-import numpy as np
-
+import uproot
+import logging
 import scipy
 import scipy.interpolate
-
+import numpy as np
+from enum import Enum, auto
 from astropy.coordinates import Angle
 from astropy import units as u
 from astropy.time import Time
 
-import uproot
-
 from ctapipe.io.eventsource import EventSource
 from ctapipe.io.datalevels import DataLevel
-
 from ctapipe.core import Container, Field
 from ctapipe.core.traits import Bool
+from ctapipe.coordinates import CameraFrame
 
 from ctapipe.containers import (
     ArrayEventContainer,
@@ -32,7 +27,6 @@ from ctapipe.containers import (
     SimulationConfigContainer,
     PointingContainer,
     TelescopePointingContainer,
-    TelescopeTriggerContainer,
     MonitoringCameraContainer,
     PedestalContainer,
 )
@@ -45,14 +39,25 @@ from ctapipe.instrument import (
     CameraReadout,
 )
 
-from ctapipe.coordinates import CameraFrame
-
 from .version import __version__
+
 from .constants import (
     MC_STEREO_TRIGGER_PATTERN,
     PEDESTAL_TRIGGER_PATTERN,
     DATA_STEREO_TRIGGER_PATTERN
 )
+
+NAN_TIME = Time(0, format="mjd", scale="tai")
+
+class TelescopeTriggerContainer(Container):
+    container_prefix = ""
+    time = Field(NAN_TIME, "Telescope trigger time")
+    n_trigger_pixels = Field(-1, "Number of trigger groups (sectors) listed")
+    trigger_pixels = Field(None, "pixels involved in the camera trigger")
+    mjd = Field(-1, "MAGIC mjd time")
+    millisec = Field(-1, "MAGIC millisec time")
+    nanosec = Field(-1, "MAGIC nanosec time")
+
 
 __all__ = ['MAGICEventSource', '__version__']
 
@@ -811,8 +816,7 @@ class MAGICEventSource(EventSource):
                 obs_id = self.current_run['number']
 
                 # Reading event data
-                event_data = self.current_run['data'].get_stereo_event_data(
-                    event_i)
+                event_data = self.current_run['data'].get_stereo_event_data(event_i)
 
                 data.meta['origin'] = 'MAGIC'
                 data.meta['input_url'] = self.input_url
@@ -872,11 +876,18 @@ class MAGICEventSource(EventSource):
                 data.pointing = pointing
 
                 if not self.is_mc:
-                    # Adding the event arrival time
-                    time_tmp = Time(
-                        event_data['mjd'], scale='utc', format='mjd')
-                    data.trigger.time = Time(
-                        time_tmp, format='unix', scale='utc', precision=9)
+
+                    for tel_i, tel_id in enumerate(tels_in_file):
+
+                        time_tmp = Time(event_data[f'{tel_id}_MJD'], scale='utc', format='mjd')
+
+                        data.trigger.tel[tel_i + 1] = TelescopeTriggerContainer(
+                            time=Time(time_tmp, format='unix', scale='utc', precision=9),
+                            mjd=event_data[f'{tel_id}_mjd'],
+                            millisec=event_data[f'{tel_id}_millisec'],
+                            nanosec=event_data[f'{tel_id}_nanosec']
+                        )
+
                 else:
                     data.mc.energy = event_data['true_energy'] * u.GeV
                     data.mc.alt = (np.pi/2 - event_data['true_zd']) * u.rad
@@ -1012,10 +1023,14 @@ class MAGICEventSource(EventSource):
                     assume_unique=True,)
             if not self.is_mc:
                 # Adding the event arrival time
-                time_tmp = Time(
-                    event_data['mjd'], scale='utc', format='mjd')
-                data.trigger.tel[tel_i + 1] = TelescopeTriggerContainer(time=Time(
-                    time_tmp, format='unix', scale='utc', precision=9))
+                time_tmp = Time(event_data['MJD'], scale='utc', format='mjd')
+
+                data.trigger.tel[tel_i + 1] = TelescopeTriggerContainer(
+                    time=Time(time_tmp, format='unix', scale='utc', precision=9),
+                    mjd=event_data['mjd'],
+                    millisec=event_data['millisec'],
+                    nanosec=event_data['nanosec']
+                )
 
             # Event counter
             data.count = counter
@@ -1173,10 +1188,14 @@ class MAGICEventSource(EventSource):
                     assume_unique=True,)
             if not self.is_mc:
                 # Adding the event arrival time
-                time_tmp = Time(
-                    event_data['mjd'], scale='utc', format='mjd')
-                data.trigger.tel[tel_i + 1] = TelescopeTriggerContainer(time=Time(
-                    time_tmp, format='unix', scale='utc', precision=9))
+                time_tmp = Time(event_data['MJD'], scale='utc', format='mjd')
+
+                data.trigger.tel[tel_i + 1] = TelescopeTriggerContainer(
+                    time=Time(time_tmp, format='unix', scale='utc', precision=9),
+                    mjd=event_data['mjd'],
+                    millisec=event_data['millisec'],
+                    nanosec=event_data['nanosec']
+                )
 
             # Event counter
             data.count = counter
@@ -1325,6 +1344,9 @@ class MarsCalibratedRun:
         event_data['pointing_az'] = np.array([])
         event_data['pointing_ra'] = np.array([])
         event_data['pointing_dec'] = np.array([])
+        event_data['mjd'] = np.array([])
+        event_data['millisec'] = np.array([])
+        event_data['nanosec'] = np.array([])
         event_data['MJD'] = np.array([])
 
         # monitoring information (updated from time to time)
@@ -1436,15 +1458,19 @@ class MarsCalibratedRun:
             event_millisec = event_times['MTime.fTime.fMilliSec']
             event_nanosec = event_times['MTime.fNanoSec']
 
-            event_mjd = event_mjd + \
-                (event_millisec / 1e3 + event_nanosec / 1e9) / seconds_per_day
-            event_data['MJD'] = np.concatenate(
-                (event_data['MJD'], event_mjd))
+            event_data['mjd'] = np.concatenate((event_data['mjd'], event_mjd))
+            event_data['millisec'] = np.concatenate((event_data['millisec'], event_millisec))
+            event_data['nanosec'] = np.concatenate((event_data['nanosec'], event_nanosec))
+
+            event_mjd = event_mjd + (event_millisec / 1e3 + event_nanosec / 1e9) / seconds_per_day
+
+            event_data['MJD'] = np.concatenate((event_data['MJD'], event_mjd))
 
             badpixelinfo = input_file['RunHeaders']['MBadPixelsCam.fArray.fInfo'].array(
                 uproot.interpretation.jagged.AsJagged(
                     uproot.interpretation.numerical.AsDtype(np.dtype('>i4'))
                 ), library="np")[0].reshape((4, 1183), order='F')
+
             # now we have 4 axes:
             # 0st axis: empty (?)
             # 1st axis: Unsuitable pixels
@@ -1944,7 +1970,10 @@ class MarsCalibratedRun:
         event_data['pointing_zd'] = self.event_data[telescope]['pointing_zd'][event_id]
         event_data['pointing_ra'] = self.event_data[telescope]['pointing_ra'][event_id]
         event_data['pointing_dec'] = self.event_data[telescope]['pointing_dec'][event_id]
-        event_data['mjd'] = self.event_data[telescope]['MJD'][event_id]
+        event_data['mjd'] = self.event_data[telescope]['mjd'][event_id]
+        event_data['millisec'] = self.event_data[telescope]['millisec'][event_id]
+        event_data['nanosec'] = self.event_data[telescope]['nanosec'][event_id]
+        event_data['MJD'] = self.event_data[telescope]['MJD'][event_id]
 
         return event_data
 
@@ -2009,7 +2038,15 @@ class MarsCalibratedRun:
         event_data['m2_pointing_dec'] = self.event_data['M2']['pointing_dec'][m2_id]
 
         if not self.is_mc:
-            event_data['mjd'] = self.event_data['M1']['MJD'][m1_id]
+            event_data['m1_mjd'] = self.event_data['M1']['mjd'][m1_id]
+            event_data['m1_millisec'] = self.event_data['M1']['millisec'][m1_id]
+            event_data['m1_nanosec'] = self.event_data['M1']['nanosec'][m1_id]
+            event_data['m1_MJD'] = self.event_data['M1']['MJD'][m1_id]
+            event_data['m2_mjd'] = self.event_data['M2']['mjd'][m2_id]
+            event_data['m2_millisec'] =self.event_data['M2']['millisec'][m2_id]
+            event_data['m2_nanosec'] = self.event_data['M2']['nanosec'][m2_id]
+            event_data['m2_MJD'] = self.event_data['M2']['MJD'][m2_id]
+
         else:
             event_data['true_energy'] = self.event_data['M1']['true_energy'][m1_id]
             event_data['true_zd'] = self.event_data['M1']['true_zd'][m1_id]
@@ -2067,7 +2104,11 @@ class MarsCalibratedRun:
         event_data['pointing_dec'] = self.event_data[telescope]['pointing_dec'][event_id]
 
         if not self.is_mc:
-            event_data['mjd'] = self.event_data[telescope]['MJD'][event_id]
+            event_data['mjd'] = self.event_data[telescope]['mjd'][event_id]
+            event_data['millisec'] = self.event_data[telescope]['millisec'][event_id]
+            event_data['nanosec'] = self.event_data[telescope]['nanosec'][event_id]
+            event_data['MJD'] = self.event_data[telescope]['MJD'][event_id]
+
         else:
             event_data['true_energy'] = self.event_data[telescope]['true_energy'][event_id]
             event_data['true_zd'] = self.event_data[telescope]['true_zd'][event_id]
