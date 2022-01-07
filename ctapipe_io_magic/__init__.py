@@ -9,6 +9,7 @@ import logging
 import scipy
 import scipy.interpolate
 import numpy as np
+from decimal import Decimal
 from enum import Enum, auto
 from astropy.coordinates import Angle
 from astropy import units as u
@@ -27,6 +28,7 @@ from ctapipe.containers import (
     SimulationConfigContainer,
     PointingContainer,
     TelescopePointingContainer,
+    TelescopeTriggerContainer,
     MonitoringCameraContainer,
     PedestalContainer,
 )
@@ -46,17 +48,6 @@ from .constants import (
     PEDESTAL_TRIGGER_PATTERN,
     DATA_STEREO_TRIGGER_PATTERN
 )
-
-NAN_TIME = Time(0, format="mjd", scale="tai")
-
-class TelescopeTriggerContainer(Container):
-    container_prefix = ""
-    time = Field(NAN_TIME, "Telescope trigger time")
-    n_trigger_pixels = Field(-1, "Number of trigger groups (sectors) listed")
-    trigger_pixels = Field(None, "pixels involved in the camera trigger")
-    mjd = Field(-1, "MAGIC mjd time")
-    millisec = Field(-1, "MAGIC millisec time")
-    nanosec = Field(-1, "MAGIC nanosec time")
 
 
 __all__ = ['MAGICEventSource', '__version__']
@@ -760,10 +751,10 @@ class MAGICEventSource(EventSource):
                     pedestal_info = PedestalContainer()
                     badpixel_info = PixelStatusContainer()
 
-                    time_tmp = Time(monitoring_data['M{:d}'.format(
-                        tel_i + 1)]['PedestalMJD'], scale='utc', format='mjd')
                     pedestal_info.sample_time = Time(
-                        time_tmp, format='unix', scale='utc', precision=9)
+                        monitoring_data['M{:d}'.format(tel_i + 1)]['PedestalUnix'], format='unix', scale='utc'
+                    )
+
                     # hardcoded number of pedestal events averaged over:
                     pedestal_info.n_events = 500
                     pedestal_info.charge_mean = []
@@ -781,11 +772,9 @@ class MAGICEventSource(EventSource):
                     pedestal_info.charge_std.append(
                         monitoring_data['M{:d}'.format(tel_i + 1)]['PedestalFromExtractorRndm']['Rms'])
 
-                    t_range = Time(monitoring_data['M{:d}'.format(
-                        tel_i + 1)]['badpixelinfoMJDrange'], scale='utc', format='mjd')
+                    t_range = Time(monitoring_data['M{:d}'.format(tel_i + 1)]['badpixelinfoUnixRange'], format='unix', scale='utc')
 
-                    badpixel_info.hardware_failing_pixels = monitoring_data['M{:d}'.format(
-                        tel_i + 1)]['badpixelinfo']
+                    badpixel_info.hardware_failing_pixels = monitoring_data['M{:d}'.format(tel_i + 1)]['badpixelinfo']
                     badpixel_info.sample_time_range = t_range
 
                     monitoring_camera.pedestal = pedestal_info
@@ -793,6 +782,7 @@ class MAGICEventSource(EventSource):
 
                     data.mon.tels_with_data = [1, 2]
                     data.mon.tel[tel_i + 1] = monitoring_camera
+
             else:
                 assert self.current_run['data'].mcheader_data['M1'] == self.current_run['data'].mcheader_data['M2'], "Simulation configurations are different for M1 and M2 !!!"
                 data.mcheader.num_showers = self.current_run['data'].mcheader_data['M1']['sim_nevents']
@@ -879,13 +869,8 @@ class MAGICEventSource(EventSource):
 
                     for tel_i, tel_id in enumerate(tels_in_file):
 
-                        time_tmp = Time(event_data[f'{tel_id}_MJD'], scale='utc', format='mjd')
-
                         data.trigger.tel[tel_i + 1] = TelescopeTriggerContainer(
-                            time=Time(time_tmp, format='unix', scale='utc', precision=9),
-                            mjd=event_data[f'{tel_id}_mjd'],
-                            millisec=event_data[f'{tel_id}_millisec'],
-                            nanosec=event_data[f'{tel_id}_nanosec']
+                            time=Time(event_data[f'{tel_id}_unix'], format='unix', scale='utc')
                         )
 
                 else:
@@ -962,10 +947,10 @@ class MAGICEventSource(EventSource):
             pedestal_info = PedestalContainer()
             badpixel_info = PixelStatusContainer()
 
-            time_tmp = Time(monitoring_data['M{:d}'.format(
-                tel_i + 1)]['PedestalMJD'], scale='utc', format='mjd')
             pedestal_info.sample_time = Time(
-                time_tmp, format='unix', scale='utc', precision=9)
+                monitoring_data['M{:d}'.format(tel_i + 1)]['PedestalUnix'], format='unix', scale='utc'
+            )
+
             pedestal_info.n_events = 500  # hardcoded number of pedestal events averaged over
             pedestal_info.charge_mean = []
             pedestal_info.charge_mean.append(
@@ -982,11 +967,9 @@ class MAGICEventSource(EventSource):
             pedestal_info.charge_std.append(
                 monitoring_data['M{:d}'.format(tel_i + 1)]['PedestalFromExtractorRndm']['Rms'])
 
-            t_range = Time(monitoring_data['M{:d}'.format(
-                tel_i + 1)]['badpixelinfoMJDrange'], scale='utc', format='mjd')
+            t_range = Time(monitoring_data['M{:d}'.format(tel_i + 1)]['badpixelinfoUnixRange'], format='unix', scale='utc')
 
-            badpixel_info.hardware_failing_pixels = monitoring_data['M{:d}'.format(
-                tel_i + 1)]['badpixelinfo']
+            badpixel_info.hardware_failing_pixels = monitoring_data['M{:d}'.format(tel_i + 1)]['badpixelinfo']
             badpixel_info.sample_time_range = t_range
 
             monitoring_camera.pedestal = pedestal_info
@@ -1001,14 +984,14 @@ class MAGICEventSource(EventSource):
 
         # Loop over the events
         for event_i in range(n_events):
+
             # Event and run ids
             event_order_number = self.current_run['data'].mono_ids[telescope][event_i]
             event_id = self.current_run['data'].event_data[telescope]['stereo_event_number'][event_order_number]
             obs_id = self.current_run['number']
 
             # Reading event data
-            event_data = self.current_run['data'].get_mono_event_data(
-                event_i, telescope=telescope)
+            event_data = self.current_run['data'].get_mono_event_data(event_i, telescope=telescope)
 
             data.meta['origin'] = 'MAGIC'
             data.meta['input_url'] = self.input_url
@@ -1016,20 +999,19 @@ class MAGICEventSource(EventSource):
 
             data.trigger.event_type = self.current_run['data'].event_data[telescope]['trigger_pattern'][event_order_number]
             data.trigger.tels_with_trigger = tels_with_data
+
             if self.allowed_tels:
+
                 data.trigger.tels_with_trigger = np.intersect1d(
                     data.trigger.tels_with_trigger,
                     self.subarray.tel_ids,
-                    assume_unique=True,)
+                    assume_unique=True
+                )
+            
             if not self.is_mc:
-                # Adding the event arrival time
-                time_tmp = Time(event_data['MJD'], scale='utc', format='mjd')
 
                 data.trigger.tel[tel_i + 1] = TelescopeTriggerContainer(
-                    time=Time(time_tmp, format='unix', scale='utc', precision=9),
-                    mjd=event_data['mjd'],
-                    millisec=event_data['millisec'],
-                    nanosec=event_data['nanosec']
+                    time=Time(event_data['unix'], format='unix', scale='utc')
                 )
 
             # Event counter
@@ -1127,10 +1109,10 @@ class MAGICEventSource(EventSource):
         pedestal_info = PedestalContainer()
         badpixel_info = PixelStatusContainer()
 
-        time_tmp = Time(monitoring_data['M{:d}'.format(
-            tel_i + 1)]['PedestalMJD'], scale='utc', format='mjd')
         pedestal_info.sample_time = Time(
-            time_tmp, format='unix', scale='utc', precision=9)
+            monitoring_data['M{:d}'.format(tel_i + 1)]['PedestalUnix'], format='unix', scale='utc'
+        )
+
         pedestal_info.n_events = 500  # hardcoded number of pedestal events averaged over
         pedestal_info.charge_mean = []
         pedestal_info.charge_mean.append(
@@ -1147,8 +1129,7 @@ class MAGICEventSource(EventSource):
         pedestal_info.charge_std.append(
             monitoring_data['M{:d}'.format(tel_i + 1)]['PedestalFromExtractorRndm']['Rms'])
 
-        t_range = Time(monitoring_data['M{:d}'.format(
-            tel_i + 1)]['badpixelinfoMJDrange'], scale='utc', format='mjd')
+        t_range = Time(monitoring_data['M{:d}'.format(tel_i + 1)]['badpixelinfoUnixRange'], format='unix', scale='utc')
 
         badpixel_info.hardware_failing_pixels = monitoring_data['M{:d}'.format(
             tel_i + 1)]['badpixelinfo']
@@ -1181,20 +1162,18 @@ class MAGICEventSource(EventSource):
 
             data.trigger.event_type = self.current_run['data'].event_data[telescope]['trigger_pattern'][event_order_number]
             data.trigger.tels_with_trigger = tels_with_data
+
             if self.allowed_tels:
                 data.trigger.tels_with_trigger = np.intersect1d(
                     data.trigger.tels_with_trigger,
                     self.subarray.tel_ids,
                     assume_unique=True,)
-            if not self.is_mc:
-                # Adding the event arrival time
-                time_tmp = Time(event_data['MJD'], scale='utc', format='mjd')
 
+            if not self.is_mc:
+                
+                # Adding the event arrival time
                 data.trigger.tel[tel_i + 1] = TelescopeTriggerContainer(
-                    time=Time(time_tmp, format='unix', scale='utc', precision=9),
-                    mjd=event_data['mjd'],
-                    millisec=event_data['millisec'],
-                    nanosec=event_data['nanosec']
+                    time=Time(event_data['unix'], format='unix', scale='utc')
                 )
 
             # Event counter
@@ -1288,11 +1267,11 @@ class MarsCalibratedRun:
 
     @property
     def n_events_m1(self):
-        return len(self.event_data['M1']['MJD'])
+        return len(self.event_data['M1']['unix'])
 
     @property
     def n_events_m2(self):
-        return len(self.event_data['M2']['MJD'])
+        return len(self.event_data['M2']['unix'])
 
     @property
     def n_stereo_events(self):
@@ -1344,17 +1323,14 @@ class MarsCalibratedRun:
         event_data['pointing_az'] = np.array([])
         event_data['pointing_ra'] = np.array([])
         event_data['pointing_dec'] = np.array([])
-        event_data['mjd'] = np.array([])
-        event_data['millisec'] = np.array([])
-        event_data['nanosec'] = np.array([])
-        event_data['MJD'] = np.array([])
+        event_data['unix'] = np.array([])
 
         # monitoring information (updated from time to time)
         monitoring_data = dict()
 
         monitoring_data['badpixelinfo'] = []
-        monitoring_data['badpixelinfoMJDrange'] = []
-        monitoring_data['PedestalMJD'] = np.array([])
+        monitoring_data['badpixelinfoUnixRange'] = []
+        monitoring_data['PedestalUnix'] = np.array([])
         monitoring_data['PedestalFundamental'] = dict()
         monitoring_data['PedestalFundamental']['Mean'] = []
         monitoring_data['PedestalFundamental']['Rms'] = []
@@ -1450,21 +1426,19 @@ class MarsCalibratedRun:
         stereo_event_number = events['MRawEvtHeader.fStereoEvtNumber']
 
         if not is_mc:
+
             # Reading event timing information:
             event_times = input_file['Events'].arrays(time_array_list, library="np")
+            
             # Computing the event arrival time
+            event_mjd = [Decimal(str(x)) for x in event_times['MTime.fMjd']]
+            event_millisec = [Decimal(str(x)) for x in event_times['MTime.fTime.fMilliSec']/1e3]
+            event_nanosec = [Decimal(str(x)) for x in event_times['MTime.fNanoSec']/1e9]
 
-            event_mjd = event_times['MTime.fMjd']
-            event_millisec = event_times['MTime.fTime.fMilliSec']
-            event_nanosec = event_times['MTime.fNanoSec']
+            event_mjd = Time(event_mjd, format='mjd', scale='utc')
+            event_unix  = event_mjd.to_value(format='unix', subfmt='decimal') + event_millisec + event_nanosec
 
-            event_data['mjd'] = np.concatenate((event_data['mjd'], event_mjd))
-            event_data['millisec'] = np.concatenate((event_data['millisec'], event_millisec))
-            event_data['nanosec'] = np.concatenate((event_data['nanosec'], event_nanosec))
-
-            event_mjd = event_mjd + (event_millisec / 1e3 + event_nanosec / 1e9) / seconds_per_day
-
-            event_data['MJD'] = np.concatenate((event_data['MJD'], event_mjd))
+            event_data['unix'] = np.concatenate((event_data['unix'], event_unix))
 
             badpixelinfo = input_file['RunHeaders']['MBadPixelsCam.fArray.fInfo'].array(
                 uproot.interpretation.jagged.AsJagged(
@@ -1487,23 +1461,23 @@ class MarsCalibratedRun:
                     unsuitable_pix_bitinfo[i] & 0xff)[-2])
             monitoring_data['badpixelinfo'].append(unsuitable_pix)
             # save time interval of badpixel info:
-            monitoring_data['badpixelinfoMJDrange'].append(
-                [event_mjd[0], event_mjd[-1]])
+            monitoring_data['badpixelinfoUnixRange'].append([event_unix[0], event_unix[-1]])
 
         # try to read Pedestals tree (soft fail if not present)
             try:
-                pedestal_info = input_file['Pedestals'].arrays(
-                    pedestal_array_list, library="np")
+                pedestal_info = input_file['Pedestals'].arrays(pedestal_array_list, library="np")
 
-                pedestal_mjd = pedestal_info['MTimePedestals.fMjd']
-                pedestal_millisec = pedestal_info['MTimePedestals.fTime.fMilliSec']
-                pedestal_nanosec = pedestal_info['MTimePedestals.fNanoSec']
-                n_pedestals = len(pedestal_mjd)
-                pedestal_mjd = pedestal_mjd + \
-                    (pedestal_millisec / 1e3 +
-                     pedestal_nanosec / 1e9) / seconds_per_day
-                monitoring_data['PedestalMJD'] = np.concatenate(
-                    (monitoring_data['PedestalMJD'], pedestal_mjd))
+                pedestal_mjd = [Decimal(str(x)) for x in pedestal_info['MTimePedestals.fMjd']]
+                pedestal_millisec = [Decimal(str(x)) for x in pedestal_info['MTimePedestals.fTime.fMilliSec']/1e3]
+                pedestal_nanosec = [Decimal(str(x)) for x in pedestal_info['MTimePedestals.fNanoSec']/1e9]
+
+                pedestal_mjd = Time(pedestal_mjd, format='mjd', scale='utc')
+
+                pedestal_unix  = pedestal_mjd.to_value(format='unix', subfmt='decimal') + pedestal_millisec + pedestal_nanosec
+                monitoring_data['PedestalUnix'] = np.concatenate((monitoring_data['PedestalUnix'], pedestal_unix))
+
+                n_pedestals = len(pedestal_unix)
+                
                 for quantity in ['Mean', 'Rms']:
                     for i_pedestal in range(n_pedestals):
                         monitoring_data['PedestalFundamental'][quantity].append(
@@ -1625,13 +1599,11 @@ class MarsCalibratedRun:
         event_data['file_edges'].append(len(event_data['trigger_pattern']))
 
         if not is_mc:
-            monitoring_data['badpixelinfo'] = np.array(
-                monitoring_data['badpixelinfo'])
-            monitoring_data['badpixelinfoMJDrange'] = np.array(
-                monitoring_data['badpixelinfoMJDrange'])
+            monitoring_data['badpixelinfo'] = np.array(monitoring_data['badpixelinfo'])
+            monitoring_data['badpixelinfoUnixRange'] = np.array(monitoring_data['badpixelinfoUnixRange'])
             # sort monitoring data:
-            order = np.argsort(monitoring_data['PedestalMJD'])
-            monitoring_data['PedestalMJD'] = monitoring_data['PedestalMJD'][order]
+            order = np.argsort(monitoring_data['PedestalUnix'])
+            monitoring_data['PedestalUnix'] = monitoring_data['PedestalUnix'][order]
 
             for quantity in ['Mean', 'Rms']:
                 monitoring_data['PedestalFundamental'][quantity] = np.array(
@@ -1670,10 +1642,12 @@ class MarsCalibratedRun:
                 drive_mjd_unique, drive_dec_unique, fill_value="extrapolate")
 
             # Interpolating the drive pointing to the event time stamps
-            event_data['pointing_zd'] = drive_zd_pointing_interpolator(event_data['MJD'])
-            event_data['pointing_az'] = drive_az_pointing_interpolator(event_data['MJD'])
-            event_data['pointing_ra'] = drive_ra_pointing_interpolator(event_data['MJD'])
-            event_data['pointing_dec'] = drive_dec_pointing_interpolator(event_data['MJD'])
+            event_mjd = Time(event_data['unix'], format='unix', scale='utc').to_value(format='mjd', subfmt='long')
+
+            event_data['pointing_zd'] = drive_zd_pointing_interpolator(event_mjd)
+            event_data['pointing_az'] = drive_az_pointing_interpolator(event_mjd)
+            event_data['pointing_ra'] = drive_ra_pointing_interpolator(event_mjd)
+            event_data['pointing_dec'] = drive_dec_pointing_interpolator(event_mjd)
 
         return event_data, monitoring_data
 
@@ -1951,14 +1925,13 @@ class MarsCalibratedRun:
             'pointing_zd' - pointing zenith angle [degrees]
             'pointing_ra' - pointing right ascension [degrees]
             'pointing_dec' - pointing declination [degrees]
-            'mjd' - event arrival time [MJD]
+            'unix' - event arrival time [unix]
         """
 
         file_num = self._get_pedestal_file_num(pedestal_event_num, telescope)
         event_id = self.pedestal_ids[telescope][pedestal_event_num]
 
-        id_in_file = event_id - \
-            self.event_data[telescope]['file_edges'][file_num]
+        id_in_file = event_id - self.event_data[telescope]['file_edges'][file_num]
 
         photon_content = self.event_data[telescope]['charge'][file_num][id_in_file][:self.n_camera_pixels]
         arrival_times = self.event_data[telescope]['arrival_time'][file_num][id_in_file][:self.n_camera_pixels]
@@ -1970,10 +1943,7 @@ class MarsCalibratedRun:
         event_data['pointing_zd'] = self.event_data[telescope]['pointing_zd'][event_id]
         event_data['pointing_ra'] = self.event_data[telescope]['pointing_ra'][event_id]
         event_data['pointing_dec'] = self.event_data[telescope]['pointing_dec'][event_id]
-        event_data['mjd'] = self.event_data[telescope]['mjd'][event_id]
-        event_data['millisec'] = self.event_data[telescope]['millisec'][event_id]
-        event_data['nanosec'] = self.event_data[telescope]['nanosec'][event_id]
-        event_data['MJD'] = self.event_data[telescope]['MJD'][event_id]
+        event_data['unix'] = self.event_data[telescope]['unix'][event_id]
 
         return event_data
 
@@ -2005,7 +1975,8 @@ class MarsCalibratedRun:
             'm2_pointing_zd' - M2 pointing zenith angle [degrees]
             'm2_pointing_ra' - M2 pointing right ascension [degrees]
             'm2_pointing_dec' - M2 pointing declination [degrees]
-            'mjd' - event arrival time [MJD]
+            'm1_unix' - M1 event arrival time [unix]
+            'm2_unix' - M2 event arrival time [unix]
         """
 
         m1_file_num, m2_file_num = self._get_stereo_file_num(stereo_event_num)
@@ -2038,14 +2009,8 @@ class MarsCalibratedRun:
         event_data['m2_pointing_dec'] = self.event_data['M2']['pointing_dec'][m2_id]
 
         if not self.is_mc:
-            event_data['m1_mjd'] = self.event_data['M1']['mjd'][m1_id]
-            event_data['m1_millisec'] = self.event_data['M1']['millisec'][m1_id]
-            event_data['m1_nanosec'] = self.event_data['M1']['nanosec'][m1_id]
-            event_data['m1_MJD'] = self.event_data['M1']['MJD'][m1_id]
-            event_data['m2_mjd'] = self.event_data['M2']['mjd'][m2_id]
-            event_data['m2_millisec'] =self.event_data['M2']['millisec'][m2_id]
-            event_data['m2_nanosec'] = self.event_data['M2']['nanosec'][m2_id]
-            event_data['m2_MJD'] = self.event_data['M2']['MJD'][m2_id]
+            event_data['m1_unix'] = self.event_data['M1']['unix'][m1_id]
+            event_data['m2_unix'] = self.event_data['M2']['unix'][m2_id]
 
         else:
             event_data['true_energy'] = self.event_data['M1']['true_energy'][m1_id]
@@ -2083,7 +2048,7 @@ class MarsCalibratedRun:
             'pointing_zd' - pointing zenith angle [degrees]
             'pointing_ra' - pointing right ascension [degrees]
             'pointing_dec' - pointing declination [degrees]
-            'mjd' - event arrival time [MJD]
+            'unix' - event arrival time [unix]
         """
 
         file_num = self._get_mono_file_num(mono_event_num, telescope)
@@ -2104,10 +2069,7 @@ class MarsCalibratedRun:
         event_data['pointing_dec'] = self.event_data[telescope]['pointing_dec'][event_id]
 
         if not self.is_mc:
-            event_data['mjd'] = self.event_data[telescope]['mjd'][event_id]
-            event_data['millisec'] = self.event_data[telescope]['millisec'][event_id]
-            event_data['nanosec'] = self.event_data[telescope]['nanosec'][event_id]
-            event_data['MJD'] = self.event_data[telescope]['MJD'][event_id]
+            event_data['unix'] = self.event_data[telescope]['unix'][event_id]
 
         else:
             event_data['true_energy'] = self.event_data[telescope]['true_energy'][event_id]
