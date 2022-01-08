@@ -1436,8 +1436,8 @@ class MarsCalibratedRun:
             event_nanosec = [Decimal(str(x)) for x in event_times['MTime.fNanoSec']/1e9]
 
             event_mjd = Time(event_mjd, format='mjd', scale='utc')
-            event_unix  = event_mjd.to_value(format='unix', subfmt='decimal') + event_millisec + event_nanosec
 
+            event_unix  = event_mjd.to_value(format='unix', subfmt='decimal') + event_millisec + event_nanosec
             event_data['unix'] = np.concatenate((event_data['unix'], event_unix))
 
             badpixelinfo = input_file['RunHeaders']['MBadPixelsCam.fArray.fInfo'].array(
@@ -1474,7 +1474,7 @@ class MarsCalibratedRun:
                 pedestal_mjd = Time(pedestal_mjd, format='mjd', scale='utc')
 
                 pedestal_unix  = pedestal_mjd.to_value(format='unix', subfmt='decimal') + pedestal_millisec + pedestal_nanosec
-                monitoring_data['PedestalUnix'] = np.concatenate((monitoring_data['PedestalUnix'], pedestal_unix))
+                monitoring_data['PedestalUnix']  = np.concatenate((monitoring_data['PedestalUnix'], pedestal_unix))
 
                 n_pedestals = len(pedestal_unix)
                 
@@ -1642,7 +1642,7 @@ class MarsCalibratedRun:
                 drive_mjd_unique, drive_dec_unique, fill_value="extrapolate")
 
             # Interpolating the drive pointing to the event time stamps
-            event_mjd = Time(event_data['unix'], format='unix', scale='utc').to_value(format='mjd', subfmt='long')
+            event_mjd = Time(event_data['unix'], format='unix', scale='utc').to_value(format='mjd', subfmt='float')
 
             event_data['pointing_zd'] = drive_zd_pointing_interpolator(event_mjd)
             event_data['pointing_az'] = drive_az_pointing_interpolator(event_mjd)
