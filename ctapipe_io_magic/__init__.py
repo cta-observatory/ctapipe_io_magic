@@ -468,7 +468,13 @@ class MAGICEventSource(EventSource):
 
         # here we take the 2nd element (if possible) because sometimes
         # the first trigger report has still the old prescaler values from a previous run
-        prescaler_array = trigger_tree["MTriggerPrescFact.fPrescFact"].array(library="np")
+        try:
+            prescaler_array = trigger_tree["MTriggerPrescFact.fPrescFact"].array(library="np")
+        except AssertionError:
+            LOGGER.warning("No prescaler info found. Will assume standard stereo data.")
+            is_stereo = True
+            is_sumt = False
+            return is_stereo, is_sumt
 
         prescaler_size = prescaler_array.size
         if prescaler_size > 1:
