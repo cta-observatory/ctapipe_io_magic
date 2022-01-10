@@ -1431,13 +1431,19 @@ class MarsCalibratedRun:
             event_times = input_file['Events'].arrays(time_array_list, library="np")
             
             # Computing the event arrival time
-            event_mjd = [Decimal(str(x)) for x in event_times['MTime.fMjd']]
-            event_millisec = [Decimal(str(x)) for x in event_times['MTime.fTime.fMilliSec']/1e3]
-            event_nanosec = [Decimal(str(x)) for x in event_times['MTime.fNanoSec']/1e9]
+            event_obs_day = Time(event_times['MTime.fMjd'], format='mjd', scale='utc')
+            event_obs_day = np.round(event_obs_day.to_value(format='unix', subfmt='float'))
+            event_obs_day = np.array([Decimal(str(x)) for x in event_obs_day])
 
-            event_mjd = Time(event_mjd, format='mjd', scale='utc')
+            event_millisec = u.Quantity(event_times['MTime.fTime.fMilliSec'], u.ms)
+            event_millisec = np.round(event_millisec.to(u.s).value, decimals=3)
+            event_millisec = np.array([Decimal(str(x)) for x in event_millisec])
 
-            event_unix  = event_mjd.to_value(format='unix', subfmt='decimal') + event_millisec + event_nanosec
+            event_nanosec = u.Quantity(event_times['MTime.fNanoSec'], u.ns)
+            event_nanosec = np.round(event_nanosec.to(u.s).value, decimals=7)
+            event_nanosec = np.array([Decimal(str(x)) for x in event_nanosec])
+
+            event_unix = event_obs_day + event_millisec + event_nanosec
             event_data['unix'] = np.concatenate((event_data['unix'], event_unix))
 
             badpixelinfo = input_file['RunHeaders']['MBadPixelsCam.fArray.fInfo'].array(
@@ -1467,13 +1473,19 @@ class MarsCalibratedRun:
             try:
                 pedestal_info = input_file['Pedestals'].arrays(pedestal_array_list, library="np")
 
-                pedestal_mjd = [Decimal(str(x)) for x in pedestal_info['MTimePedestals.fMjd']]
-                pedestal_millisec = [Decimal(str(x)) for x in pedestal_info['MTimePedestals.fTime.fMilliSec']/1e3]
-                pedestal_nanosec = [Decimal(str(x)) for x in pedestal_info['MTimePedestals.fNanoSec']/1e9]
+                pedestal_obs_day = Time(pedestal_info['MTimePedestals.fMjd'], format='mjd', scale='utc')
+                pedestal_obs_day = np.round(pedestal_obs_day.to_value(format='unix', subfmt='float'))
+                pedestal_obs_day = np.array([Decimal(str(x)) for x in pedestal_obs_day])
 
-                pedestal_mjd = Time(pedestal_mjd, format='mjd', scale='utc')
+                pedestal_millisec = u.Quantity(pedestal_info['MTimePedestals.fTime.fMilliSec'], u.ms)
+                pedestal_millisec = np.round(pedestal_millisec.to(u.s).value, decimals=3)
+                pedestal_millisec = np.array([Decimal(str(x)) for x in pedestal_millisec])
 
-                pedestal_unix  = pedestal_mjd.to_value(format='unix', subfmt='decimal') + pedestal_millisec + pedestal_nanosec
+                pedestal_nanosec = u.Quantity(pedestal_info['MTimePedestals.fNanoSec'], u.ns)
+                pedestal_nanosec = np.round(pedestal_nanosec.to(u.s).value, decimals=7)
+                pedestal_nanosec = np.array([Decimal(str(x)) for x in pedestal_nanosec])
+
+                pedestal_unix = pedestal_obs_day + pedestal_millisec + pedestal_nanosec
                 monitoring_data['PedestalUnix']  = np.concatenate((monitoring_data['PedestalUnix'], pedestal_unix))
 
                 n_pedestals = len(pedestal_unix)
