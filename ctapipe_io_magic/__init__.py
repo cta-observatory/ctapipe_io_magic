@@ -488,7 +488,13 @@ class MAGICEventSource(EventSource):
             # here we take the 2nd element for the same reason as above
             # L3Table is empty for mono data i.e. taken with one telescope only
             # if both telescopes take data with no L3, L3Table is filled anyway
-            L3Table = L3T_tree["MReportL3T.fTablename"].array(library="np")[1]
+            L3Table_array = L3T_tree["MReportL3T.fTablename"].array(library="np")
+            L3Table_size = L3Table_array.size
+            if L3Table_size > 1:
+                L3Table = L3Table_array[1]
+            else:
+                L3Table = L3Table_array[0]
+
             if L3Table == L3_table_sumt:
                 is_sumt = True
             elif L3Table == L3_table_nosumt:
