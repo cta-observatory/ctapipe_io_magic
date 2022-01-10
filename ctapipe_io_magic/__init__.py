@@ -466,9 +466,15 @@ class MAGICEventSource(EventSource):
         trigger_tree = self.file_["Trigger"]
         L3T_tree = self.file_["L3T"]
 
-        # here we take the 2nd element because sometimes the first trigger report
-        # has still the old prescaler values from a previous run
-        prescaler = trigger_tree["MTriggerPrescFact.fPrescFact"].array(library="np")[1]
+        # here we take the 2nd element (if possible) because sometimes
+        # the first trigger report has still the old prescaler values from a previous run
+        prescaler_array = trigger_tree["MTriggerPrescFact.fPrescFact"].array(library="np")
+
+        prescaler_size = prescaler_array.size
+        if prescaler_size > 1:
+            prescaler = prescaler_array[1]
+        else:
+            prescaler = prescaler_array[0]
 
         if prescaler == prescaler_mono_nosumt or prescaler == prescaler_mono_sumt:
             is_stereo = False
