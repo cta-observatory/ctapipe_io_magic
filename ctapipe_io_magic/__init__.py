@@ -55,8 +55,10 @@ __all__ = ['MAGICEventSource', '__version__']
 LOGGER = logging.getLogger(__name__)
 
 degrees_per_hour = 15.0
-seconds_per_day = 86400.0
 seconds_per_hour = 3600.
+
+msec2sec = 1e-3
+nsec2sec = 1e-9
 
 # MAGIC telescope positions in m wrt. to the center of CTA simulations
 # MAGIC_TEL_POSITIONS = {
@@ -1447,12 +1449,10 @@ class MarsCalibratedRun:
             event_obs_day = np.round(event_obs_day.to_value(format='unix', subfmt='float'))
             event_obs_day = np.array([Decimal(str(x)) for x in event_obs_day])
 
-            event_millisec = u.Quantity(event_times['MTime.fTime.fMilliSec'], u.ms)
-            event_millisec = np.round(event_millisec.to(u.s).value, decimals=3)
+            event_millisec = np.round(event_times['MTime.fTime.fMilliSec'] * msec2sec, 3)
             event_millisec = np.array([Decimal(str(x)) for x in event_millisec])
 
-            event_nanosec = u.Quantity(event_times['MTime.fNanoSec'], u.ns)
-            event_nanosec = np.round(event_nanosec.to(u.s).value, decimals=7)
+            event_nanosec = np.round(event_times['MTime.fNanoSec'] * nsec2sec, 7)
             event_nanosec = np.array([Decimal(str(x)) for x in event_nanosec])
 
             event_unix = event_obs_day + event_millisec + event_nanosec
@@ -1489,12 +1489,10 @@ class MarsCalibratedRun:
                 pedestal_obs_day = np.round(pedestal_obs_day.to_value(format='unix', subfmt='float'))
                 pedestal_obs_day = np.array([Decimal(str(x)) for x in pedestal_obs_day])
 
-                pedestal_millisec = u.Quantity(pedestal_info['MTimePedestals.fTime.fMilliSec'], u.ms)
-                pedestal_millisec = np.round(pedestal_millisec.to(u.s).value, decimals=3)
+                pedestal_millisec = np.round(pedestal_info['MTimePedestals.fTime.fMilliSec'] * msec2sec, 3)
                 pedestal_millisec = np.array([Decimal(str(x)) for x in pedestal_millisec])
 
-                pedestal_nanosec = u.Quantity(pedestal_info['MTimePedestals.fNanoSec'], u.ns)
-                pedestal_nanosec = np.round(pedestal_nanosec.to(u.s).value, decimals=7)
+                pedestal_nanosec = np.round(pedestal_info['MTimePedestals.fNanoSec'] * nsec2sec, 7)
                 pedestal_nanosec = np.array([Decimal(str(x)) for x in pedestal_nanosec])
 
                 pedestal_unix = pedestal_obs_day + pedestal_millisec + pedestal_nanosec
