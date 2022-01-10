@@ -466,9 +466,15 @@ class MAGICEventSource(EventSource):
         trigger_tree = self.file_["Trigger"]
         L3T_tree = self.file_["L3T"]
 
-        # here we take the 2nd element because sometimes the first trigger report
-        # has still the old prescaler values from a previous run
-        prescaler = trigger_tree["MTriggerPrescFact.fPrescFact"].array(library="np")[1]
+        # here we take the 2nd element (if possible) because sometimes
+        # the first trigger report has still the old prescaler values from a previous run
+        prescaler_array = trigger_tree["MTriggerPrescFact.fPrescFact"].array(library="np")
+
+        prescaler_size = prescaler_array.size
+        if prescaler_size > 1:
+            prescaler = prescaler_array[1]
+        else:
+            prescaler = prescaler_array[0]
 
         if prescaler == prescaler_mono_nosumt or prescaler == prescaler_mono_sumt:
             is_stereo = False
@@ -482,7 +488,13 @@ class MAGICEventSource(EventSource):
             # here we take the 2nd element for the same reason as above
             # L3Table is empty for mono data i.e. taken with one telescope only
             # if both telescopes take data with no L3, L3Table is filled anyway
-            L3Table = L3T_tree["MReportL3T.fTablename"].array(library="np")[1]
+            L3Table_array = L3T_tree["MReportL3T.fTablename"].array(library="np")
+            L3Table_size = L3Table_array.size
+            if L3Table_size > 1:
+                L3Table = L3Table_array[1]
+            else:
+                L3Table = L3Table_array[0]
+
             if L3Table == L3_table_sumt:
                 is_sumt = True
             elif L3Table == L3_table_nosumt:
