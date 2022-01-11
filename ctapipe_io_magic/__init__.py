@@ -882,7 +882,7 @@ class MAGICEventSource(EventSource):
                 pointing.array_azimuth = np.deg2rad(event_data['m1_pointing_az']) * u.rad
                 pointing.array_altitude = np.deg2rad(90 - event_data['m1_pointing_zd']) * u.rad
                 pointing.array_ra = np.deg2rad(event_data['m1_pointing_ra']) * u.rad
-                pointing.array_dec = np.deg2rad(90 - event_data['m1_pointing_dec']) * u.rad
+                pointing.array_dec = np.deg2rad(event_data['m1_pointing_dec']) * u.rad
                 data.pointing = pointing
 
                 if not self.is_mc:
@@ -1057,7 +1057,7 @@ class MAGICEventSource(EventSource):
             pointing.array_azimuth = np.deg2rad(event_data['pointing_az']) * u.rad
             pointing.array_altitude = np.deg2rad(90 - event_data['pointing_zd']) * u.rad
             pointing.array_ra = np.deg2rad(event_data['pointing_ra']) * u.rad
-            pointing.array_dec = np.deg2rad(90 - event_data['pointing_dec']) * u.rad
+            pointing.array_dec = np.deg2rad(event_data['pointing_dec']) * u.rad
 
             data.pointing = pointing
 
@@ -1219,7 +1219,7 @@ class MAGICEventSource(EventSource):
             pointing.array_azimuth = np.deg2rad(event_data['pointing_az']) * u.rad
             pointing.array_altitude = np.deg2rad(90 - event_data['pointing_zd']) * u.rad
             pointing.array_ra = np.deg2rad(event_data['pointing_ra']) * u.rad
-            pointing.array_dec = np.deg2rad(90 - event_data['pointing_dec']) * u.rad
+            pointing.array_dec = np.deg2rad(event_data['pointing_dec']) * u.rad
 
             data.pointing = pointing
 
