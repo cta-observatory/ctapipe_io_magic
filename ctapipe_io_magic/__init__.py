@@ -727,9 +727,9 @@ class MAGICEventSource(EventSource):
 
         if self.mars_datalevel == MARSDataLevel.CALIBRATED:
             if self.use_pedestals:
-                return self._pedestal_event_generator(telescope=f"M{self.telescope}")
+                return self._pedestal_event_generator()
             else:
-                return self._mono_event_generator(telescope=f"M{self.telescope}")
+                return self._mono_event_generator()
 
     def _stereo_event_generator(self):
         """
@@ -920,15 +920,10 @@ class MAGICEventSource(EventSource):
 
         return
 
-    def _mono_event_generator(self, telescope):
+    def _mono_event_generator(self):
         """
         Mono event generator. Yields DataContainer instances, filled
         with the read event data.
-
-        Parameters
-        ----------
-        telescope: str
-            The telescope for which to return events. Can be either "M1" or "M2".
 
         Returns
         -------
@@ -936,19 +931,13 @@ class MAGICEventSource(EventSource):
         """
 
         counter = 0
-        telescope = telescope.upper()
 
         # Data container - is initialized once, and data is replaced after each yield
         data = ArrayEventContainer()
 
         # Telescopes with data:
-        tels_in_file = ["M1", "M2"]
-
-        if telescope not in tels_in_file:
-            raise ValueError(f"Specified telescope {telescope} is not in the allowed list {tels_in_file}")
-
-        tel_i = tels_in_file.index(telescope)
-        tels_with_data = [tel_i + 1, ]
+        tel_i = self.telescope
+        tels_with_data = [tel_i, ]
 
         # Removing the previously read data run from memory
         if self.current_run is not None:
@@ -997,7 +986,7 @@ class MAGICEventSource(EventSource):
 
             data.mon.tel[tel_i + 1] = monitoring_camera
 
-        if telescope == 'M1':
+        if tel_i == 1:
             n_events = self.current_run['data'].n_mono_events_m1
         else:
             n_events = self.current_run['data'].n_mono_events_m2
@@ -1006,18 +995,18 @@ class MAGICEventSource(EventSource):
         for event_i in range(n_events):
 
             # Event and run ids
-            event_order_number = self.current_run['data'].mono_ids[telescope][event_i]
-            event_id = self.current_run['data'].event_data[telescope]['stereo_event_number'][event_order_number]
+            event_order_number = self.current_run['data'].mono_ids[f"M{tel_i}"][event_i]
+            event_id = self.current_run['data'].event_data[f"M{tel_i}"]['stereo_event_number'][event_order_number]
             obs_id = self.current_run['number']
 
             # Reading event data
-            event_data = self.current_run['data'].get_mono_event_data(event_i, telescope=telescope)
+            event_data = self.current_run['data'].get_mono_event_data(event_i, telescope=f"M{tel_i}")
 
             data.meta['origin'] = 'MAGIC'
             data.meta['input_url'] = self.input_url
             data.meta['max_events'] = self.max_events
 
-            data.trigger.event_type = self.current_run['data'].event_data[telescope]['trigger_pattern'][event_order_number]
+            data.trigger.event_type = self.current_run['data'].event_data[f"M{tel_i}"]['trigger_pattern'][event_order_number]
             data.trigger.tels_with_trigger = tels_with_data
 
             if self.allowed_tels:
@@ -1085,7 +1074,7 @@ class MAGICEventSource(EventSource):
 
         return
 
-    def _pedestal_event_generator(self, telescope):
+    def _pedestal_event_generator(self):
         """
         Pedestal event generator. Yields DataContainer instances, filled
         with the read event data.
@@ -1101,19 +1090,13 @@ class MAGICEventSource(EventSource):
         """
 
         counter = 0
-        telescope = telescope.upper()
 
         # Data container - is initialized once, and data is replaced after each yield
         data = ArrayEventContainer()
 
         # Telescopes with data:
-        tels_in_file = ["M1", "M2"]
-
-        if telescope not in tels_in_file:
-            raise ValueError(f"Specified telescope {telescope} is not in the allowed list {tels_in_file}")
-
-        tel_i = tels_in_file.index(telescope)
-        tels_with_data = [tel_i + 1, ]
+        tel_i = self.telescope
+        tels_with_data = [tel_i, ]
 
         # Removing the previously read data run from memory
         if self.current_run is not None:
@@ -1160,7 +1143,7 @@ class MAGICEventSource(EventSource):
 
         data.mon.tel[tel_i + 1] = monitoring_camera
 
-        if telescope == 'M1':
+        if tel_i == 1:
             n_events = self.current_run['data'].n_pedestal_events_m1
         else:
             n_events = self.current_run['data'].n_pedestal_events_m2
@@ -1168,19 +1151,19 @@ class MAGICEventSource(EventSource):
         # Loop over the events
         for event_i in range(n_events):
             # Event and run ids
-            event_order_number = self.current_run['data'].pedestal_ids[telescope][event_i]
-            event_id = self.current_run['data'].event_data[telescope]['stereo_event_number'][event_order_number]
+            event_order_number = self.current_run['data'].pedestal_ids[f"M{tel_i}"][event_i]
+            event_id = self.current_run['data'].event_data[f"M{tel_i}"]['stereo_event_number'][event_order_number]
             obs_id = self.current_run['number']
 
             # Reading event data
             event_data = self.current_run['data'].get_pedestal_event_data(
-                event_i, telescope=telescope)
+                event_i, telescope=f"M{tel_i}")
 
             data.meta['origin'] = 'MAGIC'
             data.meta['input_url'] = self.input_url
             data.meta['max_events'] = self.max_events
 
-            data.trigger.event_type = self.current_run['data'].event_data[telescope]['trigger_pattern'][event_order_number]
+            data.trigger.event_type = self.current_run['data'].event_data[f"M{tel_i}"]['trigger_pattern'][event_order_number]
             data.trigger.tels_with_trigger = tels_with_data
 
             if self.allowed_tels:
