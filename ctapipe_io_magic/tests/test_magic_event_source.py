@@ -34,24 +34,24 @@ data_dict['GA_M1_za35to50_8_824319_Y_w0.root'] = dict()
 data_dict['GA_M2_za35to50_8_824318_Y_w0.root'] = dict()
 data_dict['GA_M2_za35to50_8_824319_Y_w0.root'] = dict()
 
-data_dict['20210314_M1_05095172.001_Y_CrabNebula-W0.40+035.root']['n_events_tot'] = 15055
-data_dict['20210314_M1_05095172.001_Y_CrabNebula-W0.40+035.root']['n_events_stereo'] = 13659
-data_dict['20210314_M1_05095172.001_Y_CrabNebula-W0.40+035.root']['n_events_pedestal'] = 1393
+data_dict['20210314_M1_05095172.001_Y_CrabNebula-W0.40+035.root']['n_events_tot'] = 500
+data_dict['20210314_M1_05095172.001_Y_CrabNebula-W0.40+035.root']['n_events_stereo'] = 458
+data_dict['20210314_M1_05095172.001_Y_CrabNebula-W0.40+035.root']['n_events_pedestal'] = 42
 data_dict['20210314_M1_05095172.001_Y_CrabNebula-W0.40+035.root']['n_events_mc_mono'] = 0
 
-data_dict['20210314_M1_05095172.002_Y_CrabNebula-W0.40+035.root']['n_events_tot'] = 14992
-data_dict['20210314_M1_05095172.002_Y_CrabNebula-W0.40+035.root']['n_events_stereo'] = 13532
-data_dict['20210314_M1_05095172.002_Y_CrabNebula-W0.40+035.root']['n_events_pedestal'] = 1459
+data_dict['20210314_M1_05095172.002_Y_CrabNebula-W0.40+035.root']['n_events_tot'] = 500
+data_dict['20210314_M1_05095172.002_Y_CrabNebula-W0.40+035.root']['n_events_stereo'] = 452
+data_dict['20210314_M1_05095172.002_Y_CrabNebula-W0.40+035.root']['n_events_pedestal'] = 48
 data_dict['20210314_M1_05095172.002_Y_CrabNebula-W0.40+035.root']['n_events_mc_mono'] = 0
 
-data_dict['20210314_M2_05095172.001_Y_CrabNebula-W0.40+035.root']['n_events_tot'] = 15086
-data_dict['20210314_M2_05095172.001_Y_CrabNebula-W0.40+035.root']['n_events_stereo'] = 13734
-data_dict['20210314_M2_05095172.001_Y_CrabNebula-W0.40+035.root']['n_events_pedestal'] = 1352
+data_dict['20210314_M2_05095172.001_Y_CrabNebula-W0.40+035.root']['n_events_tot'] = 500
+data_dict['20210314_M2_05095172.001_Y_CrabNebula-W0.40+035.root']['n_events_stereo'] = 459
+data_dict['20210314_M2_05095172.001_Y_CrabNebula-W0.40+035.root']['n_events_pedestal'] = 41
 data_dict['20210314_M2_05095172.001_Y_CrabNebula-W0.40+035.root']['n_events_mc_mono'] = 0
 
-data_dict['20210314_M2_05095172.002_Y_CrabNebula-W0.40+035.root']['n_events_tot'] = 15016
-data_dict['20210314_M2_05095172.002_Y_CrabNebula-W0.40+035.root']['n_events_stereo'] = 13583
-data_dict['20210314_M2_05095172.002_Y_CrabNebula-W0.40+035.root']['n_events_pedestal'] = 1433
+data_dict['20210314_M2_05095172.002_Y_CrabNebula-W0.40+035.root']['n_events_tot'] = 500
+data_dict['20210314_M2_05095172.002_Y_CrabNebula-W0.40+035.root']['n_events_stereo'] = 450
+data_dict['20210314_M2_05095172.002_Y_CrabNebula-W0.40+035.root']['n_events_pedestal'] = 50
 data_dict['20210314_M2_05095172.002_Y_CrabNebula-W0.40+035.root']['n_events_mc_mono'] = 0
 
 data_dict['GA_M1_za35to50_8_824318_Y_w0.root']['n_events_tot'] = 99
