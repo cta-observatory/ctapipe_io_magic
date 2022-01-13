@@ -4,22 +4,26 @@ EventSource plugin for *ctapipe*, needed to read the calibrated data of the MAGI
 
 #### Installation
 
-Provided *ctapipe* is already installed, the installation can be done like so:
+Provided that *ctapipe* (v0.12) is already installed, the installation can be done via `pip` (the module is available in PyPI)
+
+```bash
+pip install ctapipe_io_magic
+```
+
+Alternatively, you can always clone the repository and install like in the following:
 
 ```bash
 git clone https://github.com/cta-observatory/ctapipe_io_magic.git
 pip install ./ctapipe_io_magic/
 ```
 
-This installation via pip (provided, pip is installed) has the advantage to be nicely controlled for belonging to a given conda environment (and to be uninstalled). Alternatively, do
+This installation via `pip` (provided, `pip` is installed) has the advantage to be nicely controlled for belonging to a given conda environment (and to be uninstalled). Alternatively, do
 
 ```bash
 git clone https://github.com/cta-observatory/ctapipe_io_magic.git
 cd ctapipe_io_magic
 python setup.py install --user
 ```
-
-**NB: in the near future, ctapipe_io_magic will be available in PyPI and/or conda.**
 
 #### Usage
 
