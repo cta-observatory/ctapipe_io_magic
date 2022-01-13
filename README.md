@@ -44,7 +44,7 @@ data is loaded subrun by subrun. No matching of the events is performed at this 
 By default, assuming a calibrated file as input, the event generator will generate:
 -   if real data taken in stereo mode, cosmic events (trigger pattern = 128) from the corresponding telescope
 -   if real data taken in mono mode (either as a single telescope or with both telescopes independently), cosmic events (trigger pattern = 1) from the corresponding telescope
--   if simulated data in stereo mode, cosmic events (trigger pattern = 1) from the corresponding telescope
+-   if simulated data in stereo mode, cosmic events (trigger pattern = 1 and stereo trigger number different from 0) from the corresponding telescope
 
 Pedestal events (trigger pattern = 8) and simulated events triggered by only one telescope (trigger pattern = 1 and stereo trigger number = 0) can be generated as well.
 
@@ -55,9 +55,12 @@ The reader is able to handle real data or Monte Carlo files, which are automatic
 However, the information which can be extracted from the file names is read directly from within the ROOT files.
 
 ##### More usage
+
 Select a single run:
+
 ```python
 run = event_source._set_active_run(event_source.run_numbers[0])
+# run is an object of type MarsCalibratedRun
 # assuming we are reading data from a file from M1
 for n in range(run['data'].n_mono_events_m1):
     run['data'].get_mono_event_data(n, 'M1')
@@ -66,14 +69,16 @@ for n in range(run['data'].n_pedestal_events_m1):
     run['data'].get_pedestal_event_data(n, 'M1')
 ```
 
-Select mono/pedestal events over event generator:
+Select events triggering in stereo and pedestal events from a single telescope (recognized automatically) over event generator:
+
 ```python
 event_generator = MAGICEventSource(input_url=file_name)
-for mono_event in event_generator:
+for cosmic_event in event_generator:
     ...some processing...
 
 pedestal_event_generator = MAGICEventSource(input_url=file_name, use_pedestals=True)
-...
+for pedestal_event in pedestal_event_generator:
+    ...some processing...
 ```
 
 #### Features
