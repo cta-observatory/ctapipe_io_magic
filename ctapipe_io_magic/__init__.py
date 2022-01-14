@@ -1250,63 +1250,53 @@ class MarsCalibratedRun:
         self.is_mc = is_mc
 
         if '_M1_' in self.file_name:
-            m1_data = self.load_events(
+            m1_events = self.load_events(
                 uproot_file, self.is_mc, self.n_camera_pixels)
-            m2_data = self.load_events(
+            m2_events = self.load_events(
                 None, self.is_mc, self.n_camera_pixels)
         if '_M2_' in self.file_name:
-            m1_data = self.load_events(
+            m1_events = self.load_events(
                 None, self.is_mc, self.n_camera_pixels)
-            m2_data = self.load_events(
+            m2_events = self.load_events(
                 uproot_file, self.is_mc, self.n_camera_pixels)
 
         # Getting the event data
-        self.event_data = dict()
-        self.event_data['M1'] = m1_data[0]
-        self.event_data['M2'] = m2_data[0]
+        self.cosmics_stereo_events = dict()
+        self.cosmics_stereo_events['M1'] = m1_events["cosmics_stereo_events"]
+        self.cosmics_stereo_events['M2'] = m2_events["cosmics_stereo_events"]
+
+        self.pedestal_events = dict()
+        self.pedestal_events['M1'] = m1_events["pedestal_events"]
+        self.pedestal_events['M2'] = m2_events["pedestal_events"]
 
         # Getting the monitoring data
         self.monitoring_data = dict()
-        self.monitoring_data['M1'] = m1_data[1]
-        self.monitoring_data['M2'] = m2_data[1]
-
-        # Detecting pedestal events
-        self.pedestal_ids = self._find_pedestal_events()
-        # Detecting stereo events
-        self.stereo_ids = self._find_stereo_events()
-        # Detecting mono events
-        if self.is_mc:
-            self.mono_ids = self._find_stereo_mc_events()
-        else:
-            self.mono_ids = self._find_mono_events()
+        self.monitoring_data['M1'] = m1_events["monitoring_data"]
+        self.monitoring_data['M2'] = m2_events["monitoring_data"]
 
     @property
-    def n_events_m1(self):
-        return len(self.event_data['M1']['unix'])
+    def n_cosmics_stereo_events_m1(self):
+        return len(self.cosmics_stereo_events['M1']['trigger_pattern'])
 
     @property
-    def n_events_m2(self):
-        return len(self.event_data['M2']['unix'])
+    def n_cosmics_stereo_events_m2(self):
+        return len(self.cosmics_stereo_events['M2']['trigger_pattern'])
 
     @property
-    def n_stereo_events(self):
-        return len(self.stereo_ids)
+    def n_cosmics_mono_events_m1(self):
+        return len(self.cosmics_stereo_events['M1']['trigger_pattern'])
 
     @property
-    def n_mono_events_m1(self):
-        return len(self.mono_ids['M1'])
-
-    @property
-    def n_mono_events_m2(self):
-        return len(self.mono_ids['M2'])
+    def n_cosmics_mono_events_m2(self):
+        return len(self.cosmics_stereo_events['M2']['trigger_pattern'])
 
     @property
     def n_pedestal_events_m1(self):
-        return len(self.pedestal_ids['M1'])
+        return len(self.pedestal_events['M1']['trigger_pattern'])
 
     @property
     def n_pedestal_events_m2(self):
-        return len(self.pedestal_ids['M2'])
+        return len(self.pedestal_events['M2']['trigger_pattern'])
 
     @staticmethod
     def load_events(uproot_file, is_mc, n_camera_pixels):
@@ -1327,48 +1317,6 @@ class MarsCalibratedRun:
         dict:
             A dictionary with the even properties: charge / arrival time data, trigger, direction etc.
         """
-
-        event_data = dict()
-
-        event_data['charge'] = []
-        event_data['arrival_time'] = []
-        event_data['trigger_pattern'] = np.array([], dtype=np.int32)
-        event_data['stereo_event_number'] = np.array([], dtype=np.int32)
-        event_data['pointing_zd'] = np.array([])
-        event_data['pointing_az'] = np.array([])
-        event_data['pointing_ra'] = np.array([])
-        event_data['pointing_dec'] = np.array([])
-        event_data['unix'] = np.array([])
-
-        # monitoring information (updated from time to time)
-        monitoring_data = dict()
-
-        monitoring_data['badpixelinfo'] = []
-        monitoring_data['badpixelinfoUnixRange'] = []
-        monitoring_data['PedestalUnix'] = np.array([])
-        monitoring_data['PedestalFundamental'] = dict()
-        monitoring_data['PedestalFundamental']['Mean'] = []
-        monitoring_data['PedestalFundamental']['Rms'] = []
-        monitoring_data['PedestalFromExtractor'] = dict()
-        monitoring_data['PedestalFromExtractor']['Mean'] = []
-        monitoring_data['PedestalFromExtractor']['Rms'] = []
-        monitoring_data['PedestalFromExtractorRndm'] = dict()
-        monitoring_data['PedestalFromExtractorRndm']['Mean'] = []
-        monitoring_data['PedestalFromExtractorRndm']['Rms'] = []
-
-        event_data['file_edges'] = [0]
-
-        # if no file in the list (e.g. when reading mono information), then simply
-        # return empty dicts/array
-        if uproot_file is None:
-            return event_data, monitoring_data
-
-        drive_data = dict()
-        drive_data['mjd'] = np.array([])
-        drive_data['zd'] = np.array([])
-        drive_data['az'] = np.array([])
-        drive_data['ra'] = np.array([])
-        drive_data['dec'] = np.array([])
 
         evt_common_list = [
             'MArrivalTime.fData',
@@ -1430,35 +1378,212 @@ class MarsCalibratedRun:
             'MMcEvt.fCoreY'
         ]
 
+        event_data = dict()
+
+        # monitoring information (updated from time to time)
+        event_data["monitoring_data"] = dict()
+
+        event_data["monitoring_data"]['badpixelinfo'] = []
+        event_data["monitoring_data"]['badpixelinfoUnixRange'] = []
+        event_data["monitoring_data"]['PedestalUnix'] = np.array([])
+        event_data["monitoring_data"]['PedestalFundamental'] = dict()
+        event_data["monitoring_data"]['PedestalFundamental']['Mean'] = []
+        event_data["monitoring_data"]['PedestalFundamental']['Rms'] = []
+        event_data["monitoring_data"]['PedestalFromExtractor'] = dict()
+        event_data["monitoring_data"]['PedestalFromExtractor']['Mean'] = []
+        event_data["monitoring_data"]['PedestalFromExtractor']['Rms'] = []
+        event_data["monitoring_data"]['PedestalFromExtractorRndm'] = dict()
+        event_data["monitoring_data"]['PedestalFromExtractorRndm']['Mean'] = []
+        event_data["monitoring_data"]['PedestalFromExtractorRndm']['Rms'] = []
+
+        event_types = ["cosmics_stereo_events", "pedestal_events"]
+
+        for event_type in event_types:
+
+            event_data[event_type] = dict()
+
+            event_data[event_type]['image'] = []
+            event_data[event_type]['pulse_time'] = []
+            event_data[event_type]['trigger_pattern'] = np.array([], dtype=np.int32)
+            event_data[event_type]['stereo_event_number'] = np.array([], dtype=np.int32)
+            event_data[event_type]['pointing_zd'] = np.array([])
+            event_data[event_type]['pointing_az'] = np.array([])
+            event_data[event_type]['pointing_ra'] = np.array([])
+            event_data[event_type]['pointing_dec'] = np.array([])
+            event_data[event_type]['unix'] = np.array([])
+
+        # if no file in the list (e.g. when reading mono information), then simply
+        # return empty dicts/array
+        if uproot_file is None:
+            return event_data
+
+        drive_data = dict()
+        drive_data['mjd'] = np.array([])
+        drive_data['zd'] = np.array([])
+        drive_data['az'] = np.array([])
+        drive_data['ra'] = np.array([])
+        drive_data['dec'] = np.array([])
+
         input_file = uproot_file
 
-        events = input_file['Events'].arrays(evt_common_list, library="np")
+        pedestal_cut = f"(MTriggerPattern.fPrescaled == {PEDESTAL_TRIGGER_PATTERN})"
 
-        # Reading the info common to MC and real data
-        charge = events['MCerPhotEvt.fPixels.fPhot']
-        arrival_time = events['MArrivalTime.fData']
-        trigger_pattern = events['MTriggerPattern.fPrescaled']
-        stereo_event_number = events['MRawEvtHeader.fStereoEvtNumber']
+        if is_mc:
+            cosmics_stereo_cut = f"(MTriggerPattern.fPrescaled == {MC_STEREO_TRIGGER_PATTERN}) & (MRawEvtHeader.fStereoEvtNumber != 0)"
+        else:
+            cosmics_stereo_cut = f"(MTriggerPattern.fPrescaled == {DATA_STEREO_TRIGGER_PATTERN})"
+
+        events_cut = {
+            "cosmics_stereo_events": cosmics_stereo_cut,
+            "pedestal_events": pedestal_cut,
+        }
+
+        for event_type in event_types:
+
+            if event_type == "pedestal_events" and is_mc:
+                continue
+
+            events = input_file['Events'].arrays(
+                expressions=evt_common_list,
+                cut=events_cut[event_type],
+                library="np"
+            )
+
+            # Reading the info common to MC and real data
+            charge = events['MCerPhotEvt.fPixels.fPhot']
+            arrival_time = events['MArrivalTime.fData']
+            trigger_pattern = events['MTriggerPattern.fPrescaled']
+            stereo_event_number = events['MRawEvtHeader.fStereoEvtNumber']
+
+            if not is_mc:
+
+                # Reading event timing information:
+                event_times = input_file['Events'].arrays(
+                    expressions=time_array_list,
+                    cut=events_cut[event_type],
+                    library="np"
+                )
+
+                # Computing the event arrival time
+                event_obs_day = Time(event_times['MTime.fMjd'], format='mjd', scale='utc')
+                event_obs_day = np.round(event_obs_day.to_value(format='unix', subfmt='float'))
+                event_obs_day = np.array([Decimal(str(x)) for x in event_obs_day])
+
+                event_millisec = np.round(event_times['MTime.fTime.fMilliSec'] * msec2sec, 3)
+                event_millisec = np.array([Decimal(str(x)) for x in event_millisec])
+
+                event_nanosec = np.round(event_times['MTime.fNanoSec'] * nsec2sec, 7)
+                event_nanosec = np.array([Decimal(str(x)) for x in event_nanosec])
+
+                event_unix = event_obs_day + event_millisec + event_nanosec
+                event_data[event_type]['unix'] = np.concatenate((event_data[event_type]['unix'], event_unix))
+
+                # Getting the telescope drive info
+                drive = input_file['Drive'].arrays(drive_array_list, library="np")
+
+                drive_mjd = drive['MReportDrive.fMjd']
+                drive_zd = drive['MReportDrive.fCurrentZd']
+                drive_az = drive['MReportDrive.fCurrentAz']
+                drive_ra = drive['MReportDrive.fRa'] * degrees_per_hour
+                drive_dec = drive['MReportDrive.fDec']
+
+                drive_data['mjd'] = np.concatenate((drive_data['mjd'], drive_mjd))
+                drive_data['zd'] = np.concatenate((drive_data['zd'], drive_zd))
+                drive_data['az'] = np.concatenate((drive_data['az'], drive_az))
+                drive_data['ra'] = np.concatenate((drive_data['ra'], drive_ra))
+                drive_data['dec'] = np.concatenate((drive_data['dec'], drive_dec))
+
+                if len(drive_mjd) < 3:
+                    LOGGER.warning(f"File {uproot_file.file_path} has only {len(drive_mjd)} drive reports.")
+                    if len(drive_mjd) == 0:
+                        raise MissingDriveReportError(f"File {uproot_file.file_path} does not have any drive report. Check if it was merpped correctly.")
+
+                # get only drive reports with unique times, otherwise interpolation fails.
+                drive_mjd_unique, unique_indices = np.unique(
+                    drive_data['mjd'],
+                    return_index=True
+                )
+                drive_zd_unique = drive_data['zd'][unique_indices]
+                drive_az_unique = drive_data['az'][unique_indices]
+                drive_ra_unique = drive_data['ra'][unique_indices]
+                drive_dec_unique = drive_data['dec'][unique_indices]
+
+                first_drive_report_time = Time(drive_mjd_unique[0], scale='utc', format='mjd')
+                last_drive_report_time = Time(drive_mjd_unique[-1], scale='utc', format='mjd')
+
+                LOGGER.warning(f"Interpolating events information from {len(drive_data['mjd'])} drive reports.")
+                LOGGER.warning(f"Drive reports available from {first_drive_report_time.iso} to {last_drive_report_time.iso}.")
+
+                # Creating azimuth and zenith angles interpolators
+                drive_zd_pointing_interpolator = scipy.interpolate.interp1d(
+                    drive_mjd_unique, drive_zd_unique, fill_value="extrapolate")
+                drive_az_pointing_interpolator = scipy.interpolate.interp1d(
+                    drive_mjd_unique, drive_az_unique, fill_value="extrapolate")
+
+                # Creating RA and DEC interpolators
+                drive_ra_pointing_interpolator = scipy.interpolate.interp1d(
+                    drive_mjd_unique, drive_ra_unique, fill_value="extrapolate")
+                drive_dec_pointing_interpolator = scipy.interpolate.interp1d(
+                    drive_mjd_unique, drive_dec_unique, fill_value="extrapolate")
+
+                # Interpolating the drive pointing to the event time stamps
+                event_mjd = Time(event_data['unix'], format='unix', scale='utc').to_value(format='mjd', subfmt='float')
+
+                event_data[event_type]['pointing_zd'] = drive_zd_pointing_interpolator(event_mjd)
+                event_data[event_type]['pointing_az'] = drive_az_pointing_interpolator(event_mjd)
+                event_data[event_type]['pointing_ra'] = drive_ra_pointing_interpolator(event_mjd)
+                event_data[event_type]['pointing_dec'] = drive_dec_pointing_interpolator(event_mjd)
+
+            # Reading pointing information (in units of degrees):
+            else:
+                # Retrieving the telescope pointing direction
+                pointing = input_file['Events'].arrays(
+                    expressions=pointing_array_list,
+                    cut=events_cut[event_type],
+                    library="np"
+                )
+
+                pointing_zd = pointing['MPointingPos.fZd'] - \
+                    pointing['MPointingPos.fDevZd']
+                pointing_az = pointing['MPointingPos.fAz'] - \
+                    pointing['MPointingPos.fDevAz']
+                # N.B. the positive sign here, as HA = local sidereal time - ra
+                pointing_ra = (pointing['MPointingPos.fRa'] +
+                               pointing['MPointingPos.fDevHa']) * degrees_per_hour
+                pointing_dec = pointing['MPointingPos.fDec'] - \
+                    pointing['MPointingPos.fDevDec']
+
+                event_data[event_type]['pointing_zd'] = np.concatenate(
+                    (event_data[event_type]['pointing_zd'], pointing_zd))
+                event_data[event_type]['pointing_az'] = np.concatenate(
+                    (event_data[event_type]['pointing_az'], pointing_az))
+                event_data[event_type]['pointing_ra'] = np.concatenate(
+                    (event_data[event_type]['pointing_ra'], pointing_ra))
+                event_data[event_type]['pointing_dec'] = np.concatenate(
+                    (event_data[event_type]['pointing_dec'], pointing_dec))
+
+                mc_info = input_file['Events'].arrays(
+                    expressions=mc_list,
+                    cut=events_cut[event_type],
+                    library="np"
+                )
+                # N.B.: For MC, there is only one subrun, so do not need to 'append'
+                event_data[event_type]['true_energy'] = mc_info['MMcEvt.fEnergy']
+                event_data[event_type]['true_zd'] = mc_info['MMcEvt.fTheta']
+                event_data[event_type]['true_az'] = mc_info['MMcEvt.fPhi']
+                event_data[event_type]['true_shower_primary_id'] = mc_info['MMcEvt.fPartId']
+                event_data[event_type]['true_h_first_int'] = mc_info['MMcEvt.fZFirstInteraction']
+                event_data[event_type]['true_core_x'] = mc_info['MMcEvt.fCoreX']
+                event_data[event_type]['true_core_y'] = mc_info['MMcEvt.fCoreY']
+
+            event_data[event_type]['image'].append(charge)
+            event_data[event_type]['pulse_time'].append(arrival_time)
+            event_data[event_type]['trigger_pattern'] = np.concatenate(
+                (event_data[event_type]['trigger_pattern'], trigger_pattern))
+            event_data[event_type]['stereo_event_number'] = np.concatenate(
+                (event_data[event_type]['stereo_event_number'], stereo_event_number))
 
         if not is_mc:
-
-            # Reading event timing information:
-            event_times = input_file['Events'].arrays(time_array_list, library="np")
-            
-            # Computing the event arrival time
-            event_obs_day = Time(event_times['MTime.fMjd'], format='mjd', scale='utc')
-            event_obs_day = np.round(event_obs_day.to_value(format='unix', subfmt='float'))
-            event_obs_day = np.array([Decimal(str(x)) for x in event_obs_day])
-
-            event_millisec = np.round(event_times['MTime.fTime.fMilliSec'] * msec2sec, 3)
-            event_millisec = np.array([Decimal(str(x)) for x in event_millisec])
-
-            event_nanosec = np.round(event_times['MTime.fNanoSec'] * nsec2sec, 7)
-            event_nanosec = np.array([Decimal(str(x)) for x in event_nanosec])
-
-            event_unix = event_obs_day + event_millisec + event_nanosec
-            event_data['unix'] = np.concatenate((event_data['unix'], event_unix))
-
             badpixelinfo = input_file['RunHeaders']['MBadPixelsCam.fArray.fInfo'].array(
                 uproot.interpretation.jagged.AsJagged(
                     uproot.interpretation.numerical.AsDtype(np.dtype('>i4'))
@@ -1478,13 +1603,16 @@ class MarsCalibratedRun:
             for i in range(n_camera_pixels):
                 unsuitable_pix[i] = int('\t{0:08b}'.format(
                     unsuitable_pix_bitinfo[i] & 0xff)[-2])
-            monitoring_data['badpixelinfo'].append(unsuitable_pix)
+            event_data["monitoring_data"]['badpixelinfo'].append(unsuitable_pix)
             # save time interval of badpixel info:
-            monitoring_data['badpixelinfoUnixRange'].append([event_unix[0], event_unix[-1]])
+            event_data["monitoring_data"]['badpixelinfoUnixRange'].append([event_unix[0], event_unix[-1]])
 
         # try to read Pedestals tree (soft fail if not present)
             try:
-                pedestal_info = input_file['Pedestals'].arrays(pedestal_array_list, library="np")
+                pedestal_info = input_file['Pedestals'].arrays(
+                    expressions=pedestal_array_list,
+                    library="np"
+                )
 
                 pedestal_obs_day = Time(pedestal_info['MTimePedestals.fMjd'], format='mjd', scale='utc')
                 pedestal_obs_day = np.round(pedestal_obs_day.to_value(format='unix', subfmt='float'))
@@ -1497,57 +1625,42 @@ class MarsCalibratedRun:
                 pedestal_nanosec = np.array([Decimal(str(x)) for x in pedestal_nanosec])
 
                 pedestal_unix = pedestal_obs_day + pedestal_millisec + pedestal_nanosec
-                monitoring_data['PedestalUnix']  = np.concatenate((monitoring_data['PedestalUnix'], pedestal_unix))
+                event_data["monitoring_data"]['PedestalUnix'] = np.concatenate((event_data["monitoring_data"]['PedestalUnix'], pedestal_unix))
 
                 n_pedestals = len(pedestal_unix)
                 
                 for quantity in ['Mean', 'Rms']:
                     for i_pedestal in range(n_pedestals):
-                        monitoring_data['PedestalFundamental'][quantity].append(
+                        event_data["monitoring_data"]['PedestalFundamental'][quantity].append(
                             pedestal_info[f'MPedPhotFundamental.fArray.f{quantity}'][i_pedestal][:n_camera_pixels])
-                        monitoring_data['PedestalFromExtractor'][quantity].append(
+                        event_data["monitoring_data"]['PedestalFromExtractor'][quantity].append(
                             pedestal_info[f'MPedPhotFromExtractor.fArray.f{quantity}'][i_pedestal][:n_camera_pixels])
-                        monitoring_data['PedestalFromExtractorRndm'][quantity].append(
+                        event_data["monitoring_data"]['PedestalFromExtractorRndm'][quantity].append(
                             pedestal_info[f'MPedPhotFromExtractorRndm.fArray.f{quantity}'][i_pedestal][:n_camera_pixels])
 
             except KeyError:
                 LOGGER.warning(
                     "Pedestals tree not present in file. Cleaning algorithm may fail.")
+            event_data["monitoring_data"]['badpixelinfo'] = np.array(event_data["monitoring_data"]['badpixelinfo'])
+            event_data["monitoring_data"]['badpixelinfoUnixRange'] = np.array(event_data["monitoring_data"]['badpixelinfoUnixRange'])
+            # sort monitoring data:
+            order = np.argsort(event_data["monitoring_data"]['PedestalUnix'])
+            event_data["monitoring_data"]['PedestalUnix'] = event_data["monitoring_data"]['PedestalUnix'][order]
 
-            # Getting the telescope drive info
-            drive = input_file['Drive'].arrays(drive_array_list, library="np")
+            for quantity in ['Mean', 'Rms']:
+                event_data["monitoring_data"]['PedestalFundamental'][quantity] = np.array(
+                    event_data["monitoring_data"]['PedestalFundamental'][quantity])
+                event_data["monitoring_data"]['PedestalFromExtractor'][quantity] = np.array(
+                    event_data["monitoring_data"]['PedestalFromExtractor'][quantity])
+                event_data["monitoring_data"]['PedestalFromExtractorRndm'][quantity] = np.array(
+                    event_data["monitoring_data"]['PedestalFromExtractorRndm'][quantity])
 
-            drive_mjd = drive['MReportDrive.fMjd']
-            drive_zd = drive['MReportDrive.fCurrentZd']
-            drive_az = drive['MReportDrive.fCurrentAz']
-            drive_ra = drive['MReportDrive.fRa'] * degrees_per_hour
-            drive_dec = drive['MReportDrive.fDec']
+        return event_data
 
-            drive_data['mjd'] = np.concatenate((drive_data['mjd'], drive_mjd))
-            drive_data['zd'] = np.concatenate((drive_data['zd'], drive_zd))
-            drive_data['az'] = np.concatenate((drive_data['az'], drive_az))
-            drive_data['ra'] = np.concatenate((drive_data['ra'], drive_ra))
-            drive_data['dec'] = np.concatenate((drive_data['dec'], drive_dec))
+    def checks_trigger_number_jump(uproot_file, event_data, is_mc):
 
-            if len(drive_mjd) < 3:
-                LOGGER.warning(f"File {uproot_file.file_path} has only {len(drive_mjd)} drive reports.")
-                if len(drive_mjd) == 0:
-                    raise MissingDriveReportError(f"File {uproot_file.file_path} does not have any drive report. Check if it was merpped correctly.")
-
-        # Reading pointing information (in units of degrees):
-        if is_mc:
-            # Retrieving the telescope pointing direction
-            pointing = input_file['Events'].arrays(pointing_array_list, library="np")
-
-            pointing_zd = pointing['MPointingPos.fZd'] - \
-                pointing['MPointingPos.fDevZd']
-            pointing_az = pointing['MPointingPos.fAz'] - \
-                pointing['MPointingPos.fDevAz']
-            # N.B. the positive sign here, as HA = local sidereal time - ra
-            pointing_ra = (pointing['MPointingPos.fRa'] +
-                           pointing['MPointingPos.fDevHa']) * degrees_per_hour
-            pointing_dec = pointing['MPointingPos.fDec'] - \
-                pointing['MPointingPos.fDevDec']
+        stereo_event_number = event_data["stereo_event_number"]
+        trigger_pattern = event_data["trigger_pattern"]
 
         # check for bit flips in the stereo event ID:
         d_x = np.diff(stereo_event_number.astype(np.int))
@@ -1591,108 +1704,6 @@ class MarsCalibratedRun:
                     f"More than {max_total_jumps} in stereo trigger number; "
                     f"you may have to match events by timestamp at a later stage."
                 )
-
-        event_data['charge'].append(charge)
-        event_data['arrival_time'].append(arrival_time)
-        event_data['trigger_pattern'] = np.concatenate(
-            (event_data['trigger_pattern'], trigger_pattern))
-        event_data['stereo_event_number'] = np.concatenate(
-            (event_data['stereo_event_number'], stereo_event_number))
-
-        if is_mc:
-            event_data['pointing_zd'] = np.concatenate(
-                (event_data['pointing_zd'], pointing_zd))
-            event_data['pointing_az'] = np.concatenate(
-                (event_data['pointing_az'], pointing_az))
-            event_data['pointing_ra'] = np.concatenate(
-                (event_data['pointing_ra'], pointing_ra))
-            event_data['pointing_dec'] = np.concatenate(
-                (event_data['pointing_dec'], pointing_dec))
-
-            mc_info = input_file['Events'].arrays(mc_list, library="np")
-            # N.B.: For MC, there is only one subrun, so do not need to 'append'
-            event_data['true_energy'] = mc_info['MMcEvt.fEnergy']
-            event_data['true_zd'] = mc_info['MMcEvt.fTheta']
-            event_data['true_az'] = mc_info['MMcEvt.fPhi']
-            event_data['true_shower_primary_id'] = mc_info['MMcEvt.fPartId']
-            event_data['true_h_first_int'] = mc_info['MMcEvt.fZFirstInteraction']
-            event_data['true_core_x'] = mc_info['MMcEvt.fCoreX']
-            event_data['true_core_y'] = mc_info['MMcEvt.fCoreY']
-
-        event_data['file_edges'].append(len(event_data['trigger_pattern']))
-
-        if not is_mc:
-            monitoring_data['badpixelinfo'] = np.array(monitoring_data['badpixelinfo'])
-            monitoring_data['badpixelinfoUnixRange'] = np.array(monitoring_data['badpixelinfoUnixRange'])
-            # sort monitoring data:
-            order = np.argsort(monitoring_data['PedestalUnix'])
-            monitoring_data['PedestalUnix'] = monitoring_data['PedestalUnix'][order]
-
-            for quantity in ['Mean', 'Rms']:
-                monitoring_data['PedestalFundamental'][quantity] = np.array(
-                    monitoring_data['PedestalFundamental'][quantity])
-                monitoring_data['PedestalFromExtractor'][quantity] = np.array(
-                    monitoring_data['PedestalFromExtractor'][quantity])
-                monitoring_data['PedestalFromExtractorRndm'][quantity] = np.array(
-                    monitoring_data['PedestalFromExtractorRndm'][quantity])
-
-            # get only drive reports with unique times, otherwise interpolation fails.
-            drive_mjd_unique, unique_indices = np.unique(
-                drive_data['mjd'],
-                return_index=True
-            )
-            drive_zd_unique = drive_data['zd'][unique_indices]
-            drive_az_unique = drive_data['az'][unique_indices]
-            drive_ra_unique = drive_data['ra'][unique_indices]
-            drive_dec_unique = drive_data['dec'][unique_indices]
-
-            first_drive_report_time = Time(drive_mjd_unique[0], scale='utc', format='mjd')
-            last_drive_report_time = Time(drive_mjd_unique[-1], scale='utc', format='mjd')
-
-            LOGGER.warning(f"Interpolating events information from {len(drive_data['mjd'])} drive reports.")
-            LOGGER.warning(f"Drive reports available from {first_drive_report_time.iso} to {last_drive_report_time.iso}.")
-
-            # Creating azimuth and zenith angles interpolators
-            drive_zd_pointing_interpolator = scipy.interpolate.interp1d(
-                drive_mjd_unique, drive_zd_unique, fill_value="extrapolate")
-            drive_az_pointing_interpolator = scipy.interpolate.interp1d(
-                drive_mjd_unique, drive_az_unique, fill_value="extrapolate")
-
-            # Creating RA and DEC interpolators
-            drive_ra_pointing_interpolator = scipy.interpolate.interp1d(
-                drive_mjd_unique, drive_ra_unique, fill_value="extrapolate")
-            drive_dec_pointing_interpolator = scipy.interpolate.interp1d(
-                drive_mjd_unique, drive_dec_unique, fill_value="extrapolate")
-
-            # Interpolating the drive pointing to the event time stamps
-            event_mjd = Time(event_data['unix'], format='unix', scale='utc').to_value(format='mjd', subfmt='float')
-
-            event_data['pointing_zd'] = drive_zd_pointing_interpolator(event_mjd)
-            event_data['pointing_az'] = drive_az_pointing_interpolator(event_mjd)
-            event_data['pointing_ra'] = drive_ra_pointing_interpolator(event_mjd)
-            event_data['pointing_dec'] = drive_dec_pointing_interpolator(event_mjd)
-
-        return event_data, monitoring_data
-
-    def _find_pedestal_events(self):
-        """
-        This internal method identifies the IDs (order numbers) of the
-        pedestal events in the run.
-
-        Returns
-        -------
-        dict:
-            A dictionary of pedestal event IDs in M1/2 separately.
-        """
-
-        pedestal_ids = dict()
-
-        for telescope in self.event_data:
-            ped_triggers = np.where(
-                self.event_data[telescope]['trigger_pattern'] == PEDESTAL_TRIGGER_PATTERN)
-            pedestal_ids[telescope] = ped_triggers[0]
-
-        return pedestal_ids
 
     def _find_stereo_events(self):
         """
