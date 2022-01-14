@@ -10,7 +10,6 @@ import scipy
 import scipy.interpolate
 import numpy as np
 from decimal import Decimal
-from enum import Enum, auto
 from astropy.coordinates import Angle
 from astropy import units as u
 from astropy.time import Time
@@ -41,6 +40,8 @@ from ctapipe.instrument import (
     CameraReadout,
 )
 
+from .mars_datalevels import MARSDataLevel
+
 from .version import __version__
 
 from .constants import (
@@ -59,17 +60,6 @@ seconds_per_hour = 3600.
 
 msec2sec = 1e-3
 nsec2sec = 1e-9
-
-
-class MARSDataLevel(Enum):
-    """
-    Enum of the different MARS Data Levels
-    """
-
-    CALIBRATED = auto()  # Calibrated images in charge and time (no waveforms)
-    STAR = auto()  # Cleaned images, with Hillas parametrization
-    SUPERSTAR = auto()  # Stereo parameters reconstructed
-    MELIBEA = auto()  # Reconstruction of hadronness, event direction and energy
 
 
 class MissingDriveReportError(Exception):
