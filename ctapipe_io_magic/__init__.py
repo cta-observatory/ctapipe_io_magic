@@ -21,6 +21,7 @@ from ctapipe.core.traits import Bool
 from ctapipe.coordinates import CameraFrame
 
 from ctapipe.containers import (
+    EventType,
     ArrayEventContainer,
     SimulatedEventContainer,
     SimulatedShowerContainer,
@@ -60,6 +61,12 @@ seconds_per_hour = 3600.
 
 msec2sec = 1e-3
 nsec2sec = 1e-9
+
+MAGIC_TO_CTA_EVENT_TYPE = {
+    MC_STEREO_TRIGGER_PATTERN: EventType.SUBARRAY,
+    PEDESTAL_TRIGGER_PATTERN: EventType.SKY_PEDESTAL,
+    DATA_STEREO_TRIGGER_PATTERN: EventType.SUBARRAY,
+}
 
 
 class MissingDriveReportError(Exception):
