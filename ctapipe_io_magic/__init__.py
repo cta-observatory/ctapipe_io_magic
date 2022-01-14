@@ -1208,7 +1208,7 @@ class MarsCalibratedRun:
                     drive_mjd_unique, drive_dec_unique, fill_value="extrapolate")
 
                 # Interpolating the drive pointing to the event time stamps
-                event_mjd = Time(event_data['unix'], format='unix', scale='utc').to_value(format='mjd', subfmt='float')
+                event_mjd = Time(event_data[event_type]['unix'], format='unix', scale='utc').to_value(format='mjd', subfmt='float')
 
                 event_data[event_type]['pointing_zd'] = drive_zd_pointing_interpolator(event_mjd)
                 event_data[event_type]['pointing_az'] = drive_az_pointing_interpolator(event_mjd)
