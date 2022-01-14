@@ -818,17 +818,17 @@ class MAGICEventSource(EventSource):
             else:
                 n_events = self.current_run['data'].n_cosmics_stereo_events_m2
 
+        if generate_pedestals:
+            event_data = self.current_run['data'].pedestal_events[f"M{tel_i}"]
+        else:
+            event_data = self.current_run['data'].cosmics_stereo_events[f"M{tel_i}"]
+
         # Loop over the events
         for event_i in range(n_events):
 
             data.meta['origin'] = 'MAGIC'
             data.meta['input_url'] = self.input_url
             data.meta['max_events'] = self.max_events
-
-            if generate_pedestals:
-                event_data = self.current_run['data'].pedestal_events[f"M{tel_i}"]
-            else:
-                event_data = self.current_run['data'].cosmics_stereo_events[f"M{tel_i}"]
 
             # Event and run ids
             event_id = event_data['stereo_event_number'][event_i]
