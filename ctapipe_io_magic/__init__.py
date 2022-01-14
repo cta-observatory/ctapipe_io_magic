@@ -60,50 +60,6 @@ seconds_per_hour = 3600.
 msec2sec = 1e-3
 nsec2sec = 1e-9
 
-# MAGIC telescope positions in m wrt. to the center of CTA simulations
-# MAGIC_TEL_POSITIONS = {
-#    1: [-27.24, -146.66, 50.00] * u.m,
-#    2: [-96.44, -96.77, 51.00] * u.m
-# }
-
-# MAGIC telescope positions in m wrt. to the center of MAGIC simulations, from
-# CORSIKA and reflector input card
-MAGIC_TEL_POSITIONS = {
-    1: [31.80, -28.10, 0.00] * u.m,
-    2: [-31.80, 28.10, 0.00] * u.m
-}
-
-# Magnetic field values at the MAGIC site (taken from CORSIKA input cards)
-# Reference system is the CORSIKA one, where x-axis points to magnetic north
-# i.e. B y-component is 0
-# MAGIC_Bdec is the magnetic declination i.e. angle between magnetic and
-# geographic north, negative if pointing westwards, positive if pointing
-# eastwards
-# MAGIC_Binc is the magnetic field inclination
-MAGIC_Bx = u.Quantity(29.5, u.uT)
-MAGIC_Bz = u.Quantity(23.0, u.uT)
-MAGIC_Btot = np.sqrt(MAGIC_Bx**2+MAGIC_Bz**2)
-MAGIC_Bdec = u.Quantity(-7.0, u.deg).to(u.rad)
-MAGIC_Binc = u.Quantity(np.arctan2(-MAGIC_Bz.value, MAGIC_Bx.value), u.rad)
-
-# MAGIC telescope description
-OPTICS = OpticsDescription.from_name('MAGIC')
-MAGICCAM = CameraDescription.from_name("MAGICCam")
-pulse_shape_lo_gain = np.array([0., 1., 2., 1., 0.])
-pulse_shape_hi_gain = np.array([1., 2., 3., 2., 1.])
-pulse_shape = np.vstack((pulse_shape_lo_gain, pulse_shape_lo_gain))
-MAGICCAM.readout = CameraReadout(
-    camera_name='MAGICCam',
-    sampling_rate=u.Quantity(1.64, u.GHz),
-    reference_pulse_shape=pulse_shape,
-    reference_pulse_sample_width=u.Quantity(0.5, u.ns)
-)
-MAGICCAM.geometry.frame = CameraFrame(focal_length=OPTICS.equivalent_focal_length)
-GEOM = MAGICCAM.geometry
-MAGIC_TEL_DESCRIPTION = TelescopeDescription(
-    name='MAGIC', tel_type='MAGIC', optics=OPTICS, camera=MAGICCAM)
-MAGIC_TEL_DESCRIPTIONS = {1: MAGIC_TEL_DESCRIPTION, 2: MAGIC_TEL_DESCRIPTION}
-
 
 class MARSDataLevel(Enum):
     """
@@ -208,13 +164,7 @@ class MAGICEventSource(EventSource):
         # self.current_run = self._set_active_run(run_number=0)
         self.current_run = None
 
-        self._subarray_info = SubarrayDescription(
-            name='MAGIC',
-            tel_positions=MAGIC_TEL_POSITIONS,
-            tel_descriptions=MAGIC_TEL_DESCRIPTIONS
-        )
-        if self.allowed_tels:
-            self._subarray_info = self._subarray_info.select_subarray(self.allowed_tels)
+        self._subarray_info = self.prepare_subarray_info()
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         """
@@ -505,6 +455,57 @@ class MAGICEventSource(EventSource):
                 is_sumt = True
 
         return is_stereo, is_sumt
+
+    def prepare_subarray_info(self):
+        """
+        Fill SubarrayDescription container
+
+        Returns
+        -------
+        subarray: ctapipe.instrument.SubarrayDescription
+            Container with telescope descriptions and positions information
+        """
+
+        # MAGIC telescope positions in m wrt. to the center of CTA simulations
+        # MAGIC_TEL_POSITIONS = {
+        #    1: [-27.24, -146.66, 50.00] * u.m,
+        #    2: [-96.44, -96.77, 51.00] * u.m
+        # }
+
+        # MAGIC telescope positions in m wrt. to the center of MAGIC simulations, from
+        # CORSIKA and reflector input card
+        MAGIC_TEL_POSITIONS = {
+            1: [31.80, -28.10, 0.00] * u.m,
+            2: [-31.80, 28.10, 0.00] * u.m
+        }
+
+        # MAGIC telescope description
+        OPTICS = OpticsDescription.from_name('MAGIC')
+        MAGICCAM = CameraDescription.from_name("MAGICCam")
+        pulse_shape_lo_gain = np.array([0., 1., 2., 1., 0.])
+        pulse_shape_hi_gain = np.array([1., 2., 3., 2., 1.])
+        pulse_shape = np.vstack((pulse_shape_lo_gain, pulse_shape_hi_gain))
+        MAGICCAM.readout = CameraReadout(
+            camera_name='MAGICCam',
+            sampling_rate=u.Quantity(1.64, u.GHz),
+            reference_pulse_shape=pulse_shape,
+            reference_pulse_sample_width=u.Quantity(0.5, u.ns)
+        )
+        MAGICCAM.geometry.frame = CameraFrame(focal_length=OPTICS.equivalent_focal_length)
+        MAGIC_TEL_DESCRIPTION = TelescopeDescription(
+            name='MAGIC', tel_type='MAGIC', optics=OPTICS, camera=MAGICCAM)
+        MAGIC_TEL_DESCRIPTIONS = {1: MAGIC_TEL_DESCRIPTION, 2: MAGIC_TEL_DESCRIPTION}
+
+        subarray = SubarrayDescription(
+            name='MAGIC',
+            tel_positions=MAGIC_TEL_POSITIONS,
+            tel_descriptions=MAGIC_TEL_DESCRIPTIONS
+        )
+
+        if self.allowed_tels:
+            subarray = self._subarray_info.select_subarray(self.allowed_tels)
+
+        return subarray
 
     @staticmethod
     def decode_version_number(version_encoded):
