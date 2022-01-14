@@ -811,7 +811,7 @@ class MAGICEventSource(EventSource):
             if tel_i == 1:
                 n_events = self.current_run['data'].n_pedestal_events_m1
             else:
-                n_events = self.current_run['data'].n_pedestal_events_m1
+                n_events = self.current_run['data'].n_pedestal_events_m2
         else:
             if tel_i == 1:
                 n_events = self.current_run['data'].n_cosmics_stereo_events_m1
