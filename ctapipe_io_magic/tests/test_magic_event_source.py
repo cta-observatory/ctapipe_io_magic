@@ -124,11 +124,11 @@ def test_loop(dataset):
 @pytest.mark.parametrize('dataset', test_calibrated_real)
 def test_loop_pedestal(dataset):
     from ctapipe_io_magic import MAGICEventSource
-    from ctapipe_io_magic.constants import PEDESTAL_TRIGGER_PATTERN
+    from ctapipe.containers import EventType
     n_events = 10
     with MAGICEventSource(input_url=dataset, max_events=n_events, use_pedestals=True) as source:
         for event in source:
-            assert event.trigger.event_type == PEDESTAL_TRIGGER_PATTERN
+            assert event.trigger.event_type == EventType.SKY_PEDESTAL
 
 
 @pytest.mark.parametrize('dataset', test_calibrated_all)
@@ -138,10 +138,10 @@ def test_number_of_events(dataset):
     with MAGICEventSource(input_url=dataset) as source:
         run = source._set_active_run(run_number=source.run_numbers)
         if '_M1_' in dataset.name:
-            assert run['data'].n_mono_events_m1 == data_dict[source.input_url.name]['n_events_stereo']
+            assert run['data'].n_cosmics_stereo_events_m1 == data_dict[source.input_url.name]['n_events_stereo']
             assert run['data'].n_pedestal_events_m1 == data_dict[source.input_url.name]['n_events_pedestal']
         if '_M2_' in dataset.name:
-            assert run['data'].n_mono_events_m2 == data_dict[source.input_url.name]['n_events_stereo']
+            assert run['data'].n_cosmics_stereo_events_m2 == data_dict[source.input_url.name]['n_events_stereo']
             assert run['data'].n_pedestal_events_m2 == data_dict[source.input_url.name]['n_events_pedestal']
 
 
