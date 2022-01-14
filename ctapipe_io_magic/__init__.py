@@ -1083,8 +1083,8 @@ class MarsCalibratedRun:
 
             event_data[event_type] = dict()
 
-            event_data[event_type]['image'] = []
-            event_data[event_type]['pulse_time'] = []
+            event_data[event_type]['image'] = np.array([])
+            event_data[event_type]['pulse_time'] = np.array([])
             event_data[event_type]['trigger_pattern'] = np.array([], dtype=np.int32)
             event_data[event_type]['stereo_event_number'] = np.array([], dtype=np.int32)
             event_data[event_type]['pointing_zd'] = np.array([])
@@ -1257,8 +1257,10 @@ class MarsCalibratedRun:
                 event_data[event_type]['true_core_x'] = mc_info['MMcEvt.fCoreX']
                 event_data[event_type]['true_core_y'] = mc_info['MMcEvt.fCoreY']
 
-            event_data[event_type]['image'].append(charge)
-            event_data[event_type]['pulse_time'].append(arrival_time)
+            event_data[event_type]['image'] = np.concatenate(
+                (event_data[event_type]['image'], charge))
+            event_data[event_type]['pulse_time'] = np.concatenate(
+                (event_data[event_type]['pulse_time'], arrival_time))
             event_data[event_type]['trigger_pattern'] = np.concatenate(
                 (event_data[event_type]['trigger_pattern'], trigger_pattern))
             event_data[event_type]['stereo_event_number'] = np.concatenate(
