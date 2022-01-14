@@ -51,7 +51,6 @@ from .constants import (
     DATA_STEREO_TRIGGER_PATTERN
 )
 
-
 __all__ = ['MAGICEventSource', '__version__']
 
 LOGGER = logging.getLogger(__name__)
@@ -248,60 +247,60 @@ class MAGICEventSource(EventSource):
         """
 
         mask_data_calibrated = r"\d{6}_M(\d+)_(\d+)\.\d+_Y_.*"
-        mask_data_star       = r"\d{6}_M(\d+)_(\d+)\.\d+_I_.*"
-        mask_data_superstar  = r"\d{6}_(\d+)_S_.*"
-        mask_data_melibea    = r"\d{6}_(\d+)_Q_.*"
-        mask_mc_calibrated   = r"GA_M(\d)_za\d+to\d+_\d_(\d+)_Y_.*"
-        mask_mc_star         = r"GA_M(\d)_za\d+to\d+_\d_(\d+)_I_.*"
-        mask_mc_superstar    = r"GA_za\d+to\d+_\d_S_.*"
-        mask_mc_melibea      = r"GA_za\d+to\d+_\d_Q_.*"
+        mask_data_star = r"\d{6}_M(\d+)_(\d+)\.\d+_I_.*"
+        mask_data_superstar = r"\d{6}_(\d+)_S_.*"
+        mask_data_melibea = r"\d{6}_(\d+)_Q_.*"
+        mask_mc_calibrated = r"GA_M(\d)_za\d+to\d+_\d_(\d+)_Y_.*"
+        mask_mc_star = r"GA_M(\d)_za\d+to\d+_\d_(\d+)_I_.*"
+        mask_mc_superstar = r"GA_za\d+to\d+_\d_S_.*"
+        mask_mc_melibea = r"GA_za\d+to\d+_\d_Q_.*"
         if re.findall(mask_data_calibrated, file_name):
             parsed_info = re.findall(mask_data_calibrated, file_name)
-            telescope  = int(parsed_info[0][0])
+            telescope = int(parsed_info[0][0])
             run_number = int(parsed_info[0][1])
-            datalevel  = MARSDataLevel.CALIBRATED
+            datalevel = MARSDataLevel.CALIBRATED
             is_mc = False
         elif re.findall(mask_data_star, file_name):
             parsed_info = re.findall(mask_data_star, file_name)
-            telescope  = int(parsed_info[0][0])
+            telescope = int(parsed_info[0][0])
             run_number = int(parsed_info[0][1])
-            datalevel  = MARSDataLevel.STAR
+            datalevel = MARSDataLevel.STAR
             is_mc = False
         elif re.findall(mask_data_superstar, file_name):
             parsed_info = re.findall(mask_data_superstar, file_name)
-            telescope  = None
+            telescope = None
             run_number = int(parsed_info[0])
-            datalevel  = MARSDataLevel.SUPERSTAR
+            datalevel = MARSDataLevel.SUPERSTAR
             is_mc = False
         elif re.findall(mask_data_melibea, file_name):
             parsed_info = re.findall(mask_data_melibea, file_name)
-            telescope  = None
+            telescope = None
             run_number = int(parsed_info[0])
-            datalevel  = MARSDataLevel.MELIBEA
+            datalevel = MARSDataLevel.MELIBEA
             is_mc = False
         elif re.findall(mask_mc_calibrated, file_name):
             parsed_info = re.findall(mask_mc_calibrated, file_name)
-            telescope  = int(parsed_info[0][0])
+            telescope = int(parsed_info[0][0])
             run_number = int(parsed_info[0][1])
-            datalevel  = MARSDataLevel.CALIBRATED
+            datalevel = MARSDataLevel.CALIBRATED
             is_mc = True
         elif re.findall(mask_mc_star, file_name):
             parsed_info = re.findall(mask_mc_star, file_name)
-            telescope  = int(parsed_info[0][0])
+            telescope = int(parsed_info[0][0])
             run_number = int(parsed_info[0][1])
-            datalevel  = MARSDataLevel.STAR
+            datalevel = MARSDataLevel.STAR
             is_mc = True
         elif re.findall(mask_mc_superstar, file_name):
             parsed_info = re.findall(mask_mc_superstar, file_name)
-            telescope  = None
+            telescope = None
             run_number = None
-            datalevel  = MARSDataLevel.SUPERSTAR
+            datalevel = MARSDataLevel.SUPERSTAR
             is_mc = True
         elif re.findall(mask_mc_melibea, file_name):
             parsed_info = re.findall(mask_mc_melibea, file_name)
-            telescope  = None
+            telescope = None
             run_number = None
-            datalevel  = MARSDataLevel.MELIBEA
+            datalevel = MARSDataLevel.MELIBEA
             is_mc = True
         else:
             raise IndexError(
@@ -580,7 +579,8 @@ class MAGICEventSource(EventSource):
             metadata['observation_mode'] = "".join([chr(item) for item in obs_mode_array if item != 0])
 
         meta_info_runt = self.file_['RunTails'].arrays(
-                metadatainfo_array_list_runtails, library="np"
+            metadatainfo_array_list_runtails,
+            library="np"
         )
 
         mars_version_encoded = int(meta_info_runt['MMarsVersion_sorcerer.fMARSVersionCode'][0])
@@ -741,7 +741,7 @@ class MAGICEventSource(EventSource):
 
     def _event_generator(self, generate_pedestals):
         """
-        Mono event generator. Yields DataContainer instances, filled
+        Event generator. Yields ArrayEventContainer instances, filled
         with the read event data.
 
         Returns
@@ -844,7 +844,7 @@ class MAGICEventSource(EventSource):
                     self.subarray.tel_ids,
                     assume_unique=True
                 )
-            
+
             if not self.is_mc:
 
                 data.trigger.tel[tel_i] = TelescopeTriggerContainer(
@@ -876,10 +876,10 @@ class MAGICEventSource(EventSource):
 
             pointing.tel[tel_i] = pointing_tel
 
-            pointing.array_azimuth = np.deg2rad(event_data['pointing_az'][event_i]) * u.rad
-            pointing.array_altitude = np.deg2rad(90 - event_data['pointing_zd'][event_i]) * u.rad
-            pointing.array_ra = np.deg2rad(event_data['pointing_ra'][event_i]) * u.rad
-            pointing.array_dec = np.deg2rad(event_data['pointing_dec'][event_i]) * u.rad
+            pointing.array_azimuth = np.deg2rad(event_data['pointing_az'][event_i])*u.rad
+            pointing.array_altitude = np.deg2rad(90 - event_data['pointing_zd'][event_i])*u.rad
+            pointing.array_ra = np.deg2rad(event_data['pointing_ra'][event_i])*u.rad
+            pointing.array_dec = np.deg2rad(event_data['pointing_dec'][event_i])*u.rad
 
             data.pointing = pointing
 
@@ -982,7 +982,8 @@ class MarsCalibratedRun:
     @staticmethod
     def load_events(uproot_file, is_mc, n_camera_pixels):
         """
-        This method loads events and monitoring data from the pre-defiled file and returns them as a dictionary.
+        This method loads events and monitoring data from the pre-defiled file
+        and returns them as a dictionary.
 
         Parameters
         ----------
@@ -991,12 +992,14 @@ class MarsCalibratedRun:
         is_mc: boolean
             Specify whether Monte Carlo (True) or data (False) events are read
         n_camera_pixels: int
-            Number of MAGIC camera pixels (not hardcoded, but specified solely via ctapipe.instrument.CameraGeometry)
+            Number of MAGIC camera pixels (not hardcoded, but specified solely via
+            ctapipe.instrument.CameraGeometry)
 
         Returns
         -------
         dict:
-            A dictionary with the even properties: charge / arrival time data, trigger, direction etc.
+            A dictionary with the even properties: charge / arrival time data, trigger,
+            direction etc.
         """
 
         evt_common_list = [
@@ -1311,7 +1314,7 @@ class MarsCalibratedRun:
                 event_data["monitoring_data"]['PedestalUnix'] = np.concatenate((event_data["monitoring_data"]['PedestalUnix'], pedestal_unix))
 
                 n_pedestals = len(pedestal_unix)
-                
+
                 for quantity in ['Mean', 'Rms']:
                     for i_pedestal in range(n_pedestals):
                         event_data["monitoring_data"]['PedestalFundamental'][quantity].append(
@@ -1324,6 +1327,7 @@ class MarsCalibratedRun:
             except KeyError:
                 LOGGER.warning(
                     "Pedestals tree not present in file. Cleaning algorithm may fail.")
+
             event_data["monitoring_data"]['badpixelinfo'] = np.array(event_data["monitoring_data"]['badpixelinfo'])
             event_data["monitoring_data"]['badpixelinfoUnixRange'] = np.array(event_data["monitoring_data"]['badpixelinfoUnixRange'])
             # sort monitoring data:
