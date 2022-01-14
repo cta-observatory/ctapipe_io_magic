@@ -961,34 +961,34 @@ class MAGICEventSource(EventSource):
             badpixel_info = PixelStatusContainer()
 
             pedestal_info.sample_time = Time(
-                monitoring_data['M{:d}'.format(tel_i + 1)]['PedestalUnix'], format='unix', scale='utc'
+                monitoring_data['M{:d}'.format(tel_i)]['PedestalUnix'], format='unix', scale='utc'
             )
 
             pedestal_info.n_events = 500  # hardcoded number of pedestal events averaged over
             pedestal_info.charge_mean = []
             pedestal_info.charge_mean.append(
-                monitoring_data['M{:d}'.format(tel_i + 1)]['PedestalFundamental']['Mean'])
+                monitoring_data['M{:d}'.format(tel_i)]['PedestalFundamental']['Mean'])
             pedestal_info.charge_mean.append(
-                monitoring_data['M{:d}'.format(tel_i + 1)]['PedestalFromExtractor']['Mean'])
+                monitoring_data['M{:d}'.format(tel_i)]['PedestalFromExtractor']['Mean'])
             pedestal_info.charge_mean.append(monitoring_data['M{:d}'.format(
-                tel_i + 1)]['PedestalFromExtractorRndm']['Mean'])
+                tel_i)]['PedestalFromExtractorRndm']['Mean'])
             pedestal_info.charge_std = []
             pedestal_info.charge_std.append(
-                monitoring_data['M{:d}'.format(tel_i + 1)]['PedestalFundamental']['Rms'])
+                monitoring_data['M{:d}'.format(tel_i)]['PedestalFundamental']['Rms'])
             pedestal_info.charge_std.append(
-                monitoring_data['M{:d}'.format(tel_i + 1)]['PedestalFromExtractor']['Rms'])
+                monitoring_data['M{:d}'.format(tel_i)]['PedestalFromExtractor']['Rms'])
             pedestal_info.charge_std.append(
-                monitoring_data['M{:d}'.format(tel_i + 1)]['PedestalFromExtractorRndm']['Rms'])
+                monitoring_data['M{:d}'.format(tel_i)]['PedestalFromExtractorRndm']['Rms'])
 
-            t_range = Time(monitoring_data['M{:d}'.format(tel_i + 1)]['badpixelinfoUnixRange'], format='unix', scale='utc')
+            t_range = Time(monitoring_data['M{:d}'.format(tel_i)]['badpixelinfoUnixRange'], format='unix', scale='utc')
 
-            badpixel_info.hardware_failing_pixels = monitoring_data['M{:d}'.format(tel_i + 1)]['badpixelinfo']
+            badpixel_info.hardware_failing_pixels = monitoring_data['M{:d}'.format(tel_i)]['badpixelinfo']
             badpixel_info.sample_time_range = t_range
 
             monitoring_camera.pedestal = pedestal_info
             monitoring_camera.pixel_status = badpixel_info
 
-            data.mon.tel[tel_i + 1] = monitoring_camera
+            data.mon.tel[tel_i] = monitoring_camera
 
         if tel_i == 1:
             n_events = self.current_run['data'].n_mono_events_m1
@@ -1023,7 +1023,7 @@ class MAGICEventSource(EventSource):
             
             if not self.is_mc:
 
-                data.trigger.tel[tel_i + 1] = TelescopeTriggerContainer(
+                data.trigger.tel[tel_i] = TelescopeTriggerContainer(
                     time=Time(event_data['unix'], format='unix', scale='utc')
                 )
 
@@ -1045,7 +1045,7 @@ class MAGICEventSource(EventSource):
                 azimuth=np.deg2rad(event_data['pointing_az']) * u.rad,
                 altitude=np.deg2rad(90 - event_data['pointing_zd']) * u.rad,)
 
-            pointing.tel[tel_i + 1] = pointing_tel
+            pointing.tel[tel_i] = pointing_tel
 
             pointing.array_azimuth = np.deg2rad(event_data['pointing_az']) * u.rad
             pointing.array_altitude = np.deg2rad(90 - event_data['pointing_zd']) * u.rad
@@ -1055,8 +1055,8 @@ class MAGICEventSource(EventSource):
             data.pointing = pointing
 
             # Adding event charge and peak positions per pixel
-            data.dl1.tel[tel_i + 1].image = event_data['image']
-            data.dl1.tel[tel_i + 1].peak_time = event_data['pulse_time']
+            data.dl1.tel[tel_i].image = event_data['image']
+            data.dl1.tel[tel_i].peak_time = event_data['pulse_time']
 
             if self.is_mc:
                 # check meaning of 7deg transformation (I.Vovk)
@@ -1118,35 +1118,35 @@ class MAGICEventSource(EventSource):
         badpixel_info = PixelStatusContainer()
 
         pedestal_info.sample_time = Time(
-            monitoring_data['M{:d}'.format(tel_i + 1)]['PedestalUnix'], format='unix', scale='utc'
+            monitoring_data['M{:d}'.format(tel_i)]['PedestalUnix'], format='unix', scale='utc'
         )
 
         pedestal_info.n_events = 500  # hardcoded number of pedestal events averaged over
         pedestal_info.charge_mean = []
         pedestal_info.charge_mean.append(
-            monitoring_data['M{:d}'.format(tel_i + 1)]['PedestalFundamental']['Mean'])
+            monitoring_data['M{:d}'.format(tel_i)]['PedestalFundamental']['Mean'])
         pedestal_info.charge_mean.append(
-            monitoring_data['M{:d}'.format(tel_i + 1)]['PedestalFromExtractor']['Mean'])
+            monitoring_data['M{:d}'.format(tel_i)]['PedestalFromExtractor']['Mean'])
         pedestal_info.charge_mean.append(monitoring_data['M{:d}'.format(
-            tel_i + 1)]['PedestalFromExtractorRndm']['Mean'])
+            tel_i)]['PedestalFromExtractorRndm']['Mean'])
         pedestal_info.charge_std = []
         pedestal_info.charge_std.append(
-            monitoring_data['M{:d}'.format(tel_i + 1)]['PedestalFundamental']['Rms'])
+            monitoring_data['M{:d}'.format(tel_i)]['PedestalFundamental']['Rms'])
         pedestal_info.charge_std.append(
-            monitoring_data['M{:d}'.format(tel_i + 1)]['PedestalFromExtractor']['Rms'])
+            monitoring_data['M{:d}'.format(tel_i)]['PedestalFromExtractor']['Rms'])
         pedestal_info.charge_std.append(
-            monitoring_data['M{:d}'.format(tel_i + 1)]['PedestalFromExtractorRndm']['Rms'])
+            monitoring_data['M{:d}'.format(tel_i)]['PedestalFromExtractorRndm']['Rms'])
 
-        t_range = Time(monitoring_data['M{:d}'.format(tel_i + 1)]['badpixelinfoUnixRange'], format='unix', scale='utc')
+        t_range = Time(monitoring_data['M{:d}'.format(tel_i)]['badpixelinfoUnixRange'], format='unix', scale='utc')
 
         badpixel_info.hardware_failing_pixels = monitoring_data['M{:d}'.format(
-            tel_i + 1)]['badpixelinfo']
+            tel_i)]['badpixelinfo']
         badpixel_info.sample_time_range = t_range
 
         monitoring_camera.pedestal = pedestal_info
         monitoring_camera.pixel_status = badpixel_info
 
-        data.mon.tel[tel_i + 1] = monitoring_camera
+        data.mon.tel[tel_i] = monitoring_camera
 
         if tel_i == 1:
             n_events = self.current_run['data'].n_pedestal_events_m1
@@ -1180,7 +1180,7 @@ class MAGICEventSource(EventSource):
             if not self.is_mc:
                 
                 # Adding the event arrival time
-                data.trigger.tel[tel_i + 1] = TelescopeTriggerContainer(
+                data.trigger.tel[tel_i] = TelescopeTriggerContainer(
                     time=Time(event_data['unix'], format='unix', scale='utc')
                 )
 
@@ -1202,7 +1202,7 @@ class MAGICEventSource(EventSource):
                 azimuth=np.deg2rad(event_data['pointing_az']) * u.rad,
                 altitude=np.deg2rad(90 - event_data['pointing_zd']) * u.rad,)
 
-            pointing.tel[tel_i + 1] = pointing_tel
+            pointing.tel[tel_i] = pointing_tel
 
             pointing.array_azimuth = np.deg2rad(event_data['pointing_az']) * u.rad
             pointing.array_altitude = np.deg2rad(90 - event_data['pointing_zd']) * u.rad
@@ -1212,8 +1212,8 @@ class MAGICEventSource(EventSource):
             data.pointing = pointing
 
             # Adding event charge and peak positions per pixel
-            data.dl1.tel[tel_i + 1].image = event_data['image']
-            data.dl1.tel[tel_i + 1].peak_time = event_data['pulse_time']
+            data.dl1.tel[tel_i].image = event_data['image']
+            data.dl1.tel[tel_i].peak_time = event_data['pulse_time']
 
             yield data
             counter += 1
