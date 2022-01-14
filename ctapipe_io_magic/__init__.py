@@ -737,10 +737,7 @@ class MAGICEventSource(EventSource):
         """
 
         if self.mars_datalevel == MARSDataLevel.CALIBRATED:
-            if self.use_pedestals:
-                return self._pedestal_event_generator()
-            else:
-                return self._mono_event_generator()
+            return self._event_generator(generate_pedestals=self.use_pedestals)
 
     def _stereo_event_generator(self):
         """
@@ -931,7 +928,7 @@ class MAGICEventSource(EventSource):
 
         return
 
-    def _mono_event_generator(self):
+    def _event_generator(self, generate_pedestals):
         """
         Mono event generator. Yields DataContainer instances, filled
         with the read event data.
@@ -957,6 +954,8 @@ class MAGICEventSource(EventSource):
 
         # Setting the new active run
         self.current_run = self._set_active_run(self.run_numbers)
+
+        n_pixels = self._subarray_info.tel[tel_i].camera.geometry.n_pixels
 
         # Set monitoring data:
         if not self.is_mc:
@@ -997,27 +996,34 @@ class MAGICEventSource(EventSource):
 
             data.mon.tel[tel_i] = monitoring_camera
 
-        if tel_i == 1:
-            n_events = self.current_run['data'].n_mono_events_m1
+        if generate_pedestals:
+            if tel_i == 1:
+                n_events = self.current_run['data'].n_pedestal_events_m1
+            else:
+                n_events = self.current_run['data'].n_pedestal_events_m1
         else:
-            n_events = self.current_run['data'].n_mono_events_m2
+            if tel_i == 1:
+                n_events = self.current_run['data'].n_cosmics_stereo_events_m1
+            else:
+                n_events = self.current_run['data'].n_cosmics_stereo_events_m2
 
         # Loop over the events
         for event_i in range(n_events):
-
-            # Event and run ids
-            event_order_number = self.current_run['data'].mono_ids[f"M{tel_i}"][event_i]
-            event_id = self.current_run['data'].event_data[f"M{tel_i}"]['stereo_event_number'][event_order_number]
-            obs_id = self.current_run['number']
-
-            # Reading event data
-            event_data = self.current_run['data'].get_mono_event_data(event_i, telescope=f"M{tel_i}")
 
             data.meta['origin'] = 'MAGIC'
             data.meta['input_url'] = self.input_url
             data.meta['max_events'] = self.max_events
 
-            data.trigger.event_type = self.current_run['data'].event_data[f"M{tel_i}"]['trigger_pattern'][event_order_number]
+            if generate_pedestals:
+                event_data = self.current_run['data'].pedestal_events[f"M{tel_i}"]
+            else:
+                event_data = self.current_run['data'].cosmics_stereo_events[f"M{tel_i}"]
+
+            # Event and run ids
+            event_id = event_data['stereo_event_number'][event_i]
+            obs_id = self.current_run['number']
+
+            data.trigger.event_type = MAGIC_TO_CTA_EVENT_TYPE.get(event_data['trigger_pattern'][event_i])
             data.trigger.tels_with_trigger = tels_with_data
 
             if self.allowed_tels:
@@ -1031,7 +1037,11 @@ class MAGICEventSource(EventSource):
             if not self.is_mc:
 
                 data.trigger.tel[tel_i] = TelescopeTriggerContainer(
-                    time=Time(event_data['unix'], format='unix', scale='utc')
+                    time=Time(
+                        event_data['unix'][event_i],
+                        format='unix',
+                        scale='utc'
+                    )
                 )
 
             # Event counter
@@ -1049,21 +1059,22 @@ class MAGICEventSource(EventSource):
             # Creating the telescope pointing container
             pointing = PointingContainer()
             pointing_tel = TelescopePointingContainer(
-                azimuth=np.deg2rad(event_data['pointing_az']) * u.rad,
-                altitude=np.deg2rad(90 - event_data['pointing_zd']) * u.rad,)
+                azimuth=np.deg2rad(event_data['pointing_az'][event_i]) * u.rad,
+                altitude=np.deg2rad(90 - event_data['pointing_zd'][event_i]) * u.rad,
+            )
 
             pointing.tel[tel_i] = pointing_tel
 
-            pointing.array_azimuth = np.deg2rad(event_data['pointing_az']) * u.rad
-            pointing.array_altitude = np.deg2rad(90 - event_data['pointing_zd']) * u.rad
-            pointing.array_ra = np.deg2rad(event_data['pointing_ra']) * u.rad
-            pointing.array_dec = np.deg2rad(event_data['pointing_dec']) * u.rad
+            pointing.array_azimuth = np.deg2rad(event_data['pointing_az'][event_i]) * u.rad
+            pointing.array_altitude = np.deg2rad(90 - event_data['pointing_zd'][event_i]) * u.rad
+            pointing.array_ra = np.deg2rad(event_data['pointing_ra'][event_i]) * u.rad
+            pointing.array_dec = np.deg2rad(event_data['pointing_dec'][event_i]) * u.rad
 
             data.pointing = pointing
 
             # Adding event charge and peak positions per pixel
-            data.dl1.tel[tel_i].image = event_data['image']
-            data.dl1.tel[tel_i].peak_time = event_data['pulse_time']
+            data.dl1.tel[tel_i].image = np.array(event_data['image'][event_i][:n_pixels], dtype=np.float)
+            data.dl1.tel[tel_i].peak_time = np.array(event_data['pulse_time'][event_i][:n_pixels], dtype=np.float)
 
             if self.is_mc:
                 # check meaning of 7deg transformation (I.Vovk)
@@ -1072,13 +1083,13 @@ class MAGICEventSource(EventSource):
                 data.simulation = SimulatedEventContainer()
                 MAGIC_Bdec = self.simulation_config["prod_site_B_declination"]
                 data.simulation.shower = SimulatedShowerContainer(
-                    energy=u.Quantity(event_data['true_energy'], u.GeV),
-                    alt=Angle((np.pi/2 - event_data['true_zd']), u.rad),
-                    az=Angle(-1 * (event_data['true_az'] - (np.pi/2 + MAGIC_Bdec.value)), u.rad),
-                    shower_primary_id=(1 - event_data['true_shower_primary_id']),
-                    h_first_int=u.Quantity(event_data['true_h_first_int'], u.cm),
-                    core_x=u.Quantity((event_data['true_core_x']*np.cos(-MAGIC_Bdec) - event_data['true_core_y']*np.sin(-MAGIC_Bdec)).value, u.cm),
-                    core_y=u.Quantity((event_data['true_core_x']*np.sin(-MAGIC_Bdec) + event_data['true_core_y']*np.cos(-MAGIC_Bdec)).value, u.cm),
+                    energy=u.Quantity(event_data['true_energy'][event_i], u.GeV),
+                    alt=Angle((np.pi/2 - event_data['true_zd'][event_i]), u.rad),
+                    az=Angle(-1 * (event_data['true_az'][event_i] - (np.pi/2 + MAGIC_Bdec.value)), u.rad),
+                    shower_primary_id=(1 - event_data['true_shower_primary_id'][event_i]),
+                    h_first_int=u.Quantity(event_data['true_h_first_int'][event_i], u.cm),
+                    core_x=u.Quantity((event_data['true_core_x'][event_i]*np.cos(-MAGIC_Bdec) - event_data['true_core_y'][event_i]*np.sin(-MAGIC_Bdec)).value, u.cm),
+                    core_y=u.Quantity((event_data['true_core_x'][event_i]*np.sin(-MAGIC_Bdec) + event_data['true_core_y'][event_i]*np.cos(-MAGIC_Bdec)).value, u.cm),
                 )
 
             yield data
