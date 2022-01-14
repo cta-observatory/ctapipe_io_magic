@@ -620,6 +620,19 @@ class MAGICEventSource(EventSource):
         * fCWaveUpper, fCWaveLower: nanometer
         """
 
+        # Magnetic field values at the MAGIC site (taken from CORSIKA input cards)
+        # Reference system is the CORSIKA one, where x-axis points to magnetic north
+        # i.e. B y-component is 0
+        # MAGIC_Bdec is the magnetic declination i.e. angle between magnetic and
+        # geographic north, negative if pointing westwards, positive if pointing
+        # eastwards
+        # MAGIC_Binc is the magnetic field inclination
+        MAGIC_Bx = u.Quantity(29.5, u.uT)
+        MAGIC_Bz = u.Quantity(23.0, u.uT)
+        MAGIC_Btot = np.sqrt(MAGIC_Bx**2+MAGIC_Bz**2)
+        MAGIC_Bdec = u.Quantity(-7.0, u.deg).to(u.rad)
+        MAGIC_Binc = u.Quantity(np.arctan2(-MAGIC_Bz.value, MAGIC_Bx.value), u.rad)
+
         run_header_tree = self.file_['RunHeaders']
         spectral_index  = run_header_tree['MMcCorsikaRunHeader.fSlopeSpec'].array(library="np")[0]
         e_low           = run_header_tree['MMcCorsikaRunHeader.fELowLim'].array(library="np")[0]
@@ -1060,6 +1073,7 @@ class MAGICEventSource(EventSource):
                 # adding a 7deg rotation between the orientation of corsika (x axis = magnetic north) and MARS (x axis = geographical north) frames
                 # magnetic north is 7 deg westward w.r.t. geographical north
                 data.simulation = SimulatedEventContainer()
+                MAGIC_Bdec = self.simulation_config["prod_site_B_declination"]
                 data.simulation.shower = SimulatedShowerContainer(
                     energy=u.Quantity(event_data['true_energy'], u.GeV),
                     alt=Angle((np.pi/2 - event_data['true_zd']), u.rad),
