@@ -1246,7 +1246,7 @@ class MarsCalibratedRun:
             A file opened by uproot via uproot.open(file_name)
         """
 
-        self.n_camera_pixels = GEOM.n_pixels
+        self.n_camera_pixels = 1039
 
         self.file_name = uproot_file.file_path
 
