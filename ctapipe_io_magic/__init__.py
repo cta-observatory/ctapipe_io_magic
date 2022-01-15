@@ -1064,8 +1064,6 @@ class MarsCalibratedRun:
 
         event_data = dict()
 
-        event_data["filename"] = uproot_file.file_path
-
         # monitoring information (updated from time to time)
         event_data["monitoring_data"] = dict()
 
@@ -1102,6 +1100,8 @@ class MarsCalibratedRun:
         # return empty dicts/array
         if uproot_file is None:
             return event_data
+
+        event_data["filename"] = uproot_file.file_path
 
         drive_data = dict()
         drive_data['mjd'] = np.array([])
