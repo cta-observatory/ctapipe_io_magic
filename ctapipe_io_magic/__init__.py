@@ -1344,43 +1344,20 @@ class MarsCalibratedRun:
                 event_data["monitoring_data"]['PedestalFromExtractorRndm'][quantity] = np.array(
                     event_data["monitoring_data"]['PedestalFromExtractorRndm'][quantity])
 
-        return event_data
-
-    def checks_trigger_number_jump(uproot_file, event_data, is_mc):
-
-        stereo_event_number = event_data["stereo_event_number"]
-        trigger_pattern = event_data["trigger_pattern"]
-
-        # check for bit flips in the stereo event ID:
-        d_x = np.diff(stereo_event_number.astype(np.int))
-        dx_flip_ids_before = np.where(d_x < 0)[0]
-        dx_flip_ids_after = dx_flip_ids_before + 1
-        dx_flipzero_ids_first = np.where(d_x == 0)[0]
-        dx_flipzero_ids_second = dx_flipzero_ids_first + 1
         if not is_mc:
-            pedestal_ids = np.where(
-                trigger_pattern == PEDESTAL_TRIGGER_PATTERN)[0]
-            # sort out pedestals events from zero-difference steps:
-            dx_flipzero_ids_second = np.array(
-                list(set(dx_flipzero_ids_second) - set(pedestal_ids)))
-            dx_flip_ids_after = np.array(np.union1d(
-                dx_flip_ids_after, dx_flipzero_ids_second), dtype=np.int)
-        else:
-            # for MC, sort out stereo_event_number = 0:
-            orphan_ids = np.where(stereo_event_number == 0)[0]
-            dx_flip_ids_after = np.array(
-                list(set(dx_flip_ids_after) - set(orphan_ids)))
-        dx_flip_ids_before = dx_flip_ids_after - 1
-        max_total_jumps = 100
-        if len(dx_flip_ids_before) > 0:
-            LOGGER.warning("Warning: detected %d bitflips in file %s. Flag affected events as unsuitable" % (
-                len(dx_flip_ids_before), uproot_file.file_path))
-            total_jumped_events = 0
-            for i in dx_flip_ids_before:
-                trigger_pattern[i] = -1
-                trigger_pattern[i+1] = -1
-                if not is_mc:
-                    jumped_events = int(stereo_event_number[i]) - int(stereo_event_number[i+1])
+            stereo_event_number = event_data["cosmics_stereo_events"]["stereo_event_number"]
+
+            max_total_jumps = 100
+
+            # check for bit flips in the stereo event ID:
+            event_difference = np.diff(stereo_event_number.astype(int))
+            event_difference_id = np.where(event_difference < 0)[0]
+
+            if len(event_difference_id) > 0:
+                LOGGER.warning(f'Warning: detected {len(event_difference_id)} bitflips in file {event_data["filename"]}')
+                total_jumped_events = 0
+                for i in event_difference_id:
+                    jumped_events = int(stereo_event_number[i])-int(stereo_event_number[i+1])
                     total_jumped_events += jumped_events
                     LOGGER.warning(
                         f"Jump of L3 number backward from {stereo_event_number[i]} to "
@@ -1388,11 +1365,13 @@ class MarsCalibratedRun:
                         f"{total_jumped_events}"
                     )
 
-            if total_jumped_events > max_total_jumps:
-                LOGGER.warning(
-                    f"More than {max_total_jumps} in stereo trigger number; "
-                    f"you may have to match events by timestamp at a later stage."
-                )
+                if total_jumped_events > max_total_jumps:
+                    LOGGER.warning(
+                        f"More than {max_total_jumps} in stereo trigger number; "
+                        f"you may have to match events by timestamp at a later stage."
+                    )
+
+        return event_data
 
 
 class PixelStatusContainer(Container):
