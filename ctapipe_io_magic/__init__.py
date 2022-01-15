@@ -755,8 +755,8 @@ class MAGICEventSource(EventSource):
         data = ArrayEventContainer()
 
         # Telescopes with data:
-        tel_i = self.telescope
-        tels_with_data = [tel_i, ]
+        tel_id = self.telescope
+        tels_with_data = [tel_id, ]
 
         # Removing the previously read data run from memory
         if self.current_run is not None:
@@ -766,7 +766,7 @@ class MAGICEventSource(EventSource):
         # Setting the new active run
         self.current_run = self._set_active_run(self.run_numbers)
 
-        n_pixels = self._subarray_info.tel[tel_i].camera.geometry.n_pixels
+        n_pixels = self._subarray_info.tel[tel_id].camera.geometry.n_pixels
 
         # Set monitoring data:
         if not self.is_mc:
@@ -778,50 +778,50 @@ class MAGICEventSource(EventSource):
             badpixel_info = PixelStatusContainer()
 
             pedestal_info.sample_time = Time(
-                monitoring_data['M{:d}'.format(tel_i)]['PedestalUnix'], format='unix', scale='utc'
+                monitoring_data['M{:d}'.format(tel_id)]['PedestalUnix'], format='unix', scale='utc'
             )
 
             pedestal_info.n_events = 500  # hardcoded number of pedestal events averaged over
             pedestal_info.charge_mean = []
             pedestal_info.charge_mean.append(
-                monitoring_data['M{:d}'.format(tel_i)]['PedestalFundamental']['Mean'])
+                monitoring_data['M{:d}'.format(tel_id)]['PedestalFundamental']['Mean'])
             pedestal_info.charge_mean.append(
-                monitoring_data['M{:d}'.format(tel_i)]['PedestalFromExtractor']['Mean'])
+                monitoring_data['M{:d}'.format(tel_id)]['PedestalFromExtractor']['Mean'])
             pedestal_info.charge_mean.append(monitoring_data['M{:d}'.format(
-                tel_i)]['PedestalFromExtractorRndm']['Mean'])
+                tel_id)]['PedestalFromExtractorRndm']['Mean'])
             pedestal_info.charge_std = []
             pedestal_info.charge_std.append(
-                monitoring_data['M{:d}'.format(tel_i)]['PedestalFundamental']['Rms'])
+                monitoring_data['M{:d}'.format(tel_id)]['PedestalFundamental']['Rms'])
             pedestal_info.charge_std.append(
-                monitoring_data['M{:d}'.format(tel_i)]['PedestalFromExtractor']['Rms'])
+                monitoring_data['M{:d}'.format(tel_id)]['PedestalFromExtractor']['Rms'])
             pedestal_info.charge_std.append(
-                monitoring_data['M{:d}'.format(tel_i)]['PedestalFromExtractorRndm']['Rms'])
+                monitoring_data['M{:d}'.format(tel_id)]['PedestalFromExtractorRndm']['Rms'])
 
-            t_range = Time(monitoring_data['M{:d}'.format(tel_i)]['badpixelinfoUnixRange'], format='unix', scale='utc')
+            t_range = Time(monitoring_data['M{:d}'.format(tel_id)]['badpixelinfoUnixRange'], format='unix', scale='utc')
 
-            badpixel_info.hardware_failing_pixels = monitoring_data['M{:d}'.format(tel_i)]['badpixelinfo']
+            badpixel_info.hardware_failing_pixels = monitoring_data['M{:d}'.format(tel_id)]['badpixelinfo']
             badpixel_info.sample_time_range = t_range
 
             monitoring_camera.pedestal = pedestal_info
             monitoring_camera.pixel_status = badpixel_info
 
-            data.mon.tel[tel_i] = monitoring_camera
+            data.mon.tel[tel_id] = monitoring_camera
 
         if generate_pedestals:
-            if tel_i == 1:
+            if tel_id == 1:
                 n_events = self.current_run['data'].n_pedestal_events_m1
             else:
                 n_events = self.current_run['data'].n_pedestal_events_m2
         else:
-            if tel_i == 1:
+            if tel_id == 1:
                 n_events = self.current_run['data'].n_cosmics_stereo_events_m1
             else:
                 n_events = self.current_run['data'].n_cosmics_stereo_events_m2
 
         if generate_pedestals:
-            event_data = self.current_run['data'].pedestal_events[f"M{tel_i}"]
+            event_data = self.current_run['data'].pedestal_events[f"M{tel_id}"]
         else:
-            event_data = self.current_run['data'].cosmics_stereo_events[f"M{tel_i}"]
+            event_data = self.current_run['data'].cosmics_stereo_events[f"M{tel_id}"]
 
         # Loop over the events
         for event_i in range(n_events):
@@ -847,7 +847,7 @@ class MAGICEventSource(EventSource):
 
             if not self.is_mc:
 
-                data.trigger.tel[tel_i] = TelescopeTriggerContainer(
+                data.trigger.tel[tel_id] = TelescopeTriggerContainer(
                     time=Time(
                         event_data['unix'][event_i],
                         format='unix',
@@ -874,7 +874,7 @@ class MAGICEventSource(EventSource):
                 altitude=np.deg2rad(90 - event_data['pointing_zd'][event_i]) * u.rad,
             )
 
-            pointing.tel[tel_i] = pointing_tel
+            pointing.tel[tel_id] = pointing_tel
 
             pointing.array_azimuth = np.deg2rad(event_data['pointing_az'][event_i])*u.rad
             pointing.array_altitude = np.deg2rad(90 - event_data['pointing_zd'][event_i])*u.rad
@@ -884,8 +884,8 @@ class MAGICEventSource(EventSource):
             data.pointing = pointing
 
             # Adding event charge and peak positions per pixel
-            data.dl1.tel[tel_i].image = np.array(event_data['image'][event_i][:n_pixels], dtype=np.float)
-            data.dl1.tel[tel_i].peak_time = np.array(event_data['pulse_time'][event_i][:n_pixels], dtype=np.float)
+            data.dl1.tel[tel_id].image = np.array(event_data['image'][event_i][:n_pixels], dtype=np.float)
+            data.dl1.tel[tel_id].peak_time = np.array(event_data['pulse_time'][event_i][:n_pixels], dtype=np.float)
 
             if self.is_mc:
                 # check meaning of 7deg transformation (I.Vovk)
