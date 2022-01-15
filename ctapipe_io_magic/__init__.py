@@ -1064,6 +1064,8 @@ class MarsCalibratedRun:
 
         event_data = dict()
 
+        event_data["filename"] = uproot_file.file_path
+
         # monitoring information (updated from time to time)
         event_data["monitoring_data"] = dict()
 
