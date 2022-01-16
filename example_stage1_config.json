@@ -18,7 +18,7 @@
             ["type", "*", 6.0]
         ],
         "boundary_threshold_pe": [
-            ["type", "*", 3.0],
+            ["type", "*", 3.0]
         ],
         "min_picture_neighbors": [["type", "*", 2]]
     },
