@@ -8,6 +8,11 @@ test_data
 *.so
 __pycache__
 
+# Output files
+*.root
+*.h5
+*.log
+
 # ignore version cache file (generated automatically when setup.py is run)
 ctapipe_io_magic/_version.py
 ctapipe_io_magic/_version_cache.py
