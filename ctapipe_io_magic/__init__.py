@@ -614,34 +614,46 @@ class MAGICEventSource(EventSource):
         ]
 
         metadata = dict()
-        metadata['run_number'] = self.run_numbers
+        metadata["file_list"] = self.file_list
+        metadata['run_numbers'] = self.run_numbers
         metadata['is_simulation'] = self.is_mc
         metadata['telescope'] = self.telescope
+        metadata['subrun_number'] = []
+        metadata['source_ra'] = []
+        metadata['source_dec'] = []
+        metadata['source_name'] = []
+        metadata['observation_mode'] = []
+        metadata['mars_version_sorcerer'] = []
+        metadata['root_version_sorcerer'] = []
 
-        meta_info_runh = self.file_['RunHeaders'].arrays(
-                metadatainfo_array_list_runheaders, library="np"
-        )
+        for rootf in self.files_:
 
-        metadata['subrun_number'] = int(meta_info_runh['MRawRunHeader.fSubRunIndex'][0])
-        metadata['source_ra'] = meta_info_runh['MRawRunHeader.fSourceRA'][0] / \
-            seconds_per_hour * degrees_per_hour * u.deg
-        metadata['source_dec'] = meta_info_runh['MRawRunHeader.fSourceDEC'][0] / \
-            seconds_per_hour * u.deg
-        if not self.is_mc:
-            src_name_array = meta_info_runh['MRawRunHeader.fSourceName[80]'][0]
-            metadata['source_name'] = "".join([chr(item) for item in src_name_array if item != 0])
-            obs_mode_array = meta_info_runh['MRawRunHeader.fObservationMode[60]'][0]
-            metadata['observation_mode'] = "".join([chr(item) for item in obs_mode_array if item != 0])
+            meta_info_runh = rootf['RunHeaders'].arrays(
+                    metadatainfo_array_list_runheaders, library="np"
+            )
 
-        meta_info_runt = self.file_['RunTails'].arrays(
-            metadatainfo_array_list_runtails,
-            library="np"
-        )
+            metadata['subrun_number'].append(int(meta_info_runh['MRawRunHeader.fSubRunIndex'][0]))
+            metadata['source_ra'].append(
+                meta_info_runh['MRawRunHeader.fSourceRA'][0] / seconds_per_hour * degrees_per_hour * u.deg
+            )
+            metadata['source_dec'].append(
+                meta_info_runh['MRawRunHeader.fSourceDEC'][0] / seconds_per_hour * u.deg
+            )
+            if not self.is_mc:
+                src_name_array = meta_info_runh['MRawRunHeader.fSourceName[80]'][0]
+                metadata['source_name'].append("".join([chr(item) for item in src_name_array if item != 0]))
+                obs_mode_array = meta_info_runh['MRawRunHeader.fObservationMode[60]'][0]
+                metadata['observation_mode'].append("".join([chr(item) for item in obs_mode_array if item != 0]))
 
-        mars_version_encoded = int(meta_info_runt['MMarsVersion_sorcerer.fMARSVersionCode'][0])
-        root_version_encoded = int(meta_info_runt['MMarsVersion_sorcerer.fROOTVersionCode'][0])
-        metadata['mars_version_sorcerer'] = self.decode_version_number(mars_version_encoded)
-        metadata['root_version_sorcerer'] = self.decode_version_number(root_version_encoded)
+            meta_info_runt = rootf['RunTails'].arrays(
+                metadatainfo_array_list_runtails,
+                library="np"
+            )
+
+            mars_version_encoded = int(meta_info_runt['MMarsVersion_sorcerer.fMARSVersionCode'][0])
+            root_version_encoded = int(meta_info_runt['MMarsVersion_sorcerer.fROOTVersionCode'][0])
+            metadata['mars_version_sorcerer'].append(self.decode_version_number(mars_version_encoded))
+            metadata['root_version_sorcerer'].append(self.decode_version_number(root_version_encoded))
 
         return metadata
 
