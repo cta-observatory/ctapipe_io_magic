@@ -170,6 +170,9 @@ class MAGICEventSource(EventSource):
 
         self._subarray_info = self.prepare_subarray_info()
 
+        if not self.is_mc:
+            self.drive_information = self.prepare_drive_information()
+
     def __exit__(self, exc_type, exc_val, exc_tb):
         """
         Releases resources (e.g. open files).
@@ -751,7 +754,56 @@ class MAGICEventSource(EventSource):
             atmosphere=atm_model,
             corsika_wlen_min=min_wavelength * u.nm,
             corsika_wlen_max=max_wavelength * u.nm,
+    def prepare_drive_information(self):
+
+        drive_array_list = [
+            'MReportDrive.fMjd',
+            'MReportDrive.fCurrentZd',
+            'MReportDrive.fCurrentAz',
+            'MReportDrive.fRa',
+            'MReportDrive.fDec'
+        ]
+
+        drive_data = dict()
+        drive_data['mjd'] = np.array([])
+        drive_data['zd'] = np.array([])
+        drive_data['az'] = np.array([])
+        drive_data['ra'] = np.array([])
+        drive_data['dec'] = np.array([])
+
+        # Getting the telescope drive info
+        for rootf in self.files_:
+            drive = rootf.arrays(drive_array_list, library="np")
+
+            drive_mjd = drive['MReportDrive.fMjd']
+            drive_zd = drive['MReportDrive.fCurrentZd']
+            drive_az = drive['MReportDrive.fCurrentAz']
+            drive_ra = drive['MReportDrive.fRa'] * degrees_per_hour
+            drive_dec = drive['MReportDrive.fDec']
+
+            drive_data['mjd'] = np.concatenate((drive_data['mjd'], drive_mjd))
+            drive_data['zd'] = np.concatenate((drive_data['zd'], drive_zd))
+            drive_data['az'] = np.concatenate((drive_data['az'], drive_az))
+            drive_data['ra'] = np.concatenate((drive_data['ra'], drive_ra))
+            drive_data['dec'] = np.concatenate((drive_data['dec'], drive_dec))
+
+            if len(drive_mjd) < 3:
+                LOGGER.warning(f"File {rootf.file_path} has only {len(drive_mjd)} drive reports.")
+                if len(drive_mjd) == 0:
+                    raise MissingDriveReportError(f"File {rootf.file_path} does not have any drive report. Check if it was merpped correctly.")
+
+        # get only drive reports with unique times, otherwise interpolation fails.
+        drive_mjd_unique, unique_indices = np.unique(
+            drive_data['mjd'],
+            return_index=True
         )
+        drive_data["mjd"] = drive_mjd_unique
+        drive_data["zd"] = drive_data['zd'][unique_indices]
+        drive_data["az"] = drive_data['az'][unique_indices]
+        drive_data["ra"] = drive_data['ra'][unique_indices]
+        drive_data["dec"] = drive_data['dec'][unique_indices]
+
+        return drive_data
 
     def _set_active_run(self, run_number):
         """
