@@ -149,9 +149,9 @@ class MAGICEventSource(EventSource):
         run_info = self.parse_run_info()
 
         self.run_numbers = run_info[0]
-        self.is_mc = run_info[1]
-        self.telescope = run_info[2]
-        self.mars_datalevel = run_info[3]
+        self.is_mc = run_info[1][0]
+        self.telescope = run_info[2][0]
+        self.mars_datalevel = run_info[3][0]
 
         self.metadata = self.parse_metadata_info()
 
@@ -340,54 +340,84 @@ class MAGICEventSource(EventSource):
             'MRawRunHeader.fTelescopeNumber',
         ]
 
-        run_info = self.file_['RunHeaders'].arrays(
-            runinfo_array_list, library="np")
-        run_number = int(run_info['MRawRunHeader.fRunNumber'][0])
-        run_type = int(run_info['MRawRunHeader.fRunType'][0])
-        telescope_number = int(run_info['MRawRunHeader.fTelescopeNumber'][0])
+        run_numbers = []
+        is_simulation = []
+        telescope_numbers = []
+        datalevels = []
 
-        # a note about run numbers:
-        # mono data has run numbers starting with 1 or 2 (telescope dependent)
-        # stereo data has run numbers starting with 5
-        # if both telescopes are taking data with no L3,
-        # also in this case run number starts with 5 (e.g. muon runs)
+        for rootf in self.files_:
 
-        # Here the data types (from MRawRunHeader.h)
-        # std data = 0
-        # pedestal = 1 (_P_)
-        # calibration = 2 (_C_)
-        # domino calibration = 3 (_L_)
-        # linearity calibration = 4 (_N_)
-        # point run = 7
-        # monteCarlo = 256
-        # none = 65535
+            run_info = rootf['RunHeaders'].arrays(
+                runinfo_array_list, library="np")
+            run_number = int(run_info['MRawRunHeader.fRunNumber'][0])
+            run_type = int(run_info['MRawRunHeader.fRunType'][0])
+            telescope_number = int(run_info['MRawRunHeader.fTelescopeNumber'][0])
 
-        mc_data_type = 256
+            # a note about run numbers:
+            # mono data has run numbers starting with 1 or 2 (telescope dependent)
+            # stereo data has run numbers starting with 5
+            # if both telescopes are taking data with no L3,
+            # also in this case run number starts with 5 (e.g. muon runs)
 
-        if run_type == mc_data_type:
-            is_mc = True
-        else:
-            is_mc = False
+            # Here the data types (from MRawRunHeader.h)
+            # std data = 0
+            # pedestal = 1 (_P_)
+            # calibration = 2 (_C_)
+            # domino calibration = 3 (_L_)
+            # linearity calibration = 4 (_N_)
+            # point run = 7
+            # monteCarlo = 256
+            # none = 65535
 
-        events_tree = self.file_['Events']
+            mc_data_type = 256
 
-        melibea_trees = ['MHadronness', 'MStereoParDisp', 'MEnergyEst']
-        superstar_trees = ['MHillas_1', 'MHillas_2', 'MStereoPar']
-        star_trees = ['MHillas']
+            if run_type == mc_data_type:
+                is_mc = True
+            else:
+                is_mc = False
 
-        datalevel = MARSDataLevel.CALIBRATED
-        events_keys = events_tree.keys()
-        trees_in_file = [tree in events_keys for tree in melibea_trees]
-        if all(trees_in_file):
-            datalevel = MARSDataLevel.MELIBEA
-        trees_in_file = [tree in events_keys for tree in superstar_trees]
-        if all(trees_in_file):
-            datalevel = MARSDataLevel.SUPERSTAR
-        trees_in_file = [tree in events_keys for tree in star_trees]
-        if all(trees_in_file):
-            datalevel = MARSDataLevel.STAR
+            events_tree = self.file_['Events']
 
-        return run_number, is_mc, telescope_number, datalevel
+            melibea_trees = ['MHadronness', 'MStereoParDisp', 'MEnergyEst']
+            superstar_trees = ['MHillas_1', 'MHillas_2', 'MStereoPar']
+            star_trees = ['MHillas']
+
+            datalevel = MARSDataLevel.CALIBRATED
+            events_keys = events_tree.keys()
+            trees_in_file = [tree in events_keys for tree in melibea_trees]
+            if all(trees_in_file):
+                datalevel = MARSDataLevel.MELIBEA
+            trees_in_file = [tree in events_keys for tree in superstar_trees]
+            if all(trees_in_file):
+                datalevel = MARSDataLevel.SUPERSTAR
+            trees_in_file = [tree in events_keys for tree in star_trees]
+            if all(trees_in_file):
+                datalevel = MARSDataLevel.STAR
+
+            run_numbers.append(run_number)
+            is_simulation.append(is_mc)
+            telescope_numbers.append(telescope_number)
+            datalevels.append(datalevel)
+
+        run_numbers = np.unique(run_numbers)
+        is_simulation = np.unique(is_simulation)
+        telescope_numbers = np.unique(telescope_numbers)
+        datalevels = np.unique(datalevels)
+
+        if len(is_simulation) > 1:
+            raise ValueError(
+                "Loaded files contain both real data and simulation runs. \
+                 Please load only data OR Monte Carlos.")
+        if len(telescope_numbers) > 1:
+            raise ValueError(
+                "Loaded files contain data from different telescopes. \
+                 Please load data belonging to the same telescope.")
+        if len(datalevels) > 1:
+            raise ValueError(
+                "Loaded files contain data at different datalevels. \
+                 Please load data belonging to the same datalevel.")
+
+        return run_numbers, is_simulation, telescope_numbers, datalevels
 
     def parse_data_info(self):
         """
