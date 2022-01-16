@@ -379,7 +379,7 @@ class MAGICEventSource(EventSource):
             else:
                 is_mc = False
 
-            events_tree = self.file_['Events']
+            events_tree = rootf['Events']
 
             melibea_trees = ['MHadronness', 'MStereoParDisp', 'MEnergyEst']
             superstar_trees = ['MHillas_1', 'MHillas_2', 'MStereoPar']
@@ -704,7 +704,7 @@ class MAGICEventSource(EventSource):
 
         for run_number, rootf in zip(self.run_numbers, self.files_):
 
-            run_header_tree = self.file_['RunHeaders']
+            run_header_tree = rootf['RunHeaders']
             spectral_index = run_header_tree['MMcCorsikaRunHeader.fSlopeSpec'].array(library="np")[0]
             e_low = run_header_tree['MMcCorsikaRunHeader.fELowLim'].array(library="np")[0]
             e_high = run_header_tree['MMcCorsikaRunHeader.fEUppLim'].array(library="np")[0]
