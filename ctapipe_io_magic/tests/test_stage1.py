@@ -12,8 +12,8 @@ config = Path(".").absolute() / "example_stage1_config.json"
 
 def test_stage1():
     """Test the ctapipe stage1 tool can read in LST real data using the event source"""
-    from ctapipe.tools.stage1 import ProcessorTool
-    from ctapipe.core.tool import run_tool
+    from ctapipe.tools.process import ProcessorTool
+    from ctapipe.core import run_tool
 
     tool = ProcessorTool()
     output = test_cal_path.name().replace(".root", ".h5")
