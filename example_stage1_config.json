@@ -1,0 +1,41 @@
+{
+  "EventSource": {
+    "input_url": "test_data/real/calibrated/20210314_M1_05095172.001_Y_CrabNebula-W0.40+035.root"
+  },
+  "DataWriter": {
+    "overwrite": true,
+    "write_images": true,
+    "write_parameters": true,
+    "write_stereo_shower": false,
+    "write_mono_shower": false,
+    "transform_image": true,
+    "transform_peak_time": true
+  },
+  "ImageProcessor": {
+    "image_cleaner_type": "TailcutsImageCleaner",
+    "TailcutsImageCleaner": {
+        "picture_threshold_pe": [
+            ["type", "*", 6.0]
+        ],
+        "boundary_threshold_pe": [
+            ["type", "*", 3.0]
+        ],
+        "min_picture_neighbors": [["type", "*", 2]]
+    },
+    "ImageQualityQuery": {
+      "quality_criteria": [
+        ["enough_pixels", "lambda im: np.count_nonzero(im) > 2"],
+        ["enough_charge", "lambda im: im.sum() > 50"]
+      ]
+    }
+  },
+  "ShowerProcessor": {
+    "ShowerQualityQuery": {
+        "quality_criteria": [
+          ["enough intensity", "lambda p: p.hillas.intensity > 50"],
+          ["Positive width", "lambda p: p.hillas.width.value > 0"],
+          ["enough pixels", "lambda p: p.morphology.num_pixels > 3"]
+        ]
+    }
+  }
+}
