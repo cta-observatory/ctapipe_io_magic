@@ -3,7 +3,7 @@
     "input_url": "test_data/real/calibrated/20210314_M1_05095172.001_Y_CrabNebula-W0.40+035.root"
   },
   "DataWriter": {
-    "overwrite": false,
+    "overwrite": true,
     "write_images": true,
     "write_parameters": true,
     "write_stereo_shower": false,
