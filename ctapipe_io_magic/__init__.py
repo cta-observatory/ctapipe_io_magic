@@ -1050,7 +1050,7 @@ class MAGICEventSource(EventSource):
                     # adding a 7deg rotation between the orientation of corsika (x axis = magnetic north) and MARS (x axis = geographical north) frames
                     # magnetic north is 7 deg westward w.r.t. geographical north
                     data.simulation = SimulatedEventContainer()
-                    MAGIC_Bdec = self.simulation_config["prod_site_B_declination"]
+                    MAGIC_Bdec = self.simulation_config[obs_id]["prod_site_B_declination"]
                     data.simulation.shower = SimulatedShowerContainer(
                         energy=u.Quantity(event_data['true_energy'][event_i], u.GeV),
                         alt=Angle((np.pi/2 - event_data['true_zd'][event_i]), u.rad),
