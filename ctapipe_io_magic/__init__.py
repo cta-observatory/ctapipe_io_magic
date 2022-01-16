@@ -4,11 +4,13 @@
 """
 
 import re
+import glob
 import uproot
 import logging
 import scipy
 import scipy.interpolate
 import numpy as np
+from pathlib import Path
 from decimal import Decimal
 from astropy.coordinates import Angle
 from astropy import units as u
@@ -134,10 +136,16 @@ class MAGICEventSource(EventSource):
             the 'input_url' parameter.
         """
 
-        super().__init__(input_url=input_url, config=config, parent=parent, **kwargs)
+        self.file_list = sorted(glob.glob(str(Path(input_url).absolute())))
+        super().__init__(
+            input_url=self.file_list[0],
+            config=config,
+            parent=parent,
+            **kwargs
+        )
 
         # Retrieving the list of run numbers corresponding to the data files
-        self.file_ = uproot.open(self.input_url.expanduser())
+        self.files_ = [uproot.open(rootf) for rootf in self.file_list]
         run_info = self.parse_run_info()
 
         self.run_numbers = run_info[0]
