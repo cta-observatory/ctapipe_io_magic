@@ -1,0 +1,11 @@
+{
+  "EventSource": {
+    "input_url": "test_data/real/calibrated/20210314_M1_05095172.001_Y_CrabNebula-W0.40+035.root"
+  },
+  "TailcutsImageCleaner": {
+    "picture_threshold_pe": 6,
+    "boundary_threshold_pe": 3,
+    "keep_isolated_pixels": false,
+    "min_picture_neighbors": 1
+  }
+}
