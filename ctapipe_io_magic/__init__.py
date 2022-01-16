@@ -884,8 +884,8 @@ class MAGICEventSource(EventSource):
             data.pointing = pointing
 
             # Adding event charge and peak positions per pixel
-            data.dl1.tel[tel_id].image = np.array(event_data['image'][event_i][:n_pixels], dtype=np.float)
-            data.dl1.tel[tel_id].peak_time = np.array(event_data['pulse_time'][event_i][:n_pixels], dtype=np.float)
+            data.dl1.tel[tel_id].image = np.array(event_data['image'][event_i][:n_pixels], dtype=np.float32)
+            data.dl1.tel[tel_id].peak_time = np.array(event_data['pulse_time'][event_i][:n_pixels], dtype=np.float32)
 
             if self.is_mc:
                 # check meaning of 7deg transformation (I.Vovk)
