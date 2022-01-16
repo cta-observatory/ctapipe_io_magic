@@ -191,7 +191,8 @@ class MAGICEventSource(EventSource):
         Closes open ROOT file.
         """
 
-        self.file_.close()
+        for rootf in self.files_:
+            rootf.close()
 
     @staticmethod
     def is_compatible(file_path):
