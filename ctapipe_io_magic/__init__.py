@@ -700,60 +700,68 @@ class MAGICEventSource(EventSource):
         MAGIC_Bdec = u.Quantity(-7.0, u.deg).to(u.rad)
         MAGIC_Binc = u.Quantity(np.arctan2(-MAGIC_Bz.value, MAGIC_Bx.value), u.rad)
 
-        run_header_tree = self.file_['RunHeaders']
-        spectral_index = run_header_tree['MMcCorsikaRunHeader.fSlopeSpec'].array(library="np")[0]
-        e_low = run_header_tree['MMcCorsikaRunHeader.fELowLim'].array(library="np")[0]
-        e_high = run_header_tree['MMcCorsikaRunHeader.fEUppLim'].array(library="np")[0]
-        corsika_version = run_header_tree['MMcCorsikaRunHeader.fCorsikaVersion'].array(library="np")[0]
-        site_height = run_header_tree['MMcCorsikaRunHeader.fHeightLev[10]'].array(library="np")[0][0]
-        atm_model = run_header_tree['MMcCorsikaRunHeader.fAtmosphericModel'].array(library="np")[0]
-        if self.mars_datalevel in [MARSDataLevel.CALIBRATED, MARSDataLevel.STAR]:
-            view_cone = run_header_tree['MMcRunHeader.fRandomPointingConeSemiAngle'].array(library="np")[0]
-            max_impact = run_header_tree['MMcRunHeader.fImpactMax'].array(library="np")[0]
-            n_showers = np.sum(run_header_tree['MMcRunHeader.fNumSimulatedShowers'].array(library="np"))
-            max_zd = run_header_tree['MMcRunHeader.fShowerThetaMax'].array(library="np")[0]
-            min_zd = run_header_tree['MMcRunHeader.fShowerThetaMin'].array(library="np")[0]
-            max_az = run_header_tree['MMcRunHeader.fShowerPhiMax'].array(library="np")[0]
-            min_az = run_header_tree['MMcRunHeader.fShowerPhiMin'].array(library="np")[0]
-            max_wavelength = run_header_tree['MMcRunHeader.fCWaveUpper'].array(library="np")[0]
-            min_wavelength = run_header_tree['MMcRunHeader.fCWaveLower'].array(library="np")[0]
-        elif self.mars_datalevel in [MARSDataLevel.SUPERSTAR, MARSDataLevel.MELIBEA]:
-            view_cone = run_header_tree['MMcRunHeader_1.fRandomPointingConeSemiAngle'].array(library="np")[0]
-            max_impact = run_header_tree['MMcRunHeader_1.fImpactMax'].array(library="np")[0]
-            n_showers = np.sum(run_header_tree['MMcRunHeader_1.fNumSimulatedShowers'].array(library="np"))
-            max_zd = run_header_tree['MMcRunHeader_1.fShowerThetaMax'].array(library="np")[0]
-            min_zd = run_header_tree['MMcRunHeader_1.fShowerThetaMin'].array(library="np")[0]
-            max_az = run_header_tree['MMcRunHeader_1.fShowerPhiMax'].array(library="np")[0]
-            min_az = run_header_tree['MMcRunHeader_1.fShowerPhiMin'].array(library="np")[0]
-            max_wavelength = run_header_tree['MMcRunHeader_1.fCWaveUpper'].array(library="np")[0]
-            min_wavelength = run_header_tree['MMcRunHeader_1.fCWaveLower'].array(library="np")[0]
+        simulation_config = dict()
 
-        return SimulationConfigContainer(
-            corsika_version=corsika_version,
-            energy_range_min=u.Quantity(e_low, u.GeV).to(u.TeV),
-            energy_range_max=u.Quantity(e_high, u.GeV).to(u.TeV),
-            prod_site_alt=u.Quantity(site_height, u.cm).to(u.m),
-            spectral_index=spectral_index,
-            num_showers=n_showers,
-            shower_reuse=1,
-            # shower_reuse not written in the magic root file, but since the
-            # sim_events already include shower reuse we artificially set it
-            # to 1 (actually every shower reused 5 times for std MAGIC MC)
-            shower_prog_id=1,
-            prod_site_B_total=MAGIC_Btot,
-            prod_site_B_declination=MAGIC_Bdec,
-            prod_site_B_inclination=MAGIC_Binc,
-            max_alt=u.Quantity((90. - min_zd), u.deg).to(u.rad),
-            min_alt=u.Quantity((90. - max_zd), u.deg).to(u.rad),
-            max_az=u.Quantity(max_az, u.deg).to(u.rad),
-            min_az=u.Quantity(min_az, u.deg).to(u.rad),
-            max_viewcone_radius=view_cone * u.deg,
-            min_viewcone_radius=0.0 * u.deg,
-            max_scatter_range=u.Quantity(max_impact, u.cm).to(u.m),
-            min_scatter_range=0.0 * u.m,
-            atmosphere=atm_model,
-            corsika_wlen_min=min_wavelength * u.nm,
-            corsika_wlen_max=max_wavelength * u.nm,
+        for run_number, rootf in zip(self.run_numbers, self.files_):
+
+            run_header_tree = self.file_['RunHeaders']
+            spectral_index = run_header_tree['MMcCorsikaRunHeader.fSlopeSpec'].array(library="np")[0]
+            e_low = run_header_tree['MMcCorsikaRunHeader.fELowLim'].array(library="np")[0]
+            e_high = run_header_tree['MMcCorsikaRunHeader.fEUppLim'].array(library="np")[0]
+            corsika_version = run_header_tree['MMcCorsikaRunHeader.fCorsikaVersion'].array(library="np")[0]
+            site_height = run_header_tree['MMcCorsikaRunHeader.fHeightLev[10]'].array(library="np")[0][0]
+            atm_model = run_header_tree['MMcCorsikaRunHeader.fAtmosphericModel'].array(library="np")[0]
+            if self.mars_datalevel in [MARSDataLevel.CALIBRATED, MARSDataLevel.STAR]:
+                view_cone = run_header_tree['MMcRunHeader.fRandomPointingConeSemiAngle'].array(library="np")[0]
+                max_impact = run_header_tree['MMcRunHeader.fImpactMax'].array(library="np")[0]
+                n_showers = np.sum(run_header_tree['MMcRunHeader.fNumSimulatedShowers'].array(library="np"))
+                max_zd = run_header_tree['MMcRunHeader.fShowerThetaMax'].array(library="np")[0]
+                min_zd = run_header_tree['MMcRunHeader.fShowerThetaMin'].array(library="np")[0]
+                max_az = run_header_tree['MMcRunHeader.fShowerPhiMax'].array(library="np")[0]
+                min_az = run_header_tree['MMcRunHeader.fShowerPhiMin'].array(library="np")[0]
+                max_wavelength = run_header_tree['MMcRunHeader.fCWaveUpper'].array(library="np")[0]
+                min_wavelength = run_header_tree['MMcRunHeader.fCWaveLower'].array(library="np")[0]
+            elif self.mars_datalevel in [MARSDataLevel.SUPERSTAR, MARSDataLevel.MELIBEA]:
+                view_cone = run_header_tree['MMcRunHeader_1.fRandomPointingConeSemiAngle'].array(library="np")[0]
+                max_impact = run_header_tree['MMcRunHeader_1.fImpactMax'].array(library="np")[0]
+                n_showers = np.sum(run_header_tree['MMcRunHeader_1.fNumSimulatedShowers'].array(library="np"))
+                max_zd = run_header_tree['MMcRunHeader_1.fShowerThetaMax'].array(library="np")[0]
+                min_zd = run_header_tree['MMcRunHeader_1.fShowerThetaMin'].array(library="np")[0]
+                max_az = run_header_tree['MMcRunHeader_1.fShowerPhiMax'].array(library="np")[0]
+                min_az = run_header_tree['MMcRunHeader_1.fShowerPhiMin'].array(library="np")[0]
+                max_wavelength = run_header_tree['MMcRunHeader_1.fCWaveUpper'].array(library="np")[0]
+                min_wavelength = run_header_tree['MMcRunHeader_1.fCWaveLower'].array(library="np")[0]
+
+            simulation_config[run_number] = SimulationConfigContainer(
+                corsika_version=corsika_version,
+                energy_range_min=u.Quantity(e_low, u.GeV).to(u.TeV),
+                energy_range_max=u.Quantity(e_high, u.GeV).to(u.TeV),
+                prod_site_alt=u.Quantity(site_height, u.cm).to(u.m),
+                spectral_index=spectral_index,
+                num_showers=n_showers,
+                shower_reuse=1,
+                # shower_reuse not written in the magic root file, but since the
+                # sim_events already include shower reuse we artificially set it
+                # to 1 (actually every shower reused 5 times for std MAGIC MC)
+                shower_prog_id=1,
+                prod_site_B_total=MAGIC_Btot,
+                prod_site_B_declination=MAGIC_Bdec,
+                prod_site_B_inclination=MAGIC_Binc,
+                max_alt=u.Quantity((90. - min_zd), u.deg).to(u.rad),
+                min_alt=u.Quantity((90. - max_zd), u.deg).to(u.rad),
+                max_az=u.Quantity(max_az, u.deg).to(u.rad),
+                min_az=u.Quantity(min_az, u.deg).to(u.rad),
+                max_viewcone_radius=view_cone * u.deg,
+                min_viewcone_radius=0.0 * u.deg,
+                max_scatter_range=u.Quantity(max_impact, u.cm).to(u.m),
+                min_scatter_range=0.0 * u.m,
+                atmosphere=atm_model,
+                corsika_wlen_min=min_wavelength * u.nm,
+                corsika_wlen_max=max_wavelength * u.nm,
+            )
+
+        return simulation_config
+
     def prepare_drive_information(self):
 
         drive_array_list = [
