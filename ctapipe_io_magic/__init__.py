@@ -441,53 +441,69 @@ class MAGICEventSource(EventSource):
         L3_table_nosumt = "L3T_L1L1_100_SYNC"
         L3_table_sumt = "L3T_SUMSUM_100_SYNC"
 
-        trigger_tree = self.file_["Trigger"]
-        L3T_tree = self.file_["L3T"]
+        is_stereo = []
+        is_sumt = []
 
-        # here we take the 2nd element (if possible) because sometimes
-        # the first trigger report has still the old prescaler values from a previous run
-        try:
-            prescaler_array = trigger_tree["MTriggerPrescFact.fPrescFact"].array(library="np")
-        except AssertionError:
-            LOGGER.warning("No prescaler info found. Will assume standard stereo data.")
-            is_stereo = True
-            is_sumt = False
-            return is_stereo, is_sumt
+        for rootf in self.files_:
 
-        prescaler_size = prescaler_array.size
-        if prescaler_size > 1:
-            prescaler = prescaler_array[1]
-        else:
-            prescaler = prescaler_array[0]
+            trigger_tree = rootf["Trigger"]
+            L3T_tree = rootf["L3T"]
 
-        if prescaler == prescaler_mono_nosumt or prescaler == prescaler_mono_sumt:
-            is_stereo = False
-        elif prescaler == prescaler_stereo:
-            is_stereo = True
-        else:
-            is_stereo = True
+            # here we take the 2nd element (if possible) because sometimes
+            # the first trigger report has still the old prescaler values from a previous run
+            try:
+                prescaler_array = trigger_tree["MTriggerPrescFact.fPrescFact"].array(library="np")
+            except AssertionError:
+                LOGGER.warning("No prescaler info found. Will assume standard stereo data.")
+                stereo = True
+                sumt = False
+                return stereo, sumt
 
-        is_sumt = False
-        if is_stereo:
-            # here we take the 2nd element for the same reason as above
-            # L3Table is empty for mono data i.e. taken with one telescope only
-            # if both telescopes take data with no L3, L3Table is filled anyway
-            L3Table_array = L3T_tree["MReportL3T.fTablename"].array(library="np")
-            L3Table_size = L3Table_array.size
-            if L3Table_size > 1:
-                L3Table = L3Table_array[1]
+            prescaler_size = prescaler_array.size
+            if prescaler_size > 1:
+                prescaler = prescaler_array[1]
             else:
-                L3Table = L3Table_array[0]
+                prescaler = prescaler_array[0]
 
-            if L3Table == L3_table_sumt:
-                is_sumt = True
-            elif L3Table == L3_table_nosumt:
-                is_sumt = False
+            if prescaler == prescaler_mono_nosumt or prescaler == prescaler_mono_sumt:
+                stereo = False
+            elif prescaler == prescaler_stereo:
+                stereo = True
             else:
-                is_sumt = False
-        else:
-            if prescaler == prescaler_mono_sumt:
-                is_sumt = True
+                stereo = True
+
+            sumt = False
+            if stereo:
+                # here we take the 2nd element for the same reason as above
+                # L3Table is empty for mono data i.e. taken with one telescope only
+                # if both telescopes take data with no L3, L3Table is filled anyway
+                L3Table_array = L3T_tree["MReportL3T.fTablename"].array(library="np")
+                L3Table_size = L3Table_array.size
+                if L3Table_size > 1:
+                    L3Table = L3Table_array[1]
+                else:
+                    L3Table = L3Table_array[0]
+
+                if L3Table == L3_table_sumt:
+                    sumt = True
+                elif L3Table == L3_table_nosumt:
+                    sumt = False
+                else:
+                    sumt = False
+            else:
+                if prescaler == prescaler_mono_sumt:
+                    sumt = True
+
+            is_stereo.append(stereo)
+            is_sumt.append(sumt)
+
+        is_stereo = np.unique(is_stereo)
+        is_sumt = np.unique(is_sumt)
+
+        if len(is_stereo) > 1:
+            raise ValueError(
+                "Loaded files contain both stereo and mono data. \
+                 Please load only stereo or mono.")
 
         return is_stereo, is_sumt
 
