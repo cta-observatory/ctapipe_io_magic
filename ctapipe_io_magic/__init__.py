@@ -781,7 +781,7 @@ class MAGICEventSource(EventSource):
 
         # Getting the telescope drive info
         for rootf in self.files_:
-            drive = rootf.arrays(drive_array_list, library="np")
+            drive = rootf["Drive"].arrays(drive_array_list, library="np")
 
             drive_mjd = drive['MReportDrive.fMjd']
             drive_zd = drive['MReportDrive.fCurrentZd']
