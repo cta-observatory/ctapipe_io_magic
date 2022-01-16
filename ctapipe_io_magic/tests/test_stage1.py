@@ -16,12 +16,12 @@ def test_stage1():
     from ctapipe.core import run_tool
 
     tool = ProcessorTool()
-    output = test_cal_path.replace(".root", ".h5")
+    output = str(test_cal_path).replace(".root", ".h5")
 
     ret = run_tool(tool, argv=[
         f'--input={test_cal_path}',
         f'--output={output}',
-        f'--config={config}',
+        f'--config={str(config)}',
         "--camera-frame",
     ])
     assert ret == 0
