@@ -813,7 +813,7 @@ class MAGICEventSource(EventSource):
 
         return drive_data
 
-    def _set_active_run(self, run_number):
+    def _set_active_run(self, uproot_file):
         """
         This internal method sets the run that will be used for data loading.
 
@@ -829,10 +829,9 @@ class MAGICEventSource(EventSource):
         """
 
         run = dict()
-        run['number'] = run_number
         run['read_events'] = 0
         if self.mars_datalevel == MARSDataLevel.CALIBRATED:
-            run['data'] = MarsCalibratedRun(self.file_, self.is_mc)
+            run['data'] = MarsCalibratedRun(uproot_file, self.is_mc)
 
         return run
 
