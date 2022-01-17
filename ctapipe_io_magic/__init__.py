@@ -170,7 +170,7 @@ class MAGICEventSource(EventSource):
 
         if self.process_run:
             path, name = os.path.split(os.path.abspath(self.input_url))
-            run = self.get_run_info_from_name(name)[0]
+            run = str(self.get_run_info_from_name(name)[0])
 
             ls = listdir(path)
             self.file_list = []
