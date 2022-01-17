@@ -97,7 +97,7 @@ def test_compatible(dataset):
 @pytest.mark.parametrize('dataset', test_calibrated_all)
 def test_stream(dataset):
     from ctapipe_io_magic import MAGICEventSource
-    with MAGICEventSource(input_url=dataset) as source:
+    with MAGICEventSource(input_url=dataset, process_run=False) as source:
         assert not source.is_stream
 
 
@@ -105,7 +105,7 @@ def test_stream(dataset):
 def test_loop(dataset):
     from ctapipe_io_magic import MAGICEventSource
     n_events = 10
-    with MAGICEventSource(input_url=dataset, max_events=n_events) as source:
+    with MAGICEventSource(input_url=dataset, max_events=n_events, process_run=False) as source:
         for i, event in enumerate(source):
             assert event.count == i
             if "_M1_" in dataset.name:
@@ -126,7 +126,7 @@ def test_loop_pedestal(dataset):
     from ctapipe_io_magic import MAGICEventSource
     from ctapipe.containers import EventType
     n_events = 10
-    with MAGICEventSource(input_url=dataset, max_events=n_events, use_pedestals=True) as source:
+    with MAGICEventSource(input_url=dataset, max_events=n_events, use_pedestals=True, process_run=False) as source:
         for event in source:
             assert event.trigger.event_type == EventType.SKY_PEDESTAL
 
@@ -135,7 +135,7 @@ def test_loop_pedestal(dataset):
 def test_number_of_events(dataset):
     from ctapipe_io_magic import MAGICEventSource
 
-    with MAGICEventSource(input_url=dataset) as source:
+    with MAGICEventSource(input_url=dataset, process_run=False) as source:
         run = source._set_active_run(source.files_[0])
         if '_M1_' in dataset.name:
             assert run['data'].n_cosmics_stereo_events_m1 == data_dict[source.input_url.name]['n_events_stereo']
@@ -149,7 +149,7 @@ def test_number_of_events(dataset):
 def test_run_info(dataset):
     from ctapipe_io_magic import MAGICEventSource
 
-    with MAGICEventSource(input_url=dataset) as source:
+    with MAGICEventSource(input_url=dataset, process_run=False) as source:
         run_info = MAGICEventSource.get_run_info_from_name(str(source.input_url))
         run_number = run_info[0]
         is_mc = run_info[1]
@@ -218,7 +218,7 @@ def test_subarray_multiple_runs():
 def test_that_event_is_not_modified_after_loop(dataset):
     from ctapipe_io_magic import MAGICEventSource
     n_events = 10
-    with MAGICEventSource(input_url=dataset, max_events=n_events) as source:
+    with MAGICEventSource(input_url=dataset, max_events=n_events, process_run=False) as source:
         for event in source:
             last_event = copy.deepcopy(event)
 
