@@ -1223,7 +1223,7 @@ class MarsCalibratedRun:
                 first_drive_report_time = Time(drive_mjd_unique[0], scale='utc', format='mjd')
                 last_drive_report_time = Time(drive_mjd_unique[-1], scale='utc', format='mjd')
 
-                LOGGER.warning(f"Interpolating events information from {len(drive_data['mjd'])} drive reports.")
+                LOGGER.warning(f"Interpolating {event_type.replace('_', ' ')} information from {len(drive_data['mjd'])} drive reports.")
                 LOGGER.warning(f"Drive reports available from {first_drive_report_time.iso} to {last_drive_report_time.iso}.")
 
                 # Creating azimuth and zenith angles interpolators
