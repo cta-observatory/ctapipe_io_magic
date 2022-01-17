@@ -22,6 +22,9 @@ setup(
         'numpy',
         'scipy'
     ],
+    package_data={
+        'ctapipe_io_magic': ['resources/*'],
+    },
     extras_require={
         "all": tests_require + docs_require,
         "tests": tests_require,
