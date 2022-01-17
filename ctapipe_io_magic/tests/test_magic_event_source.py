@@ -151,11 +151,11 @@ def test_run_info(dataset):
 
     with MAGICEventSource(input_url=dataset, process_run=False) as source:
         run_info = list(map(MAGICEventSource.get_run_info_from_name, source.file_list))
-        run_number = [i[0] for i in run_info]
-        is_mc = [i[1] for i in run_info]
-        telescope = [i[2] for i in run_info]
-        datalevel = [i[3] for i in run_info]
-        assert run_number == source.run_numbers
+        run_numbers = [i[0] for i in run_info]
+        is_mc = [i[1] for i in run_info][0]
+        telescope = [i[2] for i in run_info][0]
+        datalevel = [i[3] for i in run_info][0]
+        assert run_numbers == source.run_numbers
         assert is_mc == source.is_simulation
         assert telescope == source.telescope
         assert datalevel == source.mars_datalevel
