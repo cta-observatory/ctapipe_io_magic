@@ -150,13 +150,13 @@ def test_run_info(dataset):
     from ctapipe_io_magic import MAGICEventSource
 
     with MAGICEventSource(input_url=dataset, process_run=False) as source:
+        run_info = list(map(MAGICEventSource.get_run_info_from_name, source.file_list))
         run_info = MAGICEventSource.get_run_info_from_name(str(source.input_url))
-        run_number = run_info[0]
-        is_mc = run_info[1]
-        telescope = run_info[2]
-        datalevel = run_info[3]
+        run_number = [i[0] for i in run_info]
+        is_mc = [i[1] for i in run_info]
+        telescope = [i[2] for i in run_info]
+        datalevel = [i[3] for i in run_info]
         assert run_number == source.run_numbers
-        assert run_number == source.obs_ids[0]
         assert is_mc == source.is_simulation
         assert telescope == source.telescope
         assert datalevel == source.mars_datalevel
@@ -166,7 +166,7 @@ def test_multiple_runs_real():
     from ctapipe_io_magic import MAGICEventSource
     from ctapipe.containers import EventType
 
-    real_data_mask = test_calibrated_real_dir / '20210314_M1_05095172*_Y_CrabNebula-W0.40+035.root'
+    real_data_mask = test_calibrated_real_dir / '20210314_M1_05095172.001_Y_CrabNebula-W0.40+035.root'
 
     n_events = 600
     with MAGICEventSource(input_url=real_data_mask, max_events=n_events) as source:
