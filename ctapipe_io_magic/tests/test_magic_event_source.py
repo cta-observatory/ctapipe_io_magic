@@ -206,11 +206,10 @@ def test_multiple_runs_mc():
 
 def test_subarray_multiple_runs():
     from ctapipe_io_magic import MAGICEventSource
-    from ctapipe.containers import EventType
 
-    test_calibrated_simulated_dir = test_calibrated_real_dir / 'GA_M1_za35to50_8_*_Y_w0.root'
+    simulated_data_mask = test_calibrated_simulated_dir / 'GA_M1_za35to50_8_*_Y_w0.root'
 
-    source = MAGICEventSource(input_url=test_calibrated_simulated_dir)
+    source = MAGICEventSource(input_url=simulated_data_mask)
     sim_config = source.simulation_config
     assert list(sim_config.keys()) == source.obs_ids
 
