@@ -9,6 +9,7 @@ import logging
 import scipy
 import scipy.interpolate
 import numpy as np
+from pkg_resources import resource_filename
 from decimal import Decimal
 from astropy.coordinates import Angle
 from astropy import units as u
@@ -17,8 +18,8 @@ from astropy.time import Time
 from ctapipe.io.eventsource import EventSource
 from ctapipe.io.datalevels import DataLevel
 from ctapipe.core import Container, Field
+from ctapipe.core import Provenance
 from ctapipe.core.traits import Bool
-from ctapipe.coordinates import CameraFrame
 
 from ctapipe.containers import (
     EventType,
@@ -38,6 +39,7 @@ from ctapipe.instrument import (
     SubarrayDescription,
     OpticsDescription,
     CameraDescription,
+    CameraGeometry,
     CameraReadout,
 )
 
@@ -66,6 +68,23 @@ MAGIC_TO_CTA_EVENT_TYPE = {
     PEDESTAL_TRIGGER_PATTERN: EventType.SKY_PEDESTAL,
     DATA_STEREO_TRIGGER_PATTERN: EventType.SUBARRAY,
 }
+
+OPTICS = OpticsDescription(
+    'MAGIC',
+    num_mirrors=1,
+    equivalent_focal_length=u.Quantity(16.97, u.m),
+    mirror_area=u.Quantity(239.0, u.m**2),
+    num_mirror_tiles=964,
+)
+
+
+def load_camera_geometry():
+    ''' Load camera geometry from bundled resources of this repo '''
+    f = resource_filename(
+        'ctapipe_io_magic', 'resources/MAGICCam.camgeom.fits.gz'
+    )
+    Provenance().add_input_file(f, role="CameraGeometry")
+    return CameraGeometry.from_table(f)
 
 
 class MissingDriveReportError(Exception):
@@ -475,21 +494,25 @@ class MAGICEventSource(EventSource):
             2: [-31.80, 28.10, 0.00] * u.m
         }
 
-        # MAGIC telescope description
-        OPTICS = OpticsDescription.from_name('MAGIC')
-        MAGICCAM = CameraDescription.from_name("MAGICCam")
+        # camera info from MAGICCam.camgeom.fits.gz file
+        camera_geom = load_camera_geometry()
+
         pulse_shape_lo_gain = np.array([0., 1., 2., 1., 0.])
         pulse_shape_hi_gain = np.array([1., 2., 3., 2., 1.])
         pulse_shape = np.vstack((pulse_shape_lo_gain, pulse_shape_hi_gain))
-        MAGICCAM.readout = CameraReadout(
+        camera_readout = CameraReadout(
             camera_name='MAGICCam',
             sampling_rate=u.Quantity(1.64, u.GHz),
             reference_pulse_shape=pulse_shape,
             reference_pulse_sample_width=u.Quantity(0.5, u.ns)
         )
-        MAGICCAM.geometry.frame = CameraFrame(focal_length=OPTICS.equivalent_focal_length)
+
+        camera = CameraDescription('LSTCam', camera_geom, camera_readout)
+
         MAGIC_TEL_DESCRIPTION = TelescopeDescription(
-            name='MAGIC', tel_type='MAGIC', optics=OPTICS, camera=MAGICCAM)
+            name='MAGIC', tel_type='MAGIC', optics=OPTICS, camera=camera
+        )
+
         MAGIC_TEL_DESCRIPTIONS = {1: MAGIC_TEL_DESCRIPTION, 2: MAGIC_TEL_DESCRIPTION}
 
         subarray = SubarrayDescription(
