@@ -176,7 +176,7 @@ class MAGICEventSource(EventSource):
             self.file_list = []
 
             for file_name in ls:
-                if run in file_name:
+                if run in file_name and ".root" in file_name:
                     full_name = os.path.join(path, file_name)
                     self.file_list.append(full_name)
 
