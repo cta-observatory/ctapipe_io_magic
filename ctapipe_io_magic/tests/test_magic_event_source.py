@@ -151,7 +151,6 @@ def test_run_info(dataset):
 
     with MAGICEventSource(input_url=dataset, process_run=False) as source:
         run_info = list(map(MAGICEventSource.get_run_info_from_name, source.file_list))
-        run_info = MAGICEventSource.get_run_info_from_name(str(source.input_url))
         run_number = [i[0] for i in run_info]
         is_mc = [i[1] for i in run_info]
         telescope = [i[2] for i in run_info]
@@ -186,7 +185,7 @@ def test_multiple_runs_real():
 def test_subarray_multiple_runs():
     from ctapipe_io_magic import MAGICEventSource
 
-    simulated_data_mask = test_calibrated_simulated_dir / 'GA_M1_za35to50_8_*_Y_w0.root'
+    simulated_data_mask = test_calibrated_simulated_dir / 'GA_M1_za35to50_8_824318_Y_w0.root'
 
     source = MAGICEventSource(input_url=simulated_data_mask)
     sim_config = source.simulation_config

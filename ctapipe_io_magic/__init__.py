@@ -298,6 +298,7 @@ class MAGICEventSource(EventSource):
             Description
         """
 
+        file_name = str(file_name)
         mask_data_calibrated = r"\d{6}_M(\d+)_(\d+)\.\d+_Y_.*"
         mask_data_star = r"\d{6}_M(\d+)_(\d+)\.\d+_I_.*"
         mask_data_superstar = r"\d{6}_(\d+)_S_.*"
