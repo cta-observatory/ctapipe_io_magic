@@ -20,6 +20,7 @@ from ctapipe.io.datalevels import DataLevel
 from ctapipe.core import Container, Field
 from ctapipe.core import Provenance
 from ctapipe.core.traits import Bool
+from ctapipe.coordinates import CameraFrame
 
 from ctapipe.containers import (
     EventType,
@@ -508,6 +509,8 @@ class MAGICEventSource(EventSource):
         )
 
         camera = CameraDescription('LSTCam', camera_geom, camera_readout)
+
+        camera.geometry.frame = CameraFrame(focal_length=OPTICS.equivalent_focal_length)
 
         MAGIC_TEL_DESCRIPTION = TelescopeDescription(
             name='MAGIC', tel_type='MAGIC', optics=OPTICS, camera=camera
