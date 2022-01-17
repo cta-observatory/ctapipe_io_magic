@@ -1150,6 +1150,48 @@ class MarsCalibratedRun:
             "pedestal_events": pedestal_cut,
         }
 
+        # Getting the telescope drive info
+        drive = input_file['Drive'].arrays(drive_array_list, library="np")
+
+        drive_mjd = drive['MReportDrive.fMjd']
+        drive_zd = drive['MReportDrive.fCurrentZd']
+        drive_az = drive['MReportDrive.fCurrentAz']
+        drive_ra = drive['MReportDrive.fRa'] * degrees_per_hour
+        drive_dec = drive['MReportDrive.fDec']
+
+        drive_data['mjd'] = np.concatenate((drive_data['mjd'], drive_mjd))
+        drive_data['zd'] = np.concatenate((drive_data['zd'], drive_zd))
+        drive_data['az'] = np.concatenate((drive_data['az'], drive_az))
+        drive_data['ra'] = np.concatenate((drive_data['ra'], drive_ra))
+        drive_data['dec'] = np.concatenate((drive_data['dec'], drive_dec))
+
+        if len(drive_mjd) < 3:
+            LOGGER.warning(f"File {uproot_file.file_path} has only {len(drive_mjd)} drive reports.")
+            if len(drive_mjd) == 0:
+                raise MissingDriveReportError(f"File {uproot_file.file_path} does not have any drive report. Check if it was merpped correctly.")
+
+        # get only drive reports with unique times, otherwise interpolation fails.
+        drive_mjd_unique, unique_indices = np.unique(
+            drive_data['mjd'],
+            return_index=True
+        )
+        drive_zd_unique = drive_data['zd'][unique_indices]
+        drive_az_unique = drive_data['az'][unique_indices]
+        drive_ra_unique = drive_data['ra'][unique_indices]
+        drive_dec_unique = drive_data['dec'][unique_indices]
+
+        # Creating azimuth and zenith angles interpolators
+        drive_zd_pointing_interpolator = scipy.interpolate.interp1d(
+            drive_mjd_unique, drive_zd_unique, fill_value="extrapolate")
+        drive_az_pointing_interpolator = scipy.interpolate.interp1d(
+            drive_mjd_unique, drive_az_unique, fill_value="extrapolate")
+
+        # Creating RA and DEC interpolators
+        drive_ra_pointing_interpolator = scipy.interpolate.interp1d(
+            drive_mjd_unique, drive_ra_unique, fill_value="extrapolate")
+        drive_dec_pointing_interpolator = scipy.interpolate.interp1d(
+            drive_mjd_unique, drive_dec_unique, fill_value="extrapolate")
+
         for event_type in event_types:
 
             if event_type == "pedestal_events" and is_mc:
@@ -1189,36 +1231,7 @@ class MarsCalibratedRun:
 
                 event_unix = event_obs_day + event_millisec + event_nanosec
                 event_data[event_type]['unix'] = np.concatenate((event_data[event_type]['unix'], event_unix))
-
-                # Getting the telescope drive info
-                drive = input_file['Drive'].arrays(drive_array_list, library="np")
-
-                drive_mjd = drive['MReportDrive.fMjd']
-                drive_zd = drive['MReportDrive.fCurrentZd']
-                drive_az = drive['MReportDrive.fCurrentAz']
-                drive_ra = drive['MReportDrive.fRa'] * degrees_per_hour
-                drive_dec = drive['MReportDrive.fDec']
-
-                drive_data['mjd'] = np.concatenate((drive_data['mjd'], drive_mjd))
-                drive_data['zd'] = np.concatenate((drive_data['zd'], drive_zd))
-                drive_data['az'] = np.concatenate((drive_data['az'], drive_az))
-                drive_data['ra'] = np.concatenate((drive_data['ra'], drive_ra))
-                drive_data['dec'] = np.concatenate((drive_data['dec'], drive_dec))
-
-                if len(drive_mjd) < 3:
-                    LOGGER.warning(f"File {uproot_file.file_path} has only {len(drive_mjd)} drive reports.")
-                    if len(drive_mjd) == 0:
-                        raise MissingDriveReportError(f"File {uproot_file.file_path} does not have any drive report. Check if it was merpped correctly.")
-
-                # get only drive reports with unique times, otherwise interpolation fails.
-                drive_mjd_unique, unique_indices = np.unique(
-                    drive_data['mjd'],
-                    return_index=True
-                )
-                drive_zd_unique = drive_data['zd'][unique_indices]
-                drive_az_unique = drive_data['az'][unique_indices]
-                drive_ra_unique = drive_data['ra'][unique_indices]
-                drive_dec_unique = drive_data['dec'][unique_indices]
+                event_mjd = Time(event_data[event_type]['unix'], format='unix', scale='utc').to_value(format='mjd', subfmt='float')
 
                 first_drive_report_time = Time(drive_mjd_unique[0], scale='utc', format='mjd')
                 last_drive_report_time = Time(drive_mjd_unique[-1], scale='utc', format='mjd')
@@ -1226,21 +1239,7 @@ class MarsCalibratedRun:
                 LOGGER.warning(f"Interpolating {event_type.replace('_', ' ')} information from {len(drive_data['mjd'])} drive reports.")
                 LOGGER.warning(f"Drive reports available from {first_drive_report_time.iso} to {last_drive_report_time.iso}.")
 
-                # Creating azimuth and zenith angles interpolators
-                drive_zd_pointing_interpolator = scipy.interpolate.interp1d(
-                    drive_mjd_unique, drive_zd_unique, fill_value="extrapolate")
-                drive_az_pointing_interpolator = scipy.interpolate.interp1d(
-                    drive_mjd_unique, drive_az_unique, fill_value="extrapolate")
-
-                # Creating RA and DEC interpolators
-                drive_ra_pointing_interpolator = scipy.interpolate.interp1d(
-                    drive_mjd_unique, drive_ra_unique, fill_value="extrapolate")
-                drive_dec_pointing_interpolator = scipy.interpolate.interp1d(
-                    drive_mjd_unique, drive_dec_unique, fill_value="extrapolate")
-
                 # Interpolating the drive pointing to the event time stamps
-                event_mjd = Time(event_data[event_type]['unix'], format='unix', scale='utc').to_value(format='mjd', subfmt='float')
-
                 event_data[event_type]['pointing_zd'] = drive_zd_pointing_interpolator(event_mjd)
                 event_data[event_type]['pointing_az'] = drive_az_pointing_interpolator(event_mjd)
                 event_data[event_type]['pointing_ra'] = drive_ra_pointing_interpolator(event_mjd)
