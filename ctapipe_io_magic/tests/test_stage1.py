@@ -27,14 +27,14 @@ def test_stage1():
     assert ret == 0
 
     parameters = read_table(output, '/dl1/event/telescope/parameters/tel_001')
-    assert len(parameters) == 458
+    assert len(parameters) == 1000
 
     trigger = read_table(output, '/dl1/event/subarray/trigger')
 
     event_type_counts = np.bincount(trigger['event_type'])
 
     # no pedestals expected, should be only physics data
-    assert event_type_counts.sum() == 458
+    assert event_type_counts.sum() == 1000
     assert event_type_counts[EventType.FLATFIELD.value] == 0
     assert event_type_counts[EventType.SKY_PEDESTAL.value] == 0
-    assert event_type_counts[EventType.SUBARRAY.value] == 458
+    assert event_type_counts[EventType.SUBARRAY.value] == 1000
