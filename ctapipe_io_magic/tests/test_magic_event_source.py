@@ -162,6 +162,48 @@ def test_run_info(dataset):
         assert datalevel == source.mars_datalevel
 
 
+def test_multiple_runs_real():
+    from ctapipe_io_magic import MAGICEventSource
+    from ctapipe.containers import EventType
+
+    real_data_mask = test_calibrated_real_dir / '20210314_M1_05095172*_Y_CrabNebula-W0.40+035.root'
+
+    n_events = 600
+    with MAGICEventSource(input_url=real_data_mask, max_events=n_events) as source:
+        for i, event in enumerate(source):
+            assert event.trigger.event_type == EventType.SUBARRAY
+            assert event.count == i
+            assert event.trigger.tels_with_trigger == [source.telescope]
+
+        assert (i + 1) == n_events
+
+        for event in source:
+            # Check generator has restarted from beginning
+            assert event.count == 0
+            break
+
+
+def test_multiple_runs_mc():
+    from ctapipe_io_magic import MAGICEventSource
+    from ctapipe.containers import EventType
+
+    test_calibrated_simulated_dir = test_calibrated_real_dir / 'GA_M1_za35to50_8_*_Y_w0.root'
+
+    n_events = 100
+    with MAGICEventSource(input_url=test_calibrated_simulated_dir, max_events=n_events) as source:
+        for i, event in enumerate(source):
+            assert event.trigger.event_type == EventType.SUBARRAY
+            assert event.count == i
+            assert event.trigger.tels_with_trigger == [source.telescope]
+
+        assert (i + 1) == n_events
+
+        for event in source:
+            # Check generator has restarted from beginning
+            assert event.count == 0
+            break
+
+
 @pytest.mark.parametrize('dataset', test_calibrated_all)
 def test_that_event_is_not_modified_after_loop(dataset):
     from ctapipe_io_magic import MAGICEventSource
