@@ -422,10 +422,10 @@ class MAGICEventSource(EventSource):
             telescope_numbers.append(telescope_number)
             datalevels.append(datalevel)
 
-        run_numbers = np.unique(run_numbers)
-        is_simulation = np.unique(is_simulation)
-        telescope_numbers = np.unique(telescope_numbers)
-        datalevels = np.unique(datalevels)
+        run_numbers = np.unique(run_numbers).tolist()
+        is_simulation = np.unique(is_simulation).tolist()
+        telescope_numbers = np.unique(telescope_numbers).tolist()
+        datalevels = np.unique(datalevels).tolist()
 
         if len(is_simulation) > 1:
             raise ValueError(
