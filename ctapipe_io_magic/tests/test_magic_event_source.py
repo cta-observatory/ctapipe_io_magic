@@ -183,27 +183,6 @@ def test_multiple_runs_real():
             break
 
 
-def test_multiple_runs_mc():
-    from ctapipe_io_magic import MAGICEventSource
-    from ctapipe.containers import EventType
-
-    simulated_data_mask = test_calibrated_simulated_dir / 'GA_M1_za35to50_8_*_Y_w0.root'
-
-    n_events = 100
-    with MAGICEventSource(input_url=simulated_data_mask, max_events=n_events) as source:
-        for i, event in enumerate(source):
-            assert event.trigger.event_type == EventType.SUBARRAY
-            assert event.count == i
-            assert event.trigger.tels_with_trigger == [source.telescope]
-
-        assert (i + 1) == n_events
-
-        for event in source:
-            # Check generator has restarted from beginning
-            assert event.count == 0
-            break
-
-
 def test_subarray_multiple_runs():
     from ctapipe_io_magic import MAGICEventSource
 
