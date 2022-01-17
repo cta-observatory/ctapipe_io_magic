@@ -508,7 +508,7 @@ class MAGICEventSource(EventSource):
             reference_pulse_sample_width=u.Quantity(0.5, u.ns)
         )
 
-        camera = CameraDescription('LSTCam', camera_geom, camera_readout)
+        camera = CameraDescription('MAGICCam', camera_geom, camera_readout)
 
         camera.geometry.frame = CameraFrame(focal_length=OPTICS.equivalent_focal_length)
 
