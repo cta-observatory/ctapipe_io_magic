@@ -1150,47 +1150,48 @@ class MarsCalibratedRun:
             "pedestal_events": pedestal_cut,
         }
 
-        # Getting the telescope drive info
-        drive = input_file['Drive'].arrays(drive_array_list, library="np")
+        if not is_mc:
+            # Getting the telescope drive info
+            drive = input_file['Drive'].arrays(drive_array_list, library="np")
 
-        drive_mjd = drive['MReportDrive.fMjd']
-        drive_zd = drive['MReportDrive.fCurrentZd']
-        drive_az = drive['MReportDrive.fCurrentAz']
-        drive_ra = drive['MReportDrive.fRa'] * degrees_per_hour
-        drive_dec = drive['MReportDrive.fDec']
+            drive_mjd = drive['MReportDrive.fMjd']
+            drive_zd = drive['MReportDrive.fCurrentZd']
+            drive_az = drive['MReportDrive.fCurrentAz']
+            drive_ra = drive['MReportDrive.fRa'] * degrees_per_hour
+            drive_dec = drive['MReportDrive.fDec']
 
-        drive_data['mjd'] = np.concatenate((drive_data['mjd'], drive_mjd))
-        drive_data['zd'] = np.concatenate((drive_data['zd'], drive_zd))
-        drive_data['az'] = np.concatenate((drive_data['az'], drive_az))
-        drive_data['ra'] = np.concatenate((drive_data['ra'], drive_ra))
-        drive_data['dec'] = np.concatenate((drive_data['dec'], drive_dec))
+            drive_data['mjd'] = np.concatenate((drive_data['mjd'], drive_mjd))
+            drive_data['zd'] = np.concatenate((drive_data['zd'], drive_zd))
+            drive_data['az'] = np.concatenate((drive_data['az'], drive_az))
+            drive_data['ra'] = np.concatenate((drive_data['ra'], drive_ra))
+            drive_data['dec'] = np.concatenate((drive_data['dec'], drive_dec))
 
-        if len(drive_mjd) < 3:
-            LOGGER.warning(f"File {uproot_file.file_path} has only {len(drive_mjd)} drive reports.")
-            if len(drive_mjd) == 0:
-                raise MissingDriveReportError(f"File {uproot_file.file_path} does not have any drive report. Check if it was merpped correctly.")
+            if len(drive_mjd) < 3:
+                LOGGER.warning(f"File {uproot_file.file_path} has only {len(drive_mjd)} drive reports.")
+                if len(drive_mjd) == 0:
+                    raise MissingDriveReportError(f"File {uproot_file.file_path} does not have any drive report. Check if it was merpped correctly.")
 
-        # get only drive reports with unique times, otherwise interpolation fails.
-        drive_mjd_unique, unique_indices = np.unique(
-            drive_data['mjd'],
-            return_index=True
-        )
-        drive_zd_unique = drive_data['zd'][unique_indices]
-        drive_az_unique = drive_data['az'][unique_indices]
-        drive_ra_unique = drive_data['ra'][unique_indices]
-        drive_dec_unique = drive_data['dec'][unique_indices]
+            # get only drive reports with unique times, otherwise interpolation fails.
+            drive_mjd_unique, unique_indices = np.unique(
+                drive_data['mjd'],
+                return_index=True
+            )
+            drive_zd_unique = drive_data['zd'][unique_indices]
+            drive_az_unique = drive_data['az'][unique_indices]
+            drive_ra_unique = drive_data['ra'][unique_indices]
+            drive_dec_unique = drive_data['dec'][unique_indices]
 
-        # Creating azimuth and zenith angles interpolators
-        drive_zd_pointing_interpolator = scipy.interpolate.interp1d(
-            drive_mjd_unique, drive_zd_unique, fill_value="extrapolate")
-        drive_az_pointing_interpolator = scipy.interpolate.interp1d(
-            drive_mjd_unique, drive_az_unique, fill_value="extrapolate")
+            # Creating azimuth and zenith angles interpolators
+            drive_zd_pointing_interpolator = scipy.interpolate.interp1d(
+                drive_mjd_unique, drive_zd_unique, fill_value="extrapolate")
+            drive_az_pointing_interpolator = scipy.interpolate.interp1d(
+                drive_mjd_unique, drive_az_unique, fill_value="extrapolate")
 
-        # Creating RA and DEC interpolators
-        drive_ra_pointing_interpolator = scipy.interpolate.interp1d(
-            drive_mjd_unique, drive_ra_unique, fill_value="extrapolate")
-        drive_dec_pointing_interpolator = scipy.interpolate.interp1d(
-            drive_mjd_unique, drive_dec_unique, fill_value="extrapolate")
+            # Creating RA and DEC interpolators
+            drive_ra_pointing_interpolator = scipy.interpolate.interp1d(
+                drive_mjd_unique, drive_ra_unique, fill_value="extrapolate")
+            drive_dec_pointing_interpolator = scipy.interpolate.interp1d(
+                drive_mjd_unique, drive_dec_unique, fill_value="extrapolate")
 
         for event_type in event_types:
 
