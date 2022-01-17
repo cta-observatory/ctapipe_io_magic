@@ -136,7 +136,7 @@ def test_number_of_events(dataset):
     from ctapipe_io_magic import MAGICEventSource
 
     with MAGICEventSource(input_url=dataset) as source:
-        run = source._set_active_run(run_number=source.run_numbers)
+        run = source._set_active_run(source.files_[0])
         if '_M1_' in dataset.name:
             assert run['data'].n_cosmics_stereo_events_m1 == data_dict[source.input_url.name]['n_events_stereo']
             assert run['data'].n_pedestal_events_m1 == data_dict[source.input_url.name]['n_events_pedestal']
