@@ -4,13 +4,13 @@
 """
 
 import re
-import glob
+import os
 import uproot
 import logging
 import scipy
 import scipy.interpolate
 import numpy as np
-from pathlib import Path
+from os import listdir
 from pkg_resources import resource_filename
 from decimal import Decimal
 from astropy.coordinates import Angle
@@ -129,6 +129,11 @@ class MAGICEventSource(EventSource):
         Flag indicating if pedestal events should be returned by the generator
     """
 
+    process_run = Bool(
+        True,
+        help='Read all subruns from a given run.'
+    ).tag(config=True)
+
     use_pedestals = Bool(
            default_value=False,
            help=(
@@ -156,13 +161,27 @@ class MAGICEventSource(EventSource):
             the 'input_url' parameter.
         """
 
-        self.file_list = sorted(glob.glob(str(Path(input_url).absolute())))
         super().__init__(
-            input_url=self.file_list[0],
+            input_url=input_url,
             config=config,
             parent=parent,
             **kwargs
         )
+
+        if self.process_run:
+            path, name = os.path.split(os.path.abspath(self.input_url))
+            run = self.get_run_info_from_name(name)[0]
+
+            ls = listdir(path)
+            self.file_list = []
+
+            for file_name in ls:
+                if run in file_name:
+                    full_name = os.path.join(path, file_name)
+                    self.file_list.append(full_name)
+
+        else:
+            self.file_list = [self.input_url]
 
         # Retrieving the list of run numbers corresponding to the data files
         self.files_ = [uproot.open(rootf) for rootf in self.file_list]
