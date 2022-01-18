@@ -106,6 +106,14 @@ def test_stream(dataset):
         assert not source.is_stream
 
 
+def test_allowed_tels():
+    from ctapipe_io_magic import MAGICEventSource
+    import numpy as np
+    dataset = test_calibrated_real_dir / '20210314_M1_05095172.001_Y_CrabNebula-W0.40+035.root'
+    with MAGICEventSource(input_url=dataset, process_run=False, allowed_tels=[1]) as source:
+        assert np.array_equal(source.subarray.tel_ids, np.array([1]))
+
+
 @pytest.mark.parametrize('dataset', test_calibrated_all)
 def test_loop(dataset):
     from ctapipe_io_magic import MAGICEventSource
