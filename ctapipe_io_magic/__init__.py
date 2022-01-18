@@ -608,7 +608,7 @@ class MAGICEventSource(EventSource):
         )
 
         if self.allowed_tels:
-            subarray = self._subarray_info.select_subarray(self.allowed_tels)
+            subarray = subarray.select_subarray(self.allowed_tels)
 
         return subarray
 
