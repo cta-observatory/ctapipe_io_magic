@@ -541,13 +541,17 @@ class MAGICEventSource(EventSource):
             is_stereo.append(stereo)
             is_sumt.append(sumt)
 
-        is_stereo = np.unique(is_stereo)
-        is_sumt = np.unique(is_sumt)
+        is_stereo = np.unique(is_stereo).tolist()
+        is_sumt = np.unique(is_sumt).tolist()
 
         if len(is_stereo) > 1:
             raise ValueError(
                 "Loaded files contain both stereo and mono data. \
                  Please load only stereo or mono.")
+
+        if len(is_sumt) > 1:
+            LOGGER.warning("Found data with both standard and Sum trigger. While this is \
+                not an issue, check that this is what you really want to do.")
 
         return is_stereo, is_sumt
 
