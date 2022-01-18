@@ -94,6 +94,11 @@ def test_compatible(dataset):
     assert MAGICEventSource.is_compatible(dataset)
 
 
+def test_not_compatible():
+    from ctapipe_io_magic import MAGICEventSource
+    assert MAGICEventSource.is_compatible(None) is False
+
+
 @pytest.mark.parametrize('dataset', test_calibrated_all)
 def test_stream(dataset):
     from ctapipe_io_magic import MAGICEventSource
