@@ -56,7 +56,7 @@ from .constants import (
     DATA_STEREO_TRIGGER_PATTERN
 )
 
-__all__ = ['MAGICEventSource', '__version__']
+__all__ = ['MAGICEventSource', 'MARSDataLevel', '__version__']
 
 LOGGER = logging.getLogger(__name__)
 
