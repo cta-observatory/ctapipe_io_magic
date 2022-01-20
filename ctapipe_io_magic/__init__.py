@@ -200,10 +200,10 @@ class MAGICEventSource(EventSource):
         # Retrieving the data level (so far HARDCODED Sorcerer)
         self.datalevel = DataLevel.DL0
 
-        if self.is_mc:
+        if self.is_simulation:
             self.simulation_config = self.parse_simulation_header()
 
-        if not self.is_mc:
+        if not self.is_simulation:
             self.is_stereo, self.is_sumt = self.parse_data_info()
 
         # # Setting up the current run with the first run present in the data
@@ -212,7 +212,7 @@ class MAGICEventSource(EventSource):
 
         self._subarray_info = self.prepare_subarray_info()
 
-        if not self.is_mc:
+        if not self.is_simulation:
             self.drive_information = self.prepare_drive_information()
 
     def __exit__(self, exc_type, exc_val, exc_tb):
@@ -414,8 +414,6 @@ class MAGICEventSource(EventSource):
             # point run = 7
             # monteCarlo = 256
             # none = 65535
-
-            mc_data_type = 256
 
             if run_type == mc_data_type:
                 is_mc = True
@@ -672,7 +670,7 @@ class MAGICEventSource(EventSource):
         metadata = dict()
         metadata["file_list"] = self.file_list
         metadata['run_numbers'] = self.run_numbers
-        metadata['is_simulation'] = self.is_mc
+        metadata['is_simulation'] = self.is_simulation
         metadata['telescope'] = self.telescope
         metadata['subrun_number'] = []
         metadata['source_ra'] = []
@@ -695,7 +693,7 @@ class MAGICEventSource(EventSource):
             metadata['source_dec'].append(
                 meta_info_runh['MRawRunHeader.fSourceDEC'][0] / seconds_per_hour * u.deg
             )
-            if not self.is_mc:
+            if not self.is_simulation:
                 src_name_array = meta_info_runh['MRawRunHeader.fSourceName[80]'][0]
                 metadata['source_name'].append("".join([chr(item) for item in src_name_array if item != 0]))
                 obs_mode_array = meta_info_runh['MRawRunHeader.fObservationMode[60]'][0]
@@ -885,7 +883,7 @@ class MAGICEventSource(EventSource):
         run['read_events'] = 0
         run["run_number"] = self.get_run_info_from_name(uproot_file.file_path)[0]
         if self.mars_datalevel == MARSDataLevel.CALIBRATED:
-            run['data'] = MarsCalibratedRun(uproot_file, self.is_mc)
+            run['data'] = MarsCalibratedRun(uproot_file, self.is_simulation)
 
         return run
 
@@ -966,7 +964,7 @@ class MAGICEventSource(EventSource):
                 event_data = self.current_run['data'].cosmics_stereo_events[f"M{tel_id}"]
 
             # Set monitoring data:
-            if not self.is_mc:
+            if not self.is_simulation:
 
                 monitoring_data = self.current_run['data'].monitoring_data
 
@@ -1059,7 +1057,7 @@ class MAGICEventSource(EventSource):
                         assume_unique=True
                     )
 
-                if not self.is_mc:
+                if not self.is_simulation:
 
                     data.trigger.tel[tel_id] = TelescopeTriggerContainer(
                         time=Time(
@@ -1101,7 +1099,7 @@ class MAGICEventSource(EventSource):
                 data.dl1.tel[tel_id].image = np.array(event_data['image'][event_i][:n_pixels], dtype=np.float32)
                 data.dl1.tel[tel_id].peak_time = np.array(event_data['pulse_time'][event_i][:n_pixels], dtype=np.float32)
 
-                if self.is_mc:
+                if self.is_simulation:
                     # check meaning of 7deg transformation (I.Vovk)
                     # adding a 7deg rotation between the orientation of corsika (x axis = magnetic north) and MARS (x axis = geographical north) frames
                     # magnetic north is 7 deg westward w.r.t. geographical north
