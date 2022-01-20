@@ -172,14 +172,17 @@ class MAGICEventSource(EventSource):
 
         if self.process_run:
             path, name = os.path.split(os.path.abspath(self.input_url))
-            run = str(self.get_run_info_from_name(name)[0])
-            telescope = f"_M{str(self.get_run_info_from_name(name)[2])}_"
+            info_tuple = self.get_run_info_from_name(name)
+            run = info_tuple[0]
+            telescope = info_tuple[2]
 
             ls = listdir(path)
             self.file_list = []
 
+            regex = rf"\d{{6}}_M{telescope}_0{run}\.\d{{3}}_Y_.*\.root"
+
             for file_name in ls:
-                if run in file_name and ".root" in file_name and telescope in file_name:
+                if len(re.findall(regex, file_name)):
                     full_name = os.path.join(path, file_name)
                     self.file_list.append(full_name)
 
