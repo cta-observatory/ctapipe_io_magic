@@ -66,6 +66,8 @@ seconds_per_hour = 3600.
 msec2sec = 1e-3
 nsec2sec = 1e-9
 
+mc_data_type = 256
+
 MAGIC_TO_CTA_EVENT_TYPE = {
     MC_STEREO_TRIGGER_PATTERN: EventType.SUBARRAY,
     PEDESTAL_TRIGGER_PATTERN: EventType.SKY_PEDESTAL,
