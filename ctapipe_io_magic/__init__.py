@@ -815,52 +815,47 @@ class MAGICEventSource(EventSource):
 
     def prepare_drive_information(self):
 
-        drive_array_list = [
-            'MReportDrive.fMjd',
-            'MReportDrive.fCurrentZd',
-            'MReportDrive.fCurrentAz',
-            'MReportDrive.fRa',
-            'MReportDrive.fDec'
-        ]
-
-        drive_data = dict()
-        drive_data['mjd'] = np.array([])
-        drive_data['zd'] = np.array([])
-        drive_data['az'] = np.array([])
-        drive_data['ra'] = np.array([])
-        drive_data['dec'] = np.array([])
+        drive_leaves = {
+            'mjd': 'MReportDrive.fMjd',
+            'zd': 'MReportDrive.fCurrentZd',
+            'az': 'MReportDrive.fCurrentAz',
+            'ra': 'MReportDrive.fRa',
+            'dec': 'MReportDrive.fDec',
+        }
 
         # Getting the telescope drive info
+        drive_data = {k: [] for k in drive_leaves.keys()}
+
         for rootf in self.files_:
-            drive = rootf["Drive"].arrays(drive_array_list, library="np")
+            drive = rootf["Drive"].arrays(drive_leaves.values(), library="np")
 
-            drive_mjd = drive['MReportDrive.fMjd']
-            drive_zd = drive['MReportDrive.fCurrentZd']
-            drive_az = drive['MReportDrive.fCurrentAz']
-            drive_ra = drive['MReportDrive.fRa'] * degrees_per_hour
-            drive_dec = drive['MReportDrive.fDec']
+            n_reports = len(drive['MReportDrive.fMjd'])
+            if n_reports == 0:
+                raise MissingDriveReportError(f"File {rootf.file_path} does not have any drive report. Check if it was merpped correctly.")
+            elif n_reports < 3:
+                LOGGER.warning(f"File {rootf.file_path} has only {n_reports} drive reports.")
 
-            drive_data['mjd'] = np.concatenate((drive_data['mjd'], drive_mjd))
-            drive_data['zd'] = np.concatenate((drive_data['zd'], drive_zd))
-            drive_data['az'] = np.concatenate((drive_data['az'], drive_az))
-            drive_data['ra'] = np.concatenate((drive_data['ra'], drive_ra))
-            drive_data['dec'] = np.concatenate((drive_data['dec'], drive_dec))
+            for key, leaf in drive_leaves.items():
+                drive_data[key].append(drive[leaf])
 
-            if len(drive_mjd) < 3:
-                LOGGER.warning(f"File {rootf.file_path} has only {len(drive_mjd)} drive reports.")
-                if len(drive_mjd) == 0:
-                    raise MissingDriveReportError(f"File {rootf.file_path} does not have any drive report. Check if it was merpped correctly.")
+        drive_data = {
+            k: np.concatenate(v)
+            for k, v in drive_data.items()
+        }
+
+        # convert unit as before (Better use astropy units!)
+        drive_data['ra'] *= degrees_per_hour
 
         # get only drive reports with unique times, otherwise interpolation fails.
-        drive_mjd_unique, unique_indices = np.unique(
+        _, unique_indices = np.unique(
             drive_data['mjd'],
             return_index=True
         )
-        drive_data["mjd"] = drive_mjd_unique
-        drive_data["zd"] = drive_data['zd'][unique_indices]
-        drive_data["az"] = drive_data['az'][unique_indices]
-        drive_data["ra"] = drive_data['ra'][unique_indices]
-        drive_data["dec"] = drive_data['dec'][unique_indices]
+
+        drive_data = {
+            k: v[unique_indices]
+            for k, v in drive_data.items()
+        }
 
         return drive_data
 
