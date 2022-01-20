@@ -16,7 +16,7 @@ def test_stage1_multiple_runs():
     from ctapipe.core import run_tool
 
     tool = ProcessorTool()
-    output = str(test_cal_path).replace(".root", ".h5")
+    output = test_data / 'real/calibrated/20210314_M1_05095172_Y_CrabNebula-W0.40+035.h5'
 
     ret = run_tool(tool, argv=[
         f'--input={test_cal_path}',
@@ -46,7 +46,7 @@ def test_stage1_single_run():
     from ctapipe.core import run_tool
 
     tool = ProcessorTool()
-    output = str(test_cal_path).replace(".root", ".h5")
+    output = test_cal_path.with_suffix('.h5')
 
     ret = run_tool(tool, argv=[
         f'--input={test_cal_path}',
