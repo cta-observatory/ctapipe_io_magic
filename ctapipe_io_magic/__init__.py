@@ -307,10 +307,10 @@ class MAGICEventSource(EventSource):
         """
 
         file_name = str(file_name)
-        mask_data_calibrated = r"\d{6}_M(\d+)_(\d+)\.\d+_Y_.*"
-        mask_data_star = r"\d{6}_M(\d+)_(\d+)\.\d+_I_.*"
-        mask_data_superstar = r"\d{6}_(\d+)_S_.*"
-        mask_data_melibea = r"\d{6}_(\d+)_Q_.*"
+        mask_data_calibrated = r"\d{8}_M(\d+)_(\d+)\.\d+_Y_.*"
+        mask_data_star = r"\d{8}_M(\d+)_(\d+)\.\d+_I_.*"
+        mask_data_superstar = r"\d{8}_(\d+)_S_.*"
+        mask_data_melibea = r"\d{8}_(\d+)_Q_.*"
         mask_mc_calibrated = r"GA_M(\d)_za\d+to\d+_\d_(\d+)_Y_.*"
         mask_mc_star = r"GA_M(\d)_za\d+to\d+_\d_(\d+)_I_.*"
         mask_mc_superstar = r"GA_za\d+to\d+_\d_S_.*"
