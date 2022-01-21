@@ -882,7 +882,7 @@ class MAGICEventSource(EventSource):
 
         run = dict()
         run['read_events'] = 0
-        run["run_number"] = self.get_run_info_from_name(uproot_file.file_path)[0]
+        run["run_number"] = self.obs_ids[0]
         if self.mars_datalevel == MARSDataLevel.CALIBRATED:
             run['data'] = MarsCalibratedRun(uproot_file, self.is_simulation)
 
