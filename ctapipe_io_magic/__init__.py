@@ -315,50 +315,50 @@ class MAGICEventSource(EventSource):
         mask_mc_star = r"GA_M(\d)_za\d+to\d+_\d_(\d+)_I_.*"
         mask_mc_superstar = r"GA_za\d+to\d+_\d_S_.*"
         mask_mc_melibea = r"GA_za\d+to\d+_\d_Q_.*"
-        if re.findall(mask_data_calibrated, file_name):
-            parsed_info = re.findall(mask_data_calibrated, file_name)
-            telescope = int(parsed_info[0][0])
-            run_number = int(parsed_info[0][1])
+        if re.match(mask_data_calibrated, file_name) is not None:
+            parsed_info = re.match(mask_data_calibrated, file_name)
+            telescope = int(parsed_info.group(1))
+            run_number = int(parsed_info.group(2))
             datalevel = MARSDataLevel.CALIBRATED
             is_mc = False
-        elif re.findall(mask_data_star, file_name):
-            parsed_info = re.findall(mask_data_star, file_name)
-            telescope = int(parsed_info[0][0])
-            run_number = int(parsed_info[0][1])
+        elif re.match(mask_data_star, file_name) is not None:
+            parsed_info = re.match(mask_data_star, file_name)
+            telescope = int(parsed_info.group(1))
+            run_number = int(parsed_info.group(2))
             datalevel = MARSDataLevel.STAR
             is_mc = False
-        elif re.findall(mask_data_superstar, file_name):
-            parsed_info = re.findall(mask_data_superstar, file_name)
+        elif re.match(mask_data_superstar, file_name) is not None:
+            parsed_info = re.match(mask_data_superstar, file_name)
             telescope = None
-            run_number = int(parsed_info[0])
+            run_number = int(parsed_info.grou(1))
             datalevel = MARSDataLevel.SUPERSTAR
             is_mc = False
-        elif re.findall(mask_data_melibea, file_name):
-            parsed_info = re.findall(mask_data_melibea, file_name)
+        elif re.match(mask_data_melibea, file_name) is not None:
+            parsed_info = re.match(mask_data_melibea, file_name)
             telescope = None
-            run_number = int(parsed_info[0])
+            run_number = int(parsed_info.grou(1))
             datalevel = MARSDataLevel.MELIBEA
             is_mc = False
-        elif re.findall(mask_mc_calibrated, file_name):
-            parsed_info = re.findall(mask_mc_calibrated, file_name)
-            telescope = int(parsed_info[0][0])
-            run_number = int(parsed_info[0][1])
+        elif re.match(mask_mc_calibrated, file_name) is not None:
+            parsed_info = re.match(mask_mc_calibrated, file_name)
+            telescope = int(parsed_info.group(1))
+            run_number = int(parsed_info.group(2))
             datalevel = MARSDataLevel.CALIBRATED
             is_mc = True
-        elif re.findall(mask_mc_star, file_name):
-            parsed_info = re.findall(mask_mc_star, file_name)
-            telescope = int(parsed_info[0][0])
-            run_number = int(parsed_info[0][1])
+        elif re.match(mask_mc_star, file_name) is not None:
+            parsed_info = re.match(mask_mc_star, file_name)
+            telescope = int(parsed_info.group(1))
+            run_number = int(parsed_info.group(2))
             datalevel = MARSDataLevel.STAR
             is_mc = True
-        elif re.findall(mask_mc_superstar, file_name):
-            parsed_info = re.findall(mask_mc_superstar, file_name)
+        elif re.match(mask_mc_superstar, file_name) is not None:
+            parsed_info = re.match(mask_mc_superstar, file_name)
             telescope = None
             run_number = None
             datalevel = MARSDataLevel.SUPERSTAR
             is_mc = True
-        elif re.findall(mask_mc_melibea, file_name):
-            parsed_info = re.findall(mask_mc_melibea, file_name)
+        elif re.match(mask_mc_melibea, file_name) is not None:
+            parsed_info = re.match(mask_mc_melibea, file_name)
             telescope = None
             run_number = None
             datalevel = MARSDataLevel.MELIBEA
