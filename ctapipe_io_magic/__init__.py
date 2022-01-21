@@ -180,9 +180,10 @@ class MAGICEventSource(EventSource):
             self.file_list = []
 
             regex = rf"\d{{6}}_M{telescope}_0{run}\.\d{{3}}_Y_.*\.root"
+            regex_mc = rf"GA_M{telescope}_\w+_{run}_Y_.*\.root"
 
             for file_name in ls:
-                if len(re.findall(regex, file_name)):
+                if len(re.findall(regex, file_name)) or len(re.findall(regex_mc, file_name)):
                     full_name = os.path.join(path, file_name)
                     self.file_list.append(full_name)
 
