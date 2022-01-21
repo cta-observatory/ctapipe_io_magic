@@ -10,7 +10,7 @@ import logging
 import scipy
 import scipy.interpolate
 import numpy as np
-from os import listdir
+from pathlib import Path
 from pkg_resources import resource_filename
 from decimal import Decimal
 from astropy.coordinates import Angle
@@ -176,16 +176,18 @@ class MAGICEventSource(EventSource):
             run = info_tuple[0]
             telescope = info_tuple[2]
 
-            ls = listdir(path)
-            self.file_list = []
-
-            regex = rf"\d{{6}}_M{telescope}_0{run}\.\d{{3}}_Y_.*\.root"
+            regex = rf"\d{{8}}_M{telescope}_0{run}\.\d{{3}}_Y_.*\.root"
             regex_mc = rf"GA_M{telescope}_\w+_{run}_Y_.*\.root"
 
-            for file_name in ls:
-                if len(re.findall(regex, file_name)) or len(re.findall(regex_mc, file_name)):
-                    full_name = os.path.join(path, file_name)
-                    self.file_list.append(full_name)
+            reg_comp = re.compile(regex)
+            reg_comp_mc = re.compile(regex_mc)
+
+            ls = Path(path).iterdir()
+            self.file_list = []
+
+            for file_path in ls:
+                if reg_comp.match(file_path.name) is not None or reg_comp_mc.match(file_path.name) is not None:
+                    self.file_list.append(file_path)
 
         else:
             self.file_list = [self.input_url]
