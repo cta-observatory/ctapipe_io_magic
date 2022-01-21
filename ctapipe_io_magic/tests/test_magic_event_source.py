@@ -163,7 +163,7 @@ def test_run_info(dataset):
     from ctapipe_io_magic import MAGICEventSource
 
     with MAGICEventSource(input_url=dataset, process_run=False) as source:
-        run_info = list(map(MAGICEventSource.get_run_info_from_name, source.file_list))
+        run_info = [MAGICEventSource.get_run_info_from_name(item.name) for item in source.file_list]
         run_numbers = [i[0] for i in run_info]
         is_mc = [i[1] for i in run_info][0]
         telescope = [i[2] for i in run_info][0]
