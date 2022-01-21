@@ -53,7 +53,7 @@ def test_stage1_single_run():
         f'--output={output}',
         f'--config={str(config)}',
         "--MAGICEventSource.process_run=false",
-        "--allowed-tels=[1]",
+        "--allowed-tels=1",
         "--camera-frame",
     ])
     assert ret == 0
