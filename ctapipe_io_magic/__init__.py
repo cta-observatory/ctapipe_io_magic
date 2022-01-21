@@ -1429,7 +1429,7 @@ class MarsCalibratedRun:
             # take first axis
             unsuitable_pix_bitinfo = badpixelinfo[1][:n_camera_pixels]
             # extract unsuitable bit:
-            unsuitable_pix = np.zeros(n_camera_pixels, dtype=np.bool)
+            unsuitable_pix = np.zeros(n_camera_pixels, dtype=bool)
             for i in range(n_camera_pixels):
                 unsuitable_pix[i] = int('\t{0:08b}'.format(
                     unsuitable_pix_bitinfo[i] & 0xff)[-2])
