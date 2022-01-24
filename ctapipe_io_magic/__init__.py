@@ -170,25 +170,28 @@ class MAGICEventSource(EventSource):
             **kwargs
         )
 
+        path, name = os.path.split(os.path.abspath(self.input_url))
+        info_tuple = self.get_run_info_from_name(name)
+        run = info_tuple[0]
+        telescope = info_tuple[2]
+
+        regex = rf"\d{{8}}_M{telescope}_0{run}\.\d{{3}}_Y_.*\.root"
+        regex_mc = rf"GA_M{telescope}_\w+_{run}_Y_.*\.root"
+
+        reg_comp = re.compile(regex)
+        reg_comp_mc = re.compile(regex_mc)
+
+        ls = Path(path).iterdir()
+        self.file_list_drive = []
+
+        for file_path in ls:
+            if reg_comp.match(file_path.name) is not None or reg_comp_mc.match(file_path.name) is not None:
+                self.file_list_drive.append(file_path)
+
+        self.file_list_drive.sort()
+
         if self.process_run:
-            path, name = os.path.split(os.path.abspath(self.input_url))
-            info_tuple = self.get_run_info_from_name(name)
-            run = info_tuple[0]
-            telescope = info_tuple[2]
-
-            regex = rf"\d{{8}}_M{telescope}_0{run}\.\d{{3}}_Y_.*\.root"
-            regex_mc = rf"GA_M{telescope}_\w+_{run}_Y_.*\.root"
-
-            reg_comp = re.compile(regex)
-            reg_comp_mc = re.compile(regex_mc)
-
-            ls = Path(path).iterdir()
-            self.file_list = []
-
-            for file_path in ls:
-                if reg_comp.match(file_path.name) is not None or reg_comp_mc.match(file_path.name) is not None:
-                    self.file_list.append(file_path)
-
+            self.file_list = self.file_list_drive
         else:
             self.file_list = [self.input_url]
 
@@ -832,7 +835,12 @@ class MAGICEventSource(EventSource):
         # Getting the telescope drive info
         drive_data = {k: [] for k in drive_leaves.keys()}
 
-        for rootf in self.files_:
+        if self.process_run:
+            rootfiles = self.files_
+        else:
+            rootfiles = [uproot.open(rootf) for rootf in self.file_list_drive]
+
+        for rootf in rootfiles:
             drive = rootf["Drive"].arrays(drive_leaves.values(), library="np")
 
             n_reports = len(drive['MReportDrive.fMjd'])
