@@ -122,14 +122,14 @@ class MAGICEventSource(EventSource):
     """
 
     process_run = Bool(
-        default_valu=True,
+        default_value=True,
         help='Read all subruns from a given run.'
     ).tag(config=True)
 
     generate_pedestals = Bool(
            default_value=False,
-           help='If true, extract pedestal events instead of cosmic events.'
-    ).tag(config=False)
+           help='Extract pedestal events instead of cosmic events.'
+    ).tag(config=True)
 
     def __init__(self, input_url=None, config=None, parent=None, **kwargs):
         """
