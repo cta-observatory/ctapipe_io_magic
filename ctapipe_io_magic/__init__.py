@@ -871,7 +871,7 @@ class MAGICEventSource(EventSource):
 
         Returns
         -------
-        badrmspixel_mask
+        badrmspixels_mask
         """
 
         pedestal_level = 400
@@ -1002,20 +1002,22 @@ class MAGICEventSource(EventSource):
                     monitoring_data['pedestal_sample_time'], format='unix', scale='utc'
                 )
 
+                n_samples = len(monitoring_data['pedestal_sample_time'])
+
                 event.mon.tel[tel_id].pedestal.charge_mean = [
-                    monitoring_data['pedestal_fundamental']['mean'],
-                    monitoring_data['pedestal_from_extractor']['mean'],
-                    monitoring_data['pedestal_from_extractor_rndm']['mean']
+                    monitoring_data['pedestal_fundamental']['mean'][:,:n_pixels],
+                    monitoring_data['pedestal_from_extractor']['mean'][:,:n_pixels],
+                    monitoring_data['pedestal_from_extractor_rndm']['mean'][:,:n_pixels],
                 ]
 
                 event.mon.tel[tel_id].pedestal.charge_std = [
-                    monitoring_data['pedestal_fundamental']['rms'],
-                    monitoring_data['pedestal_from_extractor']['rms'],
-                    monitoring_data['pedestal_from_extractor_rndm']['rms']
+                    monitoring_data['pedestal_fundamental']['rms'][:,:n_pixels],
+                    monitoring_data['pedestal_from_extractor']['rms'][:,:n_pixels],
+                    monitoring_data['pedestal_from_extractor_rndm']['rms'][:,:n_pixels],
                 ]
 
                 # Set badpixel info
-                event.mon.tel[tel_id].pixel_status.hardware_failing_pixels = monitoring_data['badpixel']
+                event.mon.tel[tel_id].pixel_status.hardware_failing_pixels = monitoring_data['badpixel'][:n_pixels]
 
                 # Interpolates drive information:
                 drive_data = self.drive_information
@@ -1063,8 +1065,9 @@ class MAGICEventSource(EventSource):
             # Loop over the events
             for i_event in range(n_events):
 
-                if i_event > self.max_events:
-                    break
+                if self.max_events is not None:
+                    if i_event > self.max_events:
+                        break
 
                 event.count = counter
                 event.index.event_id = event_data['stereo_event_number'][i_event]
@@ -1423,17 +1426,19 @@ class MarsCalibratedRun:
                     pedestal_sample_time, format='unix', scale='utc'
                 )
 
+                n_samples = len(pedestal_sample_time)
+
                 calib_data['monitoring_data']['pedestal_fundamental'] = {
-                    'mean': pedestal_info[f'MPedPhotFundamental.fArray.fMean'],
-                    'rms': pedestal_info[f'MPedPhotFundamental.fArray.fRms'],
+                    'mean': np.reshape(pedestal_info[f'MPedPhotFundamental.fArray.fMean'].tolist(), (n_samples, 1183)),
+                    'rms': np.reshape(pedestal_info[f'MPedPhotFundamental.fArray.fRms'].tolist(), (n_samples, 1183)),
                 }
                 calib_data['monitoring_data']['pedestal_from_extractor'] = {
-                    'mean': pedestal_info[f'MPedPhotFromExtractor.fArray.fMean'],
-                    'rms': pedestal_info[f'MPedPhotFromExtractor.fArray.fRms'],
+                    'mean': np.reshape(pedestal_info[f'MPedPhotFromExtractor.fArray.fMean'].tolist(), (n_samples, 1183)),
+                    'rms': np.reshape(pedestal_info[f'MPedPhotFromExtractor.fArray.fRms'].tolist(), (n_samples, 1183)),
                 }
                 calib_data['monitoring_data']['pedestal_from_extractor_rndm'] = {
-                    'mean': pedestal_info[f'MPedPhotFromExtractorRndm.fArray.fMean'],
-                    'rms': pedestal_info[f'MPedPhotFromExtractorRndm.fArray.fRms'],
+                    'mean': np.reshape(pedestal_info[f'MPedPhotFromExtractorRndm.fArray.fMean'].tolist(), (n_samples, 1183)),
+                    'rms': np.reshape(pedestal_info[f'MPedPhotFromExtractorRndm.fArray.fRms'].tolist(), (n_samples, 1183)),
                 }
 
             except KeyError:
