@@ -203,6 +203,10 @@ class MAGICEventSource(EventSource):
         if not self.is_simulation:
             self.is_stereo, self.is_sumt = self.parse_data_info()
 
+        # # Setting up the current run with the first run present in the data
+        # self.current_run = self._set_active_run(run_number=0)
+        self.current_run = None
+
         self._subarray_info = self.prepare_subarray_info()
 
         if not self.is_simulation:
@@ -939,6 +943,29 @@ class MAGICEventSource(EventSource):
 
         return badrmspixels_mask
 
+    def _set_active_run(self, uproot_file):
+        """
+        This internal method sets the run that will be used for data loading.
+        Parameters
+        ----------
+        uproot_file:
+            The uproot file
+        Returns
+        -------
+        run: MarsCalibratedRun
+            The run to use
+        """
+
+        run = dict()
+        run['read_events'] = 0
+        run["run_number"] = self.obs_ids[0]
+
+        if self.mars_datalevel == MARSDataLevel.CALIBRATED:
+            run['data'] = MarsCalibratedRun(uproot_file)
+
+        return run
+
+
     def _generator(self):
         """
         The default event generator. Return the stereo event
@@ -979,21 +1006,24 @@ class MAGICEventSource(EventSource):
         # Read the input files subrun-wise
         for uproot_file in self.files_:
 
-            calib_data = MarsCalibratedRun(uproot_file)
+            if self.current_run is not None:
+                del self.current_run['data']
+
+            self.current_run = self._set_active_run(uproot_file)
 
             event.meta['input_file'] = uproot_file.file_path
 
             if self.generate_pedestals:
-                event_data = calib_data.pedestal_events
-                n_events = calib_data.n_pedestal_events
+                event_data = self.current_run['data'].pedestal_events
+                n_events = self.current_run['data'].n_pedestal_events
 
             else:
-                event_data = calib_data.cosmic_events
-                n_events = calib_data.n_cosmic_events
+                event_data = self.current_run['data'].cosmic_events
+                n_events = self.current_run['data'].n_cosmic_events
 
             if not self.is_simulation:
 
-                monitoring_data = calib_data.monitoring_data
+                monitoring_data = self.current_run['data'].monitoring_data
 
                 # Set pedestal info:
                 event.mon.tel[tel_id].pedestal.n_events = 500  # hardcoded number of pedestal events averaged over
