@@ -710,7 +710,6 @@ class MAGICEventSource(EventSource):
     def parse_simulation_header(self):
         """
         Parse the simulation information from the RunHeaders tree.
-        The MMcCorsikaRunHeader and MMcRunHeader branches are used.
 
         Returns
         -------
@@ -733,14 +732,14 @@ class MAGICEventSource(EventSource):
             'MMcRunHeader.fShowerPhiMax',
             'MMcRunHeader.fShowerPhiMin',
             'MMcRunHeader.fCWaveUpper',
-            'MMcRunHeader.fCWaveLower'
+            'MMcRunHeader.fCWaveLower',
         ]
 
         # Magnetic field values at the MAGIC site (taken from CORSIKA input cards)
         # Reference system is the CORSIKA one, where x-axis points to magnetic north, i.e., B y-component is 0
-        # mfield_dec is the magnetic declination i.e. angle between magnetic and
-        # geographic north, negative if pointing westwards, positive if pointing eastwards
-        # mfield_inc is the magnetic field inclination
+        # mfield_dec is the magnetic declination i.e., angle between magnetic and geographic north,
+        # negative if geographic north pointing westwards, positive if pointing eastwards
+        # mfield_inc is the magnetic field inclination, i.e., angle between magnetic north and magnetic field
 
         mfield_x = u.Quantity(29.5, u.uT)
         mfield_z = u.Quantity(-23.0, u.uT)
@@ -748,9 +747,8 @@ class MAGICEventSource(EventSource):
         mfield_dec = u.Quantity(-7.0, u.deg)
         mfield_inc = np.arctan2(mfield_z, mfield_x)
 
-        shower_prog_id = 1   # CORSIKA=1, ALTAI=2, KASCADE=3, MOCCA=4
-        shower_reuse = 5     # every shower reused 5 times for standard MAGIC MC
-        is_diffuse = True
+        shower_prog_id = 1    # CORSIKA=1, ALTAI=2, KASCADE=3, MOCCA=4
+        shower_reuse = 5      # every shower reused 5 times for standard MAGIC MC
 
         uproot_file = self.files_[0]
 
@@ -759,19 +757,32 @@ class MAGICEventSource(EventSource):
             library='np'
         )
 
+        # Assume standard ring wobble MC:
         if np.isclose(sim_info['MMcRunHeader.fRandomPointingConeSemiAngle'][0], 0.4):
+            is_diffuse = False
             max_viewcone_radius = u.Quantity(0.4, u.deg)
             min_viewcone_radius = u.Quantity(0.4, u.deg)
 
         else:
+            is_diffuse = True
             max_viewcone_radius = u.Quantity(sim_info['MMcRunHeader.fRandomPointingConeSemiAngle'][0], u.deg)
             min_viewcone_radius = u.Quantity(0, u.deg)
+
+        # Conversion of Theta/Phi to Alt/Az coordinate
+        # The Theta/Phi are defined in the spherical coordinate with the x-axis pointing to magnetic south:
+        max_alt = u.Quantity(90 - sim_info['MMcRunHeader.fShowerThetaMin'][0], u.deg)
+        min_alt = u.Quantity(90 - sim_info['MMcRunHeader.fShowerThetaMax'][0], u.deg)
+        max_az = u.Quantity(sim_info['MMcRunHeader.fShowerPhiMax'][0] - 180, u.deg) - mfield_dec
+        min_az = u.Quantity(sim_info['MMcRunHeader.fShowerPhiMin'][0] - 180, u.deg) - mfield_dec
+
+        # Assume standard MAGIC MC
+        min_scatter_range = u.Quantity(0, u.m)
 
         simulation_config = SimulationConfigContainer(
             corsika_version=sim_info['MMcCorsikaRunHeader.fCorsikaVersion'][0],
             energy_range_min=u.Quantity(sim_info['MMcCorsikaRunHeader.fELowLim'][0], u.GeV).to(u.TeV),
             energy_range_max=u.Quantity(sim_info['MMcCorsikaRunHeader.fEUppLim'][0], u.GeV).to(u.TeV),
-            prod_site_B_total=mfield_total,
+            prod_site_B_total=mfield_total.to(u.uT),
             prod_site_B_declination=mfield_dec.to(u.rad),
             prod_site_B_inclination=mfield_inc.to(u.rad),
             prod_site_alt=u.Quantity(sim_info['MMcCorsikaRunHeader.fHeightLev[10]'][0][0], u.cm).to(u.m),
@@ -779,15 +790,15 @@ class MAGICEventSource(EventSource):
             shower_prog_id=shower_prog_id,
             num_showers=sim_info['MMcRunHeader.fNumSimulatedShowers'][0],
             shower_reuse=shower_reuse,
-            max_alt=u.Quantity(90 - sim_info['MMcRunHeader.fShowerThetaMax'][0], u.deg).to(u.rad),
-            min_alt=u.Quantity(90 - sim_info['MMcRunHeader.fShowerThetaMin'][0], u.deg).to(u.rad),
-            max_az=u.Quantity(sim_info['MMcRunHeader.fShowerPhiMax'][0], u.deg).to(u.rad),
-            min_az=u.Quantity(sim_info['MMcRunHeader.fShowerPhiMin'][0], u.deg).to(u.rad),
+            max_alt=max_alt.to(u.rad),
+            min_alt=min_alt.to(u.rad),
+            max_az=max_az.to(u.rad),
+            min_az=min_az.to(u.rad),
             diffuse=is_diffuse,
             max_viewcone_radius=max_viewcone_radius,
             min_viewcone_radius=min_viewcone_radius,
             max_scatter_range=u.Quantity(sim_info['MMcRunHeader.fImpactMax'][0], u.cm).to(u.m),
-            min_scatter_range=u.Quantity(0, u.m),
+            min_scatter_range=min_scatter_range,
             atmosphere=sim_info['MMcCorsikaRunHeader.fAtmosphericModel'][0],
             corsika_wlen_min=u.Quantity(sim_info['MMcRunHeader.fCWaveLower'][0], u.nm),
             corsika_wlen_max=u.Quantity(sim_info['MMcRunHeader.fCWaveUpper'][0], u.nm)
@@ -866,16 +877,20 @@ class MAGICEventSource(EventSource):
 
     def _get_badrmspixel_mask(self, event):
         """
-        Fetch the bad RMS pixel mask for a given event.
+        Fetch the bad RMS pixel masks for a given event.
 
         Parameters
         ----------
         event: ctapipe.containers.ArrayEventContainer
-            event container
+            array event container
 
         Returns
         -------
-        badrmspixels_mask
+        badrmspixels_mask: list
+            masks for the bad RMS pixels:
+            - first axis: fundamental
+            - second axis: from extractor
+            - third axis: from extractor rndm
         """
 
         pedestal_level = 400
@@ -946,10 +961,12 @@ class MAGICEventSource(EventSource):
     def _set_active_run(self, uproot_file):
         """
         This internal method sets the run that will be used for data loading.
+
         Parameters
         ----------
         uproot_file:
             The uproot file
+
         Returns
         -------
         run: MarsCalibratedRun
@@ -957,8 +974,7 @@ class MAGICEventSource(EventSource):
         """
 
         run = dict()
-        run['read_events'] = 0
-        run["run_number"] = self.obs_ids[0]
+        run['input_file'] = os.path.abspath(uproot_file.file_path)
 
         if self.mars_datalevel == MARSDataLevel.CALIBRATED:
             run['data'] = MarsCalibratedRun(uproot_file)
@@ -968,12 +984,11 @@ class MAGICEventSource(EventSource):
 
     def _generator(self):
         """
-        The default event generator. Return the stereo event
-        generator instance.
+        The default event generator.
 
         Returns
         -------
-
+            self._event_generator
         """
 
         if self.mars_datalevel == MARSDataLevel.CALIBRATED:
@@ -987,7 +1002,7 @@ class MAGICEventSource(EventSource):
         Returns
         -------
         event: ctapipe.containers.ArrayEventContainer
-
+            filled event container
         """
 
         # Data container - is initialized once, and data is replaced after each yield
@@ -1006,12 +1021,9 @@ class MAGICEventSource(EventSource):
         # Read the input files subrun-wise
         for uproot_file in self.files_:
 
-            if self.current_run is not None:
-                del self.current_run['data']
+            event.meta['input_file'] = os.path.abspath(uproot_file.file_path)
 
             self.current_run = self._set_active_run(uproot_file)
-
-            event.meta['input_file'] = uproot_file.file_path
 
             if self.generate_pedestals:
                 event_data = self.current_run['data'].pedestal_events
@@ -1031,8 +1043,6 @@ class MAGICEventSource(EventSource):
                 event.mon.tel[tel_id].pedestal.sample_time = Time(
                     monitoring_data['pedestal_sample_time'], format='unix', scale='utc'
                 )
-
-                n_samples = len(monitoring_data['pedestal_sample_time'])
 
                 event.mon.tel[tel_id].pedestal.charge_mean = [
                     monitoring_data['pedestal_fundamental']['mean'][:,:n_pixels],
@@ -1172,7 +1182,7 @@ class MarsCalibratedRun:
             A file opened by uproot via uproot.open(file_name)
         """
 
-        self.file_name = uproot_file.file_path
+        self.input_file = os.path.abspath(uproot_file.file_path)
 
         run_info = self.parse_run_info(uproot_file)
 
