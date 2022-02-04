@@ -903,11 +903,11 @@ class MAGICEventSource(EventSource):
         Parameters
         ----------
         data: ArrayEventContainer
-            The event data 
+            The event data
 
         Returns
         -------
-        badrmspixel_mask: 
+        badrmspixel_mask:
         """
 
         pedestal_level = 400
@@ -921,7 +921,7 @@ class MAGICEventSource(EventSource):
         if np.all(pedestal_times > event_time):
             index = 0
         else:
-            index = np.where(pedestal_times < event_time)[0][-1]
+            index = np.where(pedestal_times <= event_time)[0][-1]
 
         badrmspixels_mask = []
         n_ped_types = len(data.mon.tel[tel_id].pedestal.charge_std)
