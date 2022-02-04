@@ -1188,15 +1188,19 @@ class MAGICEventSource(EventSource):
                 data.dl1.tel[tel_id].peak_time = np.array(event_data['pulse_time'][event_i][:n_pixels], dtype=np.float32)
 
                 if self.is_simulation:
-                    # check meaning of 7deg transformation (I.Vovk)
-                    # adding a 7deg rotation between the orientation of corsika (x axis = magnetic north) and MARS (x axis = geographical north) frames
+                    # adding a 7deg rotation between the orientation of corsika
+                    # (x axis=magnetic north) and MARS (x axis=geographical north) frames
                     # magnetic north is 7 deg westward w.r.t. geographical north
                     data.simulation = SimulatedEventContainer()
                     MAGIC_Bdec = self.simulation_config[obs_id]["prod_site_B_declination"]
+                    true_az = np.pi - event_data['true_az'][event_i] + MAGIC_Bdec.value
+                    # wrap values between -180 deg and 180 deg
+                    if true_az > np.pi:
+                        true_az -= 2*np.pi
                     data.simulation.shower = SimulatedShowerContainer(
                         energy=u.Quantity(event_data['true_energy'][event_i], u.GeV),
                         alt=Angle((np.pi/2 - event_data['true_zd'][event_i]), u.rad),
-                        az=Angle(-1 * (event_data['true_az'][event_i] - (np.pi/2 + MAGIC_Bdec.value)), u.rad),
+                        az=Angle(true_az, u.rad),
                         shower_primary_id=(1 - event_data['true_shower_primary_id'][event_i]),
                         h_first_int=u.Quantity(event_data['true_h_first_int'][event_i], u.cm),
                         core_x=u.Quantity((event_data['true_core_x'][event_i]*np.cos(-MAGIC_Bdec) - event_data['true_core_y'][event_i]*np.sin(-MAGIC_Bdec)).value, u.cm),
