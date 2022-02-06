@@ -896,6 +896,86 @@ class MAGICEventSource(EventSource):
 
         return run
 
+    def _get_badrmspixel_mask(self, data):
+        """
+        Fetch the bad RMS pixel mask for a given event.
+
+        Parameters
+        ----------
+        data: ArrayEventContainer
+            The event data
+
+        Returns
+        -------
+        badrmspixel_mask:
+        """
+
+        pedestal_level = 400
+        pedestal_level_variance = 4.5
+
+        tel_id = list(data.trigger.tel.keys())[0]
+
+        event_time = data.trigger.tel[tel_id].time.unix
+        pedestal_times = data.mon.tel[tel_id].pedestal.sample_time.unix
+
+        if np.all(pedestal_times > event_time):
+            index = 0
+        else:
+            index = np.where(pedestal_times <= event_time)[0][-1]
+
+        badrmspixels_mask = []
+        n_ped_types = len(data.mon.tel[tel_id].pedestal.charge_std)
+
+        for i_ped_type in range(n_ped_types):
+
+            charge_std = data.mon.tel[tel_id].pedestal.charge_std[i_ped_type][index]
+
+            pix_step1 = np.logical_and(
+                charge_std > 0,
+                charge_std < 200
+            )
+
+            mean_step1 = charge_std[pix_step1].mean()
+
+            if mean_step1 == 0:
+                badrmspixels_mask.append(np.zeros(len(charge_std), np.bool))
+                continue
+
+            pix_step2 = np.logical_and(
+                charge_std > 0.5 * mean_step1,
+                charge_std < 1.5 * mean_step1
+            )
+
+            n_pixels = np.count_nonzero(pix_step2)
+            mean_step2 = charge_std[pix_step2].mean()
+            var_step2 = np.mean(charge_std[pix_step2] ** 2)
+
+            if (n_pixels == 0) or (mean_step2 == 0):
+                badrmspixels_mask.append(np.zeros(len(charge_std), np.bool))
+                continue
+
+            lolim_step1 = mean_step1 / pedestal_level
+            uplim_step1 = mean_step1 * pedestal_level
+            lolim_step2 = mean_step2 - pedestal_level_variance * np.sqrt(var_step2 - mean_step2 ** 2)
+            uplim_step2 = mean_step2 + pedestal_level_variance * np.sqrt(var_step2 - mean_step2 ** 2)
+
+            badrmspix_step1 = np.logical_or(
+                charge_std < lolim_step1,
+                charge_std > uplim_step1
+            )
+
+            badrmspix_step2 = np.logical_or(
+                charge_std < lolim_step2,
+                charge_std > uplim_step2
+            )
+
+            badrmspixels_mask.append(
+                np.logical_or(badrmspix_step1, badrmspix_step2)
+            )
+
+        return badrmspixels_mask
+
+
     @property
     def subarray(self):
         return self._subarray_info
@@ -982,29 +1062,25 @@ class MAGICEventSource(EventSource):
                 badpixel_info = PixelStatusContainer()
 
                 pedestal_info.sample_time = Time(
-                    monitoring_data['M{:d}'.format(tel_id)]['PedestalUnix'], format='unix', scale='utc'
+                    monitoring_data[f'M{tel_id}']['PedestalUnix'], format='unix', scale='utc'
                 )
 
                 pedestal_info.n_events = 500  # hardcoded number of pedestal events averaged over
+
                 pedestal_info.charge_mean = []
-                pedestal_info.charge_mean.append(
-                    monitoring_data['M{:d}'.format(tel_id)]['PedestalFundamental']['Mean'])
-                pedestal_info.charge_mean.append(
-                    monitoring_data['M{:d}'.format(tel_id)]['PedestalFromExtractor']['Mean'])
-                pedestal_info.charge_mean.append(monitoring_data['M{:d}'.format(
-                    tel_id)]['PedestalFromExtractorRndm']['Mean'])
+                pedestal_info.charge_mean.append(monitoring_data[f'M{tel_id}']['PedestalFundamental']['Mean'])
+                pedestal_info.charge_mean.append(monitoring_data[f'M{tel_id}']['PedestalFromExtractor']['Mean'])
+                pedestal_info.charge_mean.append(monitoring_data[f'M{tel_id}']['PedestalFromExtractorRndm']['Mean'])
+
                 pedestal_info.charge_std = []
-                pedestal_info.charge_std.append(
-                    monitoring_data['M{:d}'.format(tel_id)]['PedestalFundamental']['Rms'])
-                pedestal_info.charge_std.append(
-                    monitoring_data['M{:d}'.format(tel_id)]['PedestalFromExtractor']['Rms'])
-                pedestal_info.charge_std.append(
-                    monitoring_data['M{:d}'.format(tel_id)]['PedestalFromExtractorRndm']['Rms'])
+                pedestal_info.charge_std.append(monitoring_data[f'M{tel_id}']['PedestalFundamental']['Rms'])
+                pedestal_info.charge_std.append(monitoring_data[f'M{tel_id}']['PedestalFromExtractor']['Rms'])
+                pedestal_info.charge_std.append(monitoring_data[f'M{tel_id}']['PedestalFromExtractorRndm']['Rms'])
 
-                t_range = Time(monitoring_data['M{:d}'.format(tel_id)]['badpixelinfoUnixRange'], format='unix', scale='utc')
+                time_range = Time(monitoring_data[f'M{tel_id}']['PedestalUnixRange'], format='unix', scale='utc')
 
-                badpixel_info.hardware_failing_pixels = monitoring_data['M{:d}'.format(tel_id)]['badpixelinfo']
-                badpixel_info.sample_time_range = t_range
+                badpixel_info.sample_time_range = time_range
+                badpixel_info.hardware_failing_pixels = monitoring_data[f'M{tel_id}']['BadpixelInfo']
 
                 monitoring_camera.pedestal = pedestal_info
                 monitoring_camera.pixel_status = badpixel_info
@@ -1075,6 +1151,10 @@ class MAGICEventSource(EventSource):
                             scale='utc'
                         )
                     )
+
+                    if not generate_pedestals:
+                        badrmspixels_mask = self._get_badrmspixel_mask(data)
+                        data.mon.tel[tel_id].pixel_status.pedestal_failing_pixels = badrmspixels_mask
 
                 # Event counter
                 data.count = counter
@@ -1284,9 +1364,9 @@ class MarsCalibratedRun:
         # monitoring information (updated from time to time)
         event_data["monitoring_data"] = dict()
 
-        event_data["monitoring_data"]['badpixelinfo'] = []
-        event_data["monitoring_data"]['badpixelinfoUnixRange'] = []
+        event_data["monitoring_data"]['BadpixelInfo'] = []
         event_data["monitoring_data"]['PedestalUnix'] = np.array([])
+        event_data["monitoring_data"]['PedestalUnixRange'] = np.array([])
         event_data["monitoring_data"]['PedestalFundamental'] = dict()
         event_data["monitoring_data"]['PedestalFundamental']['Mean'] = []
         event_data["monitoring_data"]['PedestalFundamental']['Rms'] = []
@@ -1426,28 +1506,30 @@ class MarsCalibratedRun:
                 (event_data[event_type]['stereo_event_number'], stereo_event_number))
 
         if not is_mc:
-            badpixelinfo = input_file['RunHeaders']['MBadPixelsCam.fArray.fInfo'].array(
-                uproot.interpretation.jagged.AsJagged(
-                    uproot.interpretation.numerical.AsDtype(np.dtype('>i4'))
-                ), library="np")[0].reshape((4, 1183), order='F')
+
+            as_dtype = uproot.interpretation.numerical.AsDtype(np.dtype('>i4'))
+            as_jagged = uproot.interpretation.jagged.AsJagged(as_dtype)
+
+            badpixel_info = input_file['RunHeaders']['MBadPixelsCam.fArray.fInfo'].array(as_jagged, library='np')[0]
+            badpixel_info = badpixel_info.reshape((4, 1183), order='F')
 
             # now we have 4 axes:
             # 0st axis: empty (?)
             # 1st axis: Unsuitable pixels
             # 2nd axis: Uncalibrated pixels (says why pixel is unsuitable)
             # 3rd axis: Bad hardware pixels (says why pixel is unsuitable)
-            # Each axis cointains a 32bit integer encoding more information about the
-            # specific problem, see MARS software, MBADPixelsPix.h
-            # take first axis
-            unsuitable_pix_bitinfo = badpixelinfo[1][:n_camera_pixels]
+            # Each axis cointains a 32bit integer encoding more information about the specific problem
+            # See MARS software, MBADPixelsPix.h for more information
+
+            # Here we take the first axis:
+            unsuitable_pix_bitinfo = badpixel_info[1][:n_camera_pixels]
+
             # extract unsuitable bit:
             unsuitable_pix = np.zeros(n_camera_pixels, dtype=bool)
             for i in range(n_camera_pixels):
-                unsuitable_pix[i] = int('\t{0:08b}'.format(
-                    unsuitable_pix_bitinfo[i] & 0xff)[-2])
-            event_data["monitoring_data"]['badpixelinfo'].append(unsuitable_pix)
-            # save time interval of badpixel info:
-            event_data["monitoring_data"]['badpixelinfoUnixRange'].append([event_unix[0], event_unix[-1]])
+                unsuitable_pix[i] = int('{:08b}'.format(unsuitable_pix_bitinfo[i])[-2])
+
+            event_data["monitoring_data"]['BadpixelInfo'].append(unsuitable_pix)
 
         # try to read Pedestals tree (soft fail if not present)
             try:
@@ -1467,7 +1549,10 @@ class MarsCalibratedRun:
                 pedestal_nanosec = np.array([Decimal(str(x)) for x in pedestal_nanosec])
 
                 pedestal_unix = pedestal_obs_day + pedestal_millisec + pedestal_nanosec
-                event_data["monitoring_data"]['PedestalUnix'] = np.concatenate((event_data["monitoring_data"]['PedestalUnix'], pedestal_unix))
+
+                event_data["monitoring_data"]['PedestalUnix'] = np.concatenate(
+                    (event_data["monitoring_data"]['PedestalUnix'], pedestal_unix)
+                )
 
                 n_pedestals = len(pedestal_unix)
 
@@ -1480,12 +1565,14 @@ class MarsCalibratedRun:
                         event_data["monitoring_data"]['PedestalFromExtractorRndm'][quantity].append(
                             pedestal_info[f'MPedPhotFromExtractorRndm.fArray.f{quantity}'][i_pedestal][:n_camera_pixels])
 
-            except KeyError:
-                LOGGER.warning(
-                    "Pedestals tree not present in file. Cleaning algorithm may fail.")
+                time_range = [event_data['pedestal_events']['unix'][0], event_data['pedestal_events']['unix'][-1]]
+                event_data['monitoring_data']['PedestalUnixRange'] = np.concatenate(
+                    (event_data['monitoring_data']['PedestalUnixRange'], time_range)
+                )
 
-            event_data["monitoring_data"]['badpixelinfo'] = np.array(event_data["monitoring_data"]['badpixelinfo'])
-            event_data["monitoring_data"]['badpixelinfoUnixRange'] = np.array(event_data["monitoring_data"]['badpixelinfoUnixRange'])
+            except KeyError:
+                LOGGER.warning("Pedestals tree not present in file. Cleaning algorithm may fail.")
+
             # sort monitoring data:
             order = np.argsort(event_data["monitoring_data"]['PedestalUnix'])
             event_data["monitoring_data"]['PedestalUnix'] = event_data["monitoring_data"]['PedestalUnix'][order]
