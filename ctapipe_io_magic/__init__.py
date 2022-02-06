@@ -904,7 +904,7 @@ class MAGICEventSource(EventSource):
         if np.all(pedestal_times > event_time):
             index = 0
         else:
-            index = np.where(pedestal_times < event_time)[0][-1]
+            index = np.where(pedestal_times <= event_time)[0][-1]
 
         badrmspixels_mask = []
         n_ped_types = len(event.mon.tel[tel_id].pedestal.charge_std)
@@ -1116,12 +1116,12 @@ class MAGICEventSource(EventSource):
                 event.trigger.tels_with_trigger = [tel_id, ]
 
                 if not self.is_simulation:
-
                     event.trigger.time = event_data['time'][i_event]
                     event.trigger.tel[tel_id].time = event_data['time'][i_event]
 
-                    badrmspixels_mask = self._get_badrmspixel_mask(event)
-                    event.mon.tel[tel_id].pixel_status.pedestal_failing_pixels = badrmspixels_mask
+                    if not self.generate_pedestals:
+                        badrmspixels_mask = self._get_badrmspixel_mask(event)
+                        event.mon.tel[tel_id].pixel_status.pedestal_failing_pixels = badrmspixels_mask
 
                 # Creating the telescope pointing container:
                 event.pointing.array_azimuth = event_data['pointing_az'][i_event].to(u.rad)
