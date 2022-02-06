@@ -1152,8 +1152,9 @@ class MAGICEventSource(EventSource):
                         )
                     )
 
-                    badrmspixels_mask = self._get_badrmspixel_mask(data)
-                    data.mon.tel[tel_id].pixel_status.pedestal_failing_pixels = badrmspixels_mask
+                    if not generate_pedestals:
+                        badrmspixels_mask = self._get_badrmspixel_mask(data)
+                        data.mon.tel[tel_id].pixel_status.pedestal_failing_pixels = badrmspixels_mask
 
                 # Event counter
                 data.count = counter
