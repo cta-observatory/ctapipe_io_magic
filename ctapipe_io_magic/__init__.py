@@ -713,10 +713,12 @@ class MAGICEventSource(EventSource):
     def parse_simulation_header(self):
         """
         Parse the simulation information from the RunHeaders tree.
+
         Returns
         -------
         SimulationConfigContainer
             Container filled with simulation information
+
         Notes
         -----
         Information is extracted from the RunHeaders tree within the ROOT file.
