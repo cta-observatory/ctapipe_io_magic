@@ -14,7 +14,6 @@ from pathlib import Path
 from decimal import Decimal
 from astropy import units as u
 from astropy.time import Time
-from astropy.coordinates import Angle
 from pkg_resources import resource_filename
 
 from ctapipe.io import EventSource, DataLevel
@@ -47,7 +46,11 @@ from .constants import (
     DATA_STEREO_TRIGGER_PATTERN,
 )
 
-__all__ = ['MAGICEventSource', 'MARSDataLevel', '__version__']
+__all__ = [
+    'MAGICEventSource',
+    'MARSDataLevel',
+    '__version__'
+]
 
 logger = logging.getLogger(__name__)
 
