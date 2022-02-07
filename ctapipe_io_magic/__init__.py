@@ -1151,11 +1151,13 @@ class MAGICEventSource(EventSource):
 
                     # Convert the corsika coordinate (x-axis: magnetic north) to the geographical one.
                     # Rotate the corsika coordinate by the magnetic declination (= 7 deg):
-
                     mfield_dec = self.simulation_config[self.obs_ids[0]]['prod_site_B_declination']
 
                     event.simulation.shower.alt = u.Quantity(90, u.deg) - event_data['mc_theta'][i_event].to(u.deg)
                     event.simulation.shower.az = u.Quantity(180, u.deg) - event_data['mc_phi'][i_event].to(u.deg) + mfield_dec
+
+                    if event.simulation.shower.az > u.Quantity(180, u.deg):
+                        event.simulation.shower.az -= u.Quantity(360, u.deg)
 
                     event.simulation.shower.core_x = event_data['mc_core_x'][i_event].to(u.m) * np.cos(mfield_dec) \
                                                      + event_data['mc_core_y'][i_event].to(u.m) * np.sin(mfield_dec)
@@ -1338,9 +1340,6 @@ class MarsCalibratedRun:
                     library='np',
                 )
 
-                # ToBeChecked: it seems the *.fDev* and *.fRa/fDec branches of MC calibrated
-                # file contain only zeros. If it is the case for all MC files, the following
-                # calculations do not needed and can be simplified:
                 pointing_az = pointing['MPointingPos.fAz'] - pointing['MPointingPos.fDevAz']
                 pointing_zd = pointing['MPointingPos.fZd'] - pointing['MPointingPos.fDevZd']
 
