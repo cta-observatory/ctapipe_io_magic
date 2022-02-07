@@ -150,12 +150,15 @@ def test_number_of_events(dataset):
 
     with MAGICEventSource(input_url=dataset, process_run=False) as source:
         run = source._set_active_run(source.files_[0])
-        if '_M1_' in dataset.name:
-            assert run['data'].n_cosmics_stereo_events_m1 == data_dict[source.input_url.name]['n_events_stereo']
-            assert run['data'].n_pedestal_events_m1 == data_dict[source.input_url.name]['n_events_pedestal']
-        if '_M2_' in dataset.name:
-            assert run['data'].n_cosmics_stereo_events_m2 == data_dict[source.input_url.name]['n_events_stereo']
-            assert run['data'].n_pedestal_events_m2 == data_dict[source.input_url.name]['n_events_pedestal']
+        assert run['data'].n_cosmic_events == data_dict[source.input_url.name]['n_events_stereo']
+        assert run['data'].n_pedestal_events == data_dict[source.input_url.name]['n_events_pedestal']
+
+        # if '_M1_' in dataset.name:
+        #     assert run['data'].n_cosmics_stereo_events_m1 == data_dict[source.input_url.name]['n_events_stereo']
+        #     assert run['data'].n_pedestal_events_m1 == data_dict[source.input_url.name]['n_events_pedestal']
+        # if '_M2_' in dataset.name:
+        #     assert run['data'].n_cosmics_stereo_events_m2 == data_dict[source.input_url.name]['n_events_stereo']
+        #     assert run['data'].n_pedestal_events_m2 == data_dict[source.input_url.name]['n_events_pedestal']
 
 
 @pytest.mark.parametrize('dataset', test_calibrated_all)
