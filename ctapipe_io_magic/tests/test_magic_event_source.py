@@ -139,7 +139,7 @@ def test_loop_pedestal(dataset):
     from ctapipe_io_magic import MAGICEventSource
     from ctapipe.containers import EventType
     n_events = 10
-    with MAGICEventSource(input_url=dataset, max_events=n_events, generate_pedestals=True, process_run=False) as source:
+    with MAGICEventSource(input_url=dataset, max_events=n_events, use_pedestals=True, process_run=False) as source:
         for event in source:
             assert event.trigger.event_type == EventType.SKY_PEDESTAL
 
@@ -198,14 +198,14 @@ def test_multiple_runs_real():
             break
 
 
-# def test_subarray_multiple_runs():
-#     from ctapipe_io_magic import MAGICEventSource
+def test_subarray_multiple_runs():
+    from ctapipe_io_magic import MAGICEventSource
 
-#     simulated_data_mask = test_calibrated_simulated_dir / 'GA_M1_za35to50_8_824318_Y_w0.root'
+    simulated_data_mask = test_calibrated_simulated_dir / 'GA_M1_za35to50_8_824318_Y_w0.root'
 
-#     source = MAGICEventSource(input_url=simulated_data_mask)
-#     sim_config = source.simulation_config
-#     assert list(sim_config.keys()) == source.obs_ids
+    source = MAGICEventSource(input_url=simulated_data_mask)
+    sim_config = source.simulation_config
+    assert list(sim_config.keys()) == source.obs_ids
 
 
 @pytest.mark.parametrize('dataset', test_calibrated_all)

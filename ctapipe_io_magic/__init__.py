@@ -117,7 +117,7 @@ class MAGICEventSource(EventSource):
         Container filled with the information about the simulation
     telescope : int
         The number of the telescope
-    generate_pedestals : bool
+    use_pedestals : bool
         Flag indicating if pedestal events should be returned by the generator
     """
 
@@ -126,7 +126,7 @@ class MAGICEventSource(EventSource):
         help='Read all subruns from a given run.'
     ).tag(config=True)
 
-    generate_pedestals = Bool(
+    use_pedestals = Bool(
            default_value=False,
            help='Extract pedestal events instead of cosmic events.'
     ).tag(config=True)
@@ -710,99 +710,100 @@ class MAGICEventSource(EventSource):
     def parse_simulation_header(self):
         """
         Parse the simulation information from the RunHeaders tree.
-
         Returns
         -------
-        simulation_config: ctapipe.containers.SimulationConfigContainer
+        SimulationConfigContainer
             Container filled with simulation information
+        Notes
+        -----
+        Information is extracted from the RunHeaders tree within the ROOT file.
+        Within it, the MMcCorsikaRunHeader and MMcRunHeader branches are used.
+        Here below the units of the members extracted, for reference:
+        * fSlopeSpec: float
+        * fELowLim, fEUppLim: GeV
+        * fCorsikaVersion: int
+        * fHeightLev[10]: centimeter
+        * fAtmosphericModel: int
+        * fRandomPointingConeSemiAngle: deg
+        * fImpactMax: centimeter
+        * fNumSimulatedShowers: int
+        * fShowerThetaMax, fShowerThetaMin: deg
+        * fShowerPhiMax, fShowerPhiMin: deg
+        * fCWaveUpper, fCWaveLower: nanometer
         """
 
-        mc_header_branches = [
-            'MMcCorsikaRunHeader.fCorsikaVersion',
-            'MMcCorsikaRunHeader.fELowLim',
-            'MMcCorsikaRunHeader.fEUppLim',
-            'MMcCorsikaRunHeader.fSlopeSpec',
-            'MMcCorsikaRunHeader.fHeightLev[10]',
-            'MMcCorsikaRunHeader.fAtmosphericModel',
-            'MMcRunHeader.fRandomPointingConeSemiAngle',
-            'MMcRunHeader.fImpactMax',
-            'MMcRunHeader.fNumSimulatedShowers',
-            'MMcRunHeader.fShowerThetaMax',
-            'MMcRunHeader.fShowerThetaMin',
-            'MMcRunHeader.fShowerPhiMax',
-            'MMcRunHeader.fShowerPhiMin',
-            'MMcRunHeader.fCWaveUpper',
-            'MMcRunHeader.fCWaveLower',
-        ]
-
         # Magnetic field values at the MAGIC site (taken from CORSIKA input cards)
-        # Reference system is the CORSIKA one, where x-axis points to magnetic north, i.e., B y-component is 0
-        # mfield_dec is the magnetic declination i.e., angle between magnetic and geographic north,
-        # negative if geographic north pointing westwards, positive if pointing eastwards
-        # mfield_inc is the magnetic field inclination, i.e., angle between magnetic north and magnetic field
+        # Reference system is the CORSIKA one, where x-axis points to magnetic north
+        # i.e. B y-component is 0
+        # MAGIC_Bdec is the magnetic declination i.e. angle between magnetic and
+        # geographic north, negative if pointing westwards, positive if pointing
+        # eastwards
+        # MAGIC_Binc is the magnetic field inclination
+        MAGIC_Bx = u.Quantity(29.5, u.uT)
+        MAGIC_Bz = u.Quantity(23.0, u.uT)
+        MAGIC_Btot = np.sqrt(MAGIC_Bx**2+MAGIC_Bz**2)
+        MAGIC_Bdec = u.Quantity(-7.0, u.deg).to(u.rad)
+        MAGIC_Binc = u.Quantity(np.arctan2(-MAGIC_Bz.value, MAGIC_Bx.value), u.rad)
 
-        mfield_x = u.Quantity(29.5, u.uT)
-        mfield_z = u.Quantity(-23.0, u.uT)
-        mfield_total = np.sqrt(mfield_x ** 2 + mfield_z ** 2)
-        mfield_dec = u.Quantity(-7.0, u.deg)
-        mfield_inc = np.arctan2(mfield_z, mfield_x)
+        simulation_config = dict()
 
-        shower_prog_id = 1    # CORSIKA=1, ALTAI=2, KASCADE=3, MOCCA=4
-        shower_reuse = 5      # every shower reused 5 times for standard MAGIC MC
+        for run_number, rootf in zip(self.run_numbers, self.files_):
 
-        uproot_file = self.files_[0]
+            run_header_tree = rootf['RunHeaders']
+            spectral_index = run_header_tree['MMcCorsikaRunHeader.fSlopeSpec'].array(library="np")[0]
+            e_low = run_header_tree['MMcCorsikaRunHeader.fELowLim'].array(library="np")[0]
+            e_high = run_header_tree['MMcCorsikaRunHeader.fEUppLim'].array(library="np")[0]
+            corsika_version = run_header_tree['MMcCorsikaRunHeader.fCorsikaVersion'].array(library="np")[0]
+            site_height = run_header_tree['MMcCorsikaRunHeader.fHeightLev[10]'].array(library="np")[0][0]
+            atm_model = run_header_tree['MMcCorsikaRunHeader.fAtmosphericModel'].array(library="np")[0]
+            if self.mars_datalevel in [MARSDataLevel.CALIBRATED, MARSDataLevel.STAR]:
+                view_cone = run_header_tree['MMcRunHeader.fRandomPointingConeSemiAngle'].array(library="np")[0]
+                max_impact = run_header_tree['MMcRunHeader.fImpactMax'].array(library="np")[0]
+                n_showers = np.sum(run_header_tree['MMcRunHeader.fNumSimulatedShowers'].array(library="np"))
+                max_zd = run_header_tree['MMcRunHeader.fShowerThetaMax'].array(library="np")[0]
+                min_zd = run_header_tree['MMcRunHeader.fShowerThetaMin'].array(library="np")[0]
+                max_az = run_header_tree['MMcRunHeader.fShowerPhiMax'].array(library="np")[0]
+                min_az = run_header_tree['MMcRunHeader.fShowerPhiMin'].array(library="np")[0]
+                max_wavelength = run_header_tree['MMcRunHeader.fCWaveUpper'].array(library="np")[0]
+                min_wavelength = run_header_tree['MMcRunHeader.fCWaveLower'].array(library="np")[0]
+            elif self.mars_datalevel in [MARSDataLevel.SUPERSTAR, MARSDataLevel.MELIBEA]:
+                view_cone = run_header_tree['MMcRunHeader_1.fRandomPointingConeSemiAngle'].array(library="np")[0]
+                max_impact = run_header_tree['MMcRunHeader_1.fImpactMax'].array(library="np")[0]
+                n_showers = np.sum(run_header_tree['MMcRunHeader_1.fNumSimulatedShowers'].array(library="np"))
+                max_zd = run_header_tree['MMcRunHeader_1.fShowerThetaMax'].array(library="np")[0]
+                min_zd = run_header_tree['MMcRunHeader_1.fShowerThetaMin'].array(library="np")[0]
+                max_az = run_header_tree['MMcRunHeader_1.fShowerPhiMax'].array(library="np")[0]
+                min_az = run_header_tree['MMcRunHeader_1.fShowerPhiMin'].array(library="np")[0]
+                max_wavelength = run_header_tree['MMcRunHeader_1.fCWaveUpper'].array(library="np")[0]
+                min_wavelength = run_header_tree['MMcRunHeader_1.fCWaveLower'].array(library="np")[0]
 
-        sim_info = uproot_file['RunHeaders'].arrays(
-            expressions=mc_header_branches,
-            library='np'
-        )
-
-        # Assume standard ring wobble MC:
-        if np.isclose(sim_info['MMcRunHeader.fRandomPointingConeSemiAngle'][0], 0.4):
-            is_diffuse = False
-            max_viewcone_radius = u.Quantity(0.4, u.deg)
-            min_viewcone_radius = u.Quantity(0.4, u.deg)
-
-        else:
-            is_diffuse = True
-            max_viewcone_radius = u.Quantity(sim_info['MMcRunHeader.fRandomPointingConeSemiAngle'][0], u.deg)
-            min_viewcone_radius = u.Quantity(0, u.deg)
-
-        # Conversion of Theta/Phi to Alt/Az coordinate
-        # The Theta/Phi are defined in the spherical coordinate with the x-axis pointing to magnetic south:
-        max_alt = u.Quantity(90 - sim_info['MMcRunHeader.fShowerThetaMin'][0], u.deg)
-        min_alt = u.Quantity(90 - sim_info['MMcRunHeader.fShowerThetaMax'][0], u.deg)
-        max_az = u.Quantity(sim_info['MMcRunHeader.fShowerPhiMax'][0] - 180, u.deg) - mfield_dec
-        min_az = u.Quantity(sim_info['MMcRunHeader.fShowerPhiMin'][0] - 180, u.deg) - mfield_dec
-
-        # Assume standard MAGIC MC
-        min_scatter_range = u.Quantity(0, u.m)
-
-        simulation_config = SimulationConfigContainer(
-            corsika_version=sim_info['MMcCorsikaRunHeader.fCorsikaVersion'][0],
-            energy_range_min=u.Quantity(sim_info['MMcCorsikaRunHeader.fELowLim'][0], u.GeV).to(u.TeV),
-            energy_range_max=u.Quantity(sim_info['MMcCorsikaRunHeader.fEUppLim'][0], u.GeV).to(u.TeV),
-            prod_site_B_total=mfield_total.to(u.uT),
-            prod_site_B_declination=mfield_dec.to(u.rad),
-            prod_site_B_inclination=mfield_inc.to(u.rad),
-            prod_site_alt=u.Quantity(sim_info['MMcCorsikaRunHeader.fHeightLev[10]'][0][0], u.cm).to(u.m),
-            spectral_index=sim_info['MMcCorsikaRunHeader.fSlopeSpec'][0],
-            shower_prog_id=shower_prog_id,
-            num_showers=sim_info['MMcRunHeader.fNumSimulatedShowers'][0],
-            shower_reuse=shower_reuse,
-            max_alt=max_alt.to(u.rad),
-            min_alt=min_alt.to(u.rad),
-            max_az=max_az.to(u.rad),
-            min_az=min_az.to(u.rad),
-            diffuse=is_diffuse,
-            max_viewcone_radius=max_viewcone_radius,
-            min_viewcone_radius=min_viewcone_radius,
-            max_scatter_range=u.Quantity(sim_info['MMcRunHeader.fImpactMax'][0], u.cm).to(u.m),
-            min_scatter_range=min_scatter_range,
-            atmosphere=sim_info['MMcCorsikaRunHeader.fAtmosphericModel'][0],
-            corsika_wlen_min=u.Quantity(sim_info['MMcRunHeader.fCWaveLower'][0], u.nm),
-            corsika_wlen_max=u.Quantity(sim_info['MMcRunHeader.fCWaveUpper'][0], u.nm)
-        )
+            simulation_config[run_number] = SimulationConfigContainer(
+                corsika_version=corsika_version,
+                energy_range_min=u.Quantity(e_low, u.GeV).to(u.TeV),
+                energy_range_max=u.Quantity(e_high, u.GeV).to(u.TeV),
+                prod_site_alt=u.Quantity(site_height, u.cm).to(u.m),
+                spectral_index=spectral_index,
+                num_showers=n_showers,
+                shower_reuse=1,
+                # shower_reuse not written in the magic root file, but since the
+                # sim_events already include shower reuse we artificially set it
+                # to 1 (actually every shower reused 5 times for std MAGIC MC)
+                shower_prog_id=1,
+                prod_site_B_total=MAGIC_Btot,
+                prod_site_B_declination=MAGIC_Bdec,
+                prod_site_B_inclination=MAGIC_Binc,
+                max_alt=u.Quantity((90. - min_zd), u.deg).to(u.rad),
+                min_alt=u.Quantity((90. - max_zd), u.deg).to(u.rad),
+                max_az=u.Quantity(max_az, u.deg).to(u.rad),
+                min_az=u.Quantity(min_az, u.deg).to(u.rad),
+                max_viewcone_radius=view_cone * u.deg,
+                min_viewcone_radius=0.0 * u.deg,
+                max_scatter_range=u.Quantity(max_impact, u.cm).to(u.m),
+                min_scatter_range=0.0 * u.m,
+                atmosphere=atm_model,
+                corsika_wlen_min=min_wavelength * u.nm,
+                corsika_wlen_max=max_wavelength * u.nm,
+            )
 
         return simulation_config
 
@@ -877,7 +878,7 @@ class MAGICEventSource(EventSource):
 
     def _get_badrmspixel_mask(self, event):
         """
-        Fetch the bad RMS pixel masks for a given event.
+        Fetch bad RMS pixel mask for a given event.
 
         Parameters
         ----------
@@ -906,7 +907,7 @@ class MAGICEventSource(EventSource):
         else:
             index = np.where(pedestal_times <= event_time)[0][-1]
 
-        badrmspixels_mask = []
+        badrmspixel_mask = []
         n_ped_types = len(event.mon.tel[tel_id].pedestal.charge_std)
 
         for i_ped_type in range(n_ped_types):
@@ -915,18 +916,18 @@ class MAGICEventSource(EventSource):
 
             pix_step1 = np.logical_and(
                 charge_std > 0,
-                charge_std < 200
+                charge_std < 200,
             )
 
             mean_step1 = charge_std[pix_step1].mean()
 
             if mean_step1 == 0:
-                badrmspixels_mask.append(np.zeros(len(charge_std), np.bool))
+                badrmspixel_mask.append(np.zeros(len(charge_std), np.bool))
                 continue
 
             pix_step2 = np.logical_and(
                 charge_std > 0.5 * mean_step1,
-                charge_std < 1.5 * mean_step1
+                charge_std < 1.5 * mean_step1,
             )
 
             n_pixels = np.count_nonzero(pix_step2)
@@ -934,7 +935,7 @@ class MAGICEventSource(EventSource):
             var_step2 = np.mean(charge_std[pix_step2] ** 2)
 
             if (n_pixels == 0) or (mean_step2 == 0):
-                badrmspixels_mask.append(np.zeros(len(charge_std), np.bool))
+                badrmspixel_mask.append(np.zeros(len(charge_std), np.bool))
                 continue
 
             lolim_step1 = mean_step1 / pedestal_level
@@ -944,47 +945,52 @@ class MAGICEventSource(EventSource):
 
             badrmspix_step1 = np.logical_or(
                 charge_std < lolim_step1,
-                charge_std > uplim_step1
+                charge_std > uplim_step1,
             )
 
             badrmspix_step2 = np.logical_or(
                 charge_std < lolim_step2,
-                charge_std > uplim_step2
+                charge_std > uplim_step2,
             )
 
-            badrmspixels_mask.append(
+            badrmspixel_mask.append(
                 np.logical_or(badrmspix_step1, badrmspix_step2)
             )
 
-        return badrmspixels_mask
+        return badrmspixel_mask
 
     def _set_active_run(self, uproot_file):
         """
-        This internal method sets the run that will be used for data loading.
+        This internal method sets the run
+        that will be used for data loading.
 
         Parameters
         ----------
-        uproot_file:
-            The uproot file
+        uproot_file: uproot.reading.ReadOnlyDirectory
+            A calibrated file opened by uproot via uproot.open(file_path)
 
         Returns
         -------
-        run: MarsCalibratedRun
-            The run to use
+        run: dict
+            - input_file: path to the input file
+            - data: a MarsCalibratedRun object
         """
 
         run = dict()
-        run['input_file'] = os.path.abspath(uproot_file.file_path)
+        run['input_file'] = uproot_file.file_path
 
         if self.mars_datalevel == MARSDataLevel.CALIBRATED:
-            run['data'] = MarsCalibratedRun(uproot_file)
+            run['data'] = MarsCalibratedRun(
+                uproot_file,
+                self.is_simulation,
+            )
 
         return run
-
 
     def _generator(self):
         """
         The default event generator.
+        Now it only works for calibrated data.
 
         Returns
         -------
@@ -1005,27 +1011,26 @@ class MAGICEventSource(EventSource):
             filled event container
         """
 
-        # Data container - is initialized once, and data is replaced after each yield
+        # Data container - is initialized once, and data is replaced after each yield:
         event = ArrayEventContainer()
 
         event.meta['origin'] = 'MAGIC'
         event.meta['max_events'] = self.max_events
-
         event.index.obs_id = self.obs_ids[0]
 
         tel_id = self.telescope
-        n_pixels = self.subarray.tel[tel_id].camera.geometry.n_pixels
+        event.trigger.tels_with_trigger = np.array([tel_id])
 
         counter = 0
 
-        # Read the input files subrun-wise
+        # Read the input files subrun-wise:
         for uproot_file in self.files_:
 
-            event.meta['input_file'] = os.path.abspath(uproot_file.file_path)
+            event.meta['input_file'] = uproot_file.file_path
 
             self.current_run = self._set_active_run(uproot_file)
 
-            if self.generate_pedestals:
+            if self.use_pedestals:
                 event_data = self.current_run['data'].pedestal_events
                 n_events = self.current_run['data'].n_pedestal_events
 
@@ -1037,33 +1042,32 @@ class MAGICEventSource(EventSource):
 
                 monitoring_data = self.current_run['data'].monitoring_data
 
-                # Set pedestal info:
-                event.mon.tel[tel_id].pedestal.n_events = 500  # hardcoded number of pedestal events averaged over
-
-                event.mon.tel[tel_id].pedestal.sample_time = Time(
-                    monitoring_data['pedestal_sample_time'], format='unix', scale='utc'
-                )
+                # Set the pedestal information:
+                event.mon.tel[tel_id].pedestal.n_events = 500   # hardcoded number of pedestal events averaged over
+                event.mon.tel[tel_id].pedestal.sample_time = monitoring_data['pedestal_sample_time']
 
                 event.mon.tel[tel_id].pedestal.charge_mean = [
-                    monitoring_data['pedestal_fundamental']['mean'][:,:n_pixels],
-                    monitoring_data['pedestal_from_extractor']['mean'][:,:n_pixels],
-                    monitoring_data['pedestal_from_extractor_rndm']['mean'][:,:n_pixels],
+                    monitoring_data['pedestal_fundamental']['mean'],
+                    monitoring_data['pedestal_from_extractor']['mean'],
+                    monitoring_data['pedestal_from_extractor_rndm']['mean'],
                 ]
 
                 event.mon.tel[tel_id].pedestal.charge_std = [
-                    monitoring_data['pedestal_fundamental']['rms'][:,:n_pixels],
-                    monitoring_data['pedestal_from_extractor']['rms'][:,:n_pixels],
-                    monitoring_data['pedestal_from_extractor_rndm']['rms'][:,:n_pixels],
+                    monitoring_data['pedestal_fundamental']['rms'],
+                    monitoring_data['pedestal_from_extractor']['rms'],
+                    monitoring_data['pedestal_from_extractor_rndm']['rms'],
                 ]
 
-                # Set badpixel info
-                event.mon.tel[tel_id].pixel_status.hardware_failing_pixels = monitoring_data['badpixel'][:n_pixels]
+                # Set the bad pixel information:
+                event.mon.tel[tel_id].pixel_status.hardware_failing_pixels = np.reshape(
+                    monitoring_data['bad_pixel'], (1, len(monitoring_data['bad_pixel']))
+                )
 
-                # Interpolates drive information:
+                # Interpolate drive information:
                 drive_data = self.drive_information
                 n_drive_reports = len(drive_data['mjd'])
 
-                if self.generate_pedestals:
+                if self.use_pedestals:
                     logger.warning(f'Interpolating pedestals events information from {n_drive_reports} drive reports.')
                 else:
                     logger.warning(f'Interpolating cosmic events information from {n_drive_reports} drive reports.')
@@ -1073,7 +1077,7 @@ class MAGICEventSource(EventSource):
 
                 logger.warning(f'Drive reports available from {first_drive_report_time.iso} to {last_drive_report_time.iso}.')
 
-                # Creating azimuth and zenith angles interpolators:
+                # Create azimuth and zenith angles interpolators:
                 drive_az_pointing_interpolator = scipy.interpolate.interp1d(
                     drive_data['mjd'], drive_data['az'], fill_value='extrapolate'
                 )
@@ -1081,7 +1085,7 @@ class MAGICEventSource(EventSource):
                     drive_data['mjd'], drive_data['zd'], fill_value='extrapolate'
                 )
 
-                # Creating RA and Dec interpolators:
+                # Create RA and Dec interpolators:
                 drive_ra_pointing_interpolator = scipy.interpolate.interp1d(
                     drive_data['mjd'], drive_data['ra'], fill_value='extrapolate'
                 )
@@ -1089,7 +1093,7 @@ class MAGICEventSource(EventSource):
                     drive_data['mjd'], drive_data['dec'], fill_value='extrapolate'
                 )
 
-                # Interpolating the drive pointing to the event timestamps:
+                # Interpolate the drive pointing to the event timestamps:
                 event_times = event_data['time'].mjd
 
                 pointing_az = drive_az_pointing_interpolator(event_times)
@@ -1098,44 +1102,40 @@ class MAGICEventSource(EventSource):
                 pointing_dec = drive_dec_pointing_interpolator(event_times)
 
                 event_data['pointing_az'] = u.Quantity(pointing_az, u.deg)
-                event_data['pointing_zd'] = u.Quantity(pointing_zd, u.deg)
+                event_data['pointing_alt'] = u.Quantity(90 - pointing_zd, u.deg)
                 event_data['pointing_ra'] = u.Quantity(pointing_ra, u.deg)
                 event_data['pointing_dec'] = u.Quantity(pointing_dec, u.deg)
 
-            # Loop over the events
+            # Loop over the events:
             for i_event in range(n_events):
-
-                if self.max_events is not None:
-                    if i_event > self.max_events:
-                        break
 
                 event.count = counter
                 event.index.event_id = event_data['stereo_event_number'][i_event]
 
                 event.trigger.event_type = MAGIC_TO_CTA_EVENT_TYPE.get(event_data['trigger_pattern'][i_event])
-                event.trigger.tels_with_trigger = [tel_id, ]
 
                 if not self.is_simulation:
                     event.trigger.time = event_data['time'][i_event]
                     event.trigger.tel[tel_id].time = event_data['time'][i_event]
 
-                    if not self.generate_pedestals:
-                        badrmspixels_mask = self._get_badrmspixel_mask(event)
-                        event.mon.tel[tel_id].pixel_status.pedestal_failing_pixels = badrmspixels_mask
+                    if not self.use_pedestals:
+                        badrmspixel_mask = self._get_badrmspixel_mask(event)
+                        event.mon.tel[tel_id].pixel_status.pedestal_failing_pixels = badrmspixel_mask
 
-                # Creating the telescope pointing container:
+                # Set the telescope pointing container:
                 event.pointing.array_azimuth = event_data['pointing_az'][i_event].to(u.rad)
-                event.pointing.array_altitude = u.Quantity(np.pi/2, u.rad) - event_data['pointing_zd'][i_event].to(u.rad)
+                event.pointing.array_altitude = event_data['pointing_alt'][i_event].to(u.rad)
                 event.pointing.array_ra = event_data['pointing_ra'][i_event].to(u.rad)
                 event.pointing.array_dec = event_data['pointing_dec'][i_event].to(u.rad)
 
                 event.pointing.tel[tel_id].azimuth = event_data['pointing_az'][i_event].to(u.rad)
-                event.pointing.tel[tel_id].altitude = u.Quantity(np.pi/2, u.rad) - event_data['pointing_zd'][i_event].to(u.rad)
+                event.pointing.tel[tel_id].altitude = event_data['pointing_alt'][i_event].to(u.rad)
 
-                # Adding event charge and peak positions per pixel:
-                event.dl1.tel[tel_id].image = np.array(event_data['image'][i_event][:n_pixels], dtype=np.float32)
-                event.dl1.tel[tel_id].peak_time = np.array(event_data['peak_time'][i_event][:n_pixels], dtype=np.float32)
+                # Set event charge and peak positions per pixel:
+                event.dl1.tel[tel_id].image = event_data['image'][i_event]
+                event.dl1.tel[tel_id].peak_time = event_data['peak_time'][i_event]
 
+                # Set the simulated event container:
                 if self.is_simulation:
 
                     event.simulation = SimulatedEventContainer()
@@ -1144,11 +1144,10 @@ class MAGICEventSource(EventSource):
                     event.simulation.shower.shower_primary_id = 1 - event_data['mc_shower_primary_id'][i_event]
                     event.simulation.shower.h_first_int = event_data['mc_h_first_int'][i_event].to(u.m)
 
-                    # Adding a 7 deg rotation between the orientation of corsika (x axis = magnetic north)
-                    # and MARS (x axis = geographical north) frames
-                    # magnetic north is 7 deg westward w.r.t. geographical north
+                    # Convert the corsika coordinate (x-axis: magnetic north) to the geographical one.
+                    # Rotate the corsika coordinate by the magnetic declination (= 7 deg):
 
-                    mfield_dec = self.simulation_config['prod_site_B_declination']
+                    mfield_dec = self.simulation_config[self.obs_ids[0]]['prod_site_B_declination']
 
                     event.simulation.shower.alt = u.Quantity(90, u.deg) - event_data['mc_theta'][i_event].to(u.deg)
                     event.simulation.shower.az = u.Quantity(180, u.deg) - event_data['mc_phi'][i_event].to(u.deg) + mfield_dec
@@ -1167,31 +1166,31 @@ class MAGICEventSource(EventSource):
 
 class MarsCalibratedRun:
     """
-    This class implements reading of the cosmic and pedestal events,
-    and the monitoring data from a MAGIC calibrated subrun file.
+    This class implements reading of cosmic and pedestal events,
+    and monitoring data from a MAGIC calibrated subrun file.
     """
 
-    def __init__(self, uproot_file):
+    def __init__(self, uproot_file, is_mc, n_cam_pixels=1039):
         """
-        Constructor of the class. Load the input uproot file and store
-        the informaiton to the constructor variables.
+        Constructor of the class. Loads an input uproot file
+        and store the informaiton to constructor variables.
 
         Parameters
         ----------
         uproot_file: uproot.reading.ReadOnlyDirectory
-            A file opened by uproot via uproot.open(file_name)
+            A calibrated file opened by uproot via uproot.open(file_path)
+        is_mc: bool
+            Flag to MC data
+        n_cam_pixels: int
+            The number of pixels of the MAGIC camera
         """
 
-        self.input_file = os.path.abspath(uproot_file.file_path)
+        self.uproot_file = uproot_file
+        self.is_mc = is_mc
+        self.n_cam_pixels = n_cam_pixels
 
-        run_info = self.parse_run_info(uproot_file)
-
-        self.obs_id = run_info[0]
-        self.tel_id = run_info[1]
-        self.is_mc = run_info[2]
-
-        # Load the input data
-        calib_data = self._load_data(uproot_file)
+        # Load the input data:
+        calib_data = self._load_data()
 
         self.cosmic_events = calib_data['cosmic_events']
         self.pedestal_events = calib_data['pedestal_events']
@@ -1205,73 +1204,24 @@ class MarsCalibratedRun:
     def n_pedestal_events(self):
         return len(self.pedestal_events.get('trigger_pattern', []))
 
-    @staticmethod
-    def parse_run_info(uproot_file):
+    def _load_data(self):
         """
-        Parses the run info from the RunHeaders tree.
-
-        Parameters
-        ----------
-        uproot_file: uproot.reading.ReadOnlyDirectory
-            A file opened by uproot via uproot.open(file_name)
+        This method loads cosmic and pedestal events, and monitoring data
+        from an input calibrated file and returns them as a dictionary.
 
         Returns
         -------
-        obs_id: int
-            The run number of the file
-        tel_id: int
-            The telescope ID
-        is_mc: Bool
-            Flag to MC file
-        """
-
-        runheader_branches = [
-            'MRawRunHeader.fRunNumber',
-            'MRawRunHeader.fRunType',
-            'MRawRunHeader.fTelescopeNumber',
-        ]
-
-        run_info = uproot_file['RunHeaders'].arrays(
-            expressions=runheader_branches,
-            library='np'
-        )
-
-        obs_id = int(run_info['MRawRunHeader.fRunNumber'][0])
-        run_type = int(run_info['MRawRunHeader.fRunType'][0])
-        tel_id = int(run_info['MRawRunHeader.fTelescopeNumber'][0])
-
-        if np.isclose(run_type, mc_data_type):
-            is_mc = True
-        else:
-            is_mc = False
-
-        return obs_id, tel_id, is_mc
-
-    def _load_data(self, uproot_file):
-        """
-        This method loads events and monitoring data from
-        the input calibrated file and returns them as a dictionary.
-
-        Parameters
-        ----------
-        uproot_file: uproot.reading.ReadOnlyDirectory
-            A file opened by uproot via uproot.open(file_name)
-
-        Returns
-        -------
-        event_data: dict
-            A dictionary with the even properties,
+        calib_data: dict
+            A dictionary with the event properties,
             cosmic and pedestal events, and monitoring data
         """
 
         # Branches applicable for cosmic and pedestal events:
         common_branches = [
-            'MCerPhotEvt.fPixels.fPhot',
-            'MArrivalTime.fData',
-            'MRawEvtHeader.fDAQEvtNumber',
             'MRawEvtHeader.fStereoEvtNumber',
             'MTriggerPattern.fPrescaled',
-            'MTriggerPattern.fSkipEvent',
+            'MCerPhotEvt.fPixels.fPhot',
+            'MArrivalTime.fData',
         ]
 
         # Branches applicable for MC events:
@@ -1315,94 +1265,100 @@ class MarsCalibratedRun:
             'MPedPhotFromExtractorRndm.fArray.fRms',
         ]
 
+        # Initialize the data container:
         calib_data = {
             'cosmic_events': dict(),
             'pedestal_events': dict(),
             'monitoring_data': dict(),
         }
 
+        # Set event cuts:
         events_cut = dict()
 
         if self.is_mc:
-            # Only cosmic events because MC doesn't contain pedestal events
+            # Only for cosmic events because MC data do not have pedestal events:
             events_cut['cosmic_events'] = f'(MTriggerPattern.fPrescaled == {MC_STEREO_TRIGGER_PATTERN})' \
                                           ' & (MRawEvtHeader.fStereoEvtNumber != 0)'
         else:
             events_cut['cosmic_events'] = f'(MTriggerPattern.fPrescaled == {DATA_STEREO_TRIGGER_PATTERN})'
             events_cut['pedestal_events'] = f'(MTriggerPattern.fPrescaled == {PEDESTAL_TRIGGER_PATTERN})'
 
+        # Loop over the event types:
         event_types = events_cut.keys()
 
         for event_type in event_types:
 
-            # Reading the info common to cosmic and pedestal events:
-            common_info = uproot_file['Events'].arrays(
+            # Reading the information common to cosmic and pedestal events:
+            common_info = self.uproot_file['Events'].arrays(
                 expressions=common_branches,
                 cut=events_cut[event_type],
                 library='np',
             )
 
-            calib_data[event_type]['image'] = common_info['MCerPhotEvt.fPixels.fPhot']
-            calib_data[event_type]['peak_time'] = common_info['MArrivalTime.fData']
-            calib_data[event_type]['trigger_pattern'] = common_info['MTriggerPattern.fPrescaled']
-            calib_data[event_type]['stereo_event_number'] = common_info['MRawEvtHeader.fStereoEvtNumber']
+            calib_data[event_type]['trigger_pattern'] = np.array(common_info['MTriggerPattern.fPrescaled'], dtype=int)
+            calib_data[event_type]['stereo_event_number'] = np.array(common_info['MRawEvtHeader.fStereoEvtNumber'], dtype=int)
+
+            # Set pixel-wise charge and peak time information.
+            # The length of the pixel array is 1183, but here only the first part of the pixel
+            # information are extracted (i.e., for the current MAGIC camera geometry, the pixels
+            # between 0 and 1039 are extracted, since the other part of pixels has only zeros):
+            calib_data[event_type]['image'] = np.array(common_info['MCerPhotEvt.fPixels.fPhot'].tolist())[:, :self.n_cam_pixels]
+            calib_data[event_type]['peak_time'] = np.array(common_info['MArrivalTime.fData'].tolist())[:, :self.n_cam_pixels]
 
             if self.is_mc:
 
                 # Reading the MC information:
-                mc_info = uproot_file['Events'].arrays(
+                mc_info = self.uproot_file['Events'].arrays(
                     expressions=mc_branches,
                     cut=events_cut[event_type],
                     library='np',
                 )
 
-                # Note that the branch "MMcEvt.fPhi" is the angle between the directions
-                # of the magnetic north and the angular momentum of the injected particle,
-                # defined from -pi to pi (i.e., from -180 deg to 180 deg)
-
+                # Note that the branch "MMcEvt.fPhi" seems to be the angle between the direction
+                # of the magnetic north and the momentum of a simulated primary particle, defined
+                # between -pi and pi, negative if the momentum pointing eastward, positive westward.
+                # The conversion to azimuth should be 180 - fPhi + magnetic_declination:
                 calib_data[event_type]['mc_energy'] = u.Quantity(mc_info['MMcEvt.fEnergy'], u.GeV)
                 calib_data[event_type]['mc_theta'] = u.Quantity(mc_info['MMcEvt.fTheta'], u.rad)
                 calib_data[event_type]['mc_phi'] = u.Quantity(mc_info['MMcEvt.fPhi'], u.rad)
-                calib_data[event_type]['mc_shower_primary_id'] = mc_info['MMcEvt.fPartId']
+                calib_data[event_type]['mc_shower_primary_id'] = np.array(mc_info['MMcEvt.fPartId'], dtype=int)
                 calib_data[event_type]['mc_h_first_int'] = u.Quantity(mc_info['MMcEvt.fZFirstInteraction'], u.cm)
                 calib_data[event_type]['mc_core_x'] = u.Quantity(mc_info['MMcEvt.fCoreX'], u.cm)
                 calib_data[event_type]['mc_core_y'] = u.Quantity(mc_info['MMcEvt.fCoreY'], u.cm)
 
-                # Reading the telescope pointing direction:
-                pointing = uproot_file['Events'].arrays(
+                # Reading the telescope pointing information:
+                pointing = self.uproot_file['Events'].arrays(
                     expressions=pointing_branches,
                     cut=events_cut[event_type],
                     library='np',
                 )
 
-                # ToDo: it seems the *.fDev* and *.fRa/fDec branches in the MC calibrated
+                # ToBeChecked: it seems the *.fDev* and *.fRa/fDec branches of MC calibrated
                 # file contain only zeros. If it is the case for all MC files, the following
-                # calculation does not needed anymore and can be simply written.
-
+                # calculations do not needed and can be simplified:
                 pointing_az = pointing['MPointingPos.fAz'] - pointing['MPointingPos.fDevAz']
                 pointing_zd = pointing['MPointingPos.fZd'] - pointing['MPointingPos.fDevZd']
 
-                # N.B. the positive sign here, as HA = local sidereal time - ra
+                # N.B. the positive sign here, as HA = local sidereal time - ra:
                 pointing_ra = (pointing['MPointingPos.fRa'] + pointing['MPointingPos.fDevHa']) * degrees_per_hour
                 pointing_dec = pointing['MPointingPos.fDec'] - pointing['MPointingPos.fDevDec']
 
                 calib_data[event_type]['pointing_az'] = u.Quantity(pointing_az, u.deg)
-                calib_data[event_type]['pointing_zd'] = u.Quantity(pointing_zd, u.deg)
+                calib_data[event_type]['pointing_alt'] = u.Quantity(90 - pointing_zd, u.deg)
                 calib_data[event_type]['pointing_ra'] = u.Quantity(pointing_ra, u.deg)
                 calib_data[event_type]['pointing_dec'] = u.Quantity(pointing_dec, u.deg)
 
             else:
                 # Reading the event timing information:
-                timing_info = uproot_file['Events'].arrays(
+                timing_info = self.uproot_file['Events'].arrays(
                     expressions=timing_branches,
                     cut=events_cut[event_type],
                     library='np',
                 )
 
-                # In order to keep the precision of the timestamps, here the Decimal module is used.
-                # At the later steps, the precise information can be extracted as follows:
-                # calib_data[event_type]['time'].to_value(format='unix', subfmt='long')
-
+                # In order to keep the precision of timestamps, here the Decimal module is used.
+                # At the later steps, the precise information can be extracted by specifying
+                # the sub-format of value to 'long', i.e., Time.to_value(format='unix', subfmt='long'):
                 event_obs_day = Time(timing_info['MTime.fMjd'], format='mjd', scale='utc')
                 event_obs_day = np.round(event_obs_day.unix)
                 event_obs_day = np.array([Decimal(str(x)) for x in event_obs_day])
@@ -1414,16 +1370,16 @@ class MarsCalibratedRun:
                 event_nanosec = np.array([Decimal(str(x)) for x in event_nanosec])
 
                 event_time = event_obs_day + event_millisec + event_nanosec
-
                 calib_data[event_type]['time'] = Time(event_time, format='unix', scale='utc')
 
+        # Reading the monitoring data:
         if not self.is_mc:
 
-            # Reading the bad pixel info:
+            # Reading the bad pixel information:
             as_dtype = uproot.interpretation.numerical.AsDtype(np.dtype('>i4'))
             as_jagged = uproot.interpretation.jagged.AsJagged(as_dtype)
 
-            badpixel_info = uproot_file['RunHeaders']['MBadPixelsCam.fArray.fInfo'].array(as_jagged, library='np')[0]
+            badpixel_info = self.uproot_file['RunHeaders']['MBadPixelsCam.fArray.fInfo'].array(as_jagged, library='np')[0]
             badpixel_info = badpixel_info.reshape((4, 1183), order='F')
 
             # now we have 4 axes:
@@ -1434,22 +1390,22 @@ class MarsCalibratedRun:
             # Each axis cointains a 32bit integer encoding more information about the specific problem
             # See MARS software, MBADPixelsPix.h for more information
             # Here we take the first axis:
+            unsuitable_pixels_bit = badpixel_info[1]
+            unsuitable_pixels = np.zeros(self.n_cam_pixels, dtype=bool)
 
-            unsuitable_pix_bitinfo = badpixel_info[1]
-            unsuitable_pix = np.zeros(len(unsuitable_pix_bitinfo), dtype=bool)
+            for i_pix in range(self.n_cam_pixels):
+                unsuitable_pixels[i_pix] = int('{:08b}'.format(unsuitable_pixels_bit[i_pix])[-2])
 
-            for i_pix in range(len(unsuitable_pix_bitinfo)):
-                unsuitable_pix[i_pix] = int('{:08b}'.format(unsuitable_pix_bitinfo[i_pix])[-2])
+            calib_data['monitoring_data']['bad_pixel'] = unsuitable_pixels
 
-            calib_data['monitoring_data']['badpixel'] = unsuitable_pix
-
-            # Try to read the Pedestals tree (soft fail if not present)
+            # Try to read the Pedestals tree (soft fail if not present):
             try:
-                pedestal_info = uproot_file['Pedestals'].arrays(
+                pedestal_info = self.uproot_file['Pedestals'].arrays(
                     expressions=pedestal_branches,
                     library='np',
                 )
 
+                # Set sample times of pedestal events:
                 pedestal_obs_day = Time(pedestal_info['MTimePedestals.fMjd'], format='mjd', scale='utc')
                 pedestal_obs_day = np.round(pedestal_obs_day.unix)
                 pedestal_obs_day = np.array([Decimal(str(x)) for x in pedestal_obs_day])
@@ -1466,26 +1422,25 @@ class MarsCalibratedRun:
                     pedestal_sample_time, format='unix', scale='utc'
                 )
 
-                n_samples = len(pedestal_sample_time)
-
+                # Set the mean and RMS of pedestal charges:
                 calib_data['monitoring_data']['pedestal_fundamental'] = {
-                    'mean': np.reshape(pedestal_info[f'MPedPhotFundamental.fArray.fMean'].tolist(), (n_samples, 1183)),
-                    'rms': np.reshape(pedestal_info[f'MPedPhotFundamental.fArray.fRms'].tolist(), (n_samples, 1183)),
+                    'mean': np.array(pedestal_info[f'MPedPhotFundamental.fArray.fMean'].tolist())[:, :self.n_cam_pixels],
+                    'rms': np.array(pedestal_info[f'MPedPhotFundamental.fArray.fRms'].tolist())[:, :self.n_cam_pixels],
                 }
                 calib_data['monitoring_data']['pedestal_from_extractor'] = {
-                    'mean': np.reshape(pedestal_info[f'MPedPhotFromExtractor.fArray.fMean'].tolist(), (n_samples, 1183)),
-                    'rms': np.reshape(pedestal_info[f'MPedPhotFromExtractor.fArray.fRms'].tolist(), (n_samples, 1183)),
+                    'mean': np.array(pedestal_info[f'MPedPhotFromExtractor.fArray.fMean'].tolist())[:, :self.n_cam_pixels],
+                    'rms': np.array(pedestal_info[f'MPedPhotFromExtractor.fArray.fRms'].tolist())[:, :self.n_cam_pixels],
                 }
                 calib_data['monitoring_data']['pedestal_from_extractor_rndm'] = {
-                    'mean': np.reshape(pedestal_info[f'MPedPhotFromExtractorRndm.fArray.fMean'].tolist(), (n_samples, 1183)),
-                    'rms': np.reshape(pedestal_info[f'MPedPhotFromExtractorRndm.fArray.fRms'].tolist(), (n_samples, 1183)),
+                    'mean': np.array(pedestal_info[f'MPedPhotFromExtractorRndm.fArray.fMean'].tolist())[:, :self.n_cam_pixels],
+                    'rms': np.array(pedestal_info[f'MPedPhotFromExtractorRndm.fArray.fRms'].tolist())[:, :self.n_cam_pixels],
                 }
 
             except KeyError:
-                logger.warning('Pedestals tree is not present in the input file. Cleaning algorithm may fail.')
+                logger.warning('The Pedestals tree is not present in the input file. Cleaning algorithm may fail.')
 
-            # Check for bit flips in the stereo event ID:
-            max_total_jumps = 100
+            # Check for bit flips in the stereo event IDs:
+            uplim_total_jumps = 100
 
             stereo_event_number = calib_data['cosmic_events']['stereo_event_number'].astype(int)
             number_difference = np.diff(stereo_event_number)
@@ -1495,19 +1450,19 @@ class MarsCalibratedRun:
 
             if n_flips > 0:
 
-                logger.warning(f'Warning: detected {n_flips} bitflips in file {self.file_name}')
+                logger.warning(f'Warning: detected {n_flips} bit flips in the input file')
                 total_jumped_number = 0
 
                 for i in indices_flip:
 
-                    jumped_number = stereo_event_number[index] - stereo_event_number[i+1]
+                    jumped_number = stereo_event_number[i] - stereo_event_number[i+1]
                     total_jumped_number += jumped_number
 
                     logger.warning(f'Jump of L3 number backward from {stereo_event_number[i]} to ' \
-                                   f'{stereo_event_number[i+1]}; total jumped events so far: {total_jumped_number}')
+                                   f'{stereo_event_number[i+1]}; total jumped number so far: {total_jumped_number}')
 
-                if total_jumped_number > max_total_jumps:
-                    logger.warning(f'More than {max_total_jumps} in stereo trigger number; ' \
-                                   f'you may have to match events by timestamp at a later stage.')
+                if total_jumped_number > uplim_total_jumps:
+                    logger.warning(f'More than {uplim_total_jumps} jumps in the stereo trigger number; ' \
+                                   f'You may have to match events by timestamp at a later stage.')
 
         return calib_data
