@@ -649,6 +649,7 @@ class MAGICEventSource(EventSource):
             - source RA and DEC
             - source name (real data only)
             - observation mode (real data only)
+            - project name (real data only)
             - MARS version
             - ROOT version
         """
@@ -659,6 +660,7 @@ class MAGICEventSource(EventSource):
             'MRawRunHeader.fSourceDEC',
             'MRawRunHeader.fSourceName[80]',
             'MRawRunHeader.fObservationMode[60]',
+            'MRawRunHeader.fProjectName[100]',
         ]
 
         metadatainfo_array_list_runtails = [
@@ -676,6 +678,7 @@ class MAGICEventSource(EventSource):
         metadata['source_dec'] = []
         metadata['source_name'] = []
         metadata['observation_mode'] = []
+        metadata['project_name'] = []
         metadata['mars_version_sorcerer'] = []
         metadata['root_version_sorcerer'] = []
 
@@ -697,6 +700,8 @@ class MAGICEventSource(EventSource):
                 metadata['source_name'].append("".join([chr(item) for item in src_name_array if item != 0]))
                 obs_mode_array = meta_info_runh['MRawRunHeader.fObservationMode[60]'][0]
                 metadata['observation_mode'].append("".join([chr(item) for item in obs_mode_array if item != 0]))
+                project_name_array = meta_info_runh['MRawRunHeader.fProjectName[100]'][0]
+                metadata['project_name'].append("".join([chr(item) for item in project_name_array if item != 0]))
 
             meta_info_runt = rootf['RunTails'].arrays(
                 metadatainfo_array_list_runtails,
