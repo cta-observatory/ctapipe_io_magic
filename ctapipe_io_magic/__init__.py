@@ -948,8 +948,8 @@ class MAGICEventSource(EventSource):
                 badrmspixel_mask.append(np.zeros(len(charge_std), np.bool))
                 continue
 
-            lolim_step1 = mean_step1 / pedestal_level
-            uplim_step1 = mean_step1 * pedestal_level
+            lolim_step1 = mean_step2 / pedestal_level
+            uplim_step1 = mean_step2 * pedestal_level
             lolim_step2 = mean_step2 - pedestal_level_variance * np.sqrt(var_step2 - mean_step2 ** 2)
             uplim_step2 = mean_step2 + pedestal_level_variance * np.sqrt(var_step2 - mean_step2 ** 2)
 
