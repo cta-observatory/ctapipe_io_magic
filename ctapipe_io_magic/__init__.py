@@ -497,7 +497,7 @@ class MAGICEventSource(EventSource):
             try:
                 prescaler_array = trigger_tree["MTriggerPrescFact.fPrescFact"].array(library="np")
             except AssertionError:
-                LOGGER.warning("No prescaler info found. Will assume standard stereo data.")
+                logger.warning("No prescaler info found. Will assume standard stereo data.")
                 stereo = True
                 sumt = False
                 return stereo, sumt
@@ -549,7 +549,7 @@ class MAGICEventSource(EventSource):
                  Please load only stereo or mono.")
 
         if len(is_sumt) > 1:
-            LOGGER.warning("Found data with both standard and Sum trigger. While this is \
+            logger.warning("Found data with both standard and Sum trigger. While this is \
                 not an issue, check that this is what you really want to do.")
 
         return is_stereo, is_sumt
@@ -843,7 +843,7 @@ class MAGICEventSource(EventSource):
                 raise MissingDriveReportError(f"File {rootf.file_path} does not have any drive report. " \
                                               "Check if it was merpped correctly.")
             elif n_reports < 3:
-                LOGGER.warning(f"File {rootf.file_path} has only {n_reports} drive reports.")
+                logger.warning(f"File {rootf.file_path} has only {n_reports} drive reports.")
 
             for key, leaf in drive_leaves.items():
                 drive_data[key].append(drive[leaf])
