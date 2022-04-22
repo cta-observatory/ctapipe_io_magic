@@ -28,6 +28,7 @@ if ! wget \
     -i test_data_real.txt \
     --user="$TEST_DATA_USER" \
     --password="$TEST_DATA_PASSWORD" \
+    --no-check-certificate \
     --no-verbose \
     --timestamping \
     --directory-prefix=test_data/real/calibrated; then
@@ -38,6 +39,7 @@ if ! wget \
     -i test_data_simulated.txt \
     --user="$TEST_DATA_USER" \
     --password="$TEST_DATA_PASSWORD" \
+    --no-check-certificate \
     --no-verbose \
     --timestamping \
     --directory-prefix=test_data/simulated/calibrated; then
