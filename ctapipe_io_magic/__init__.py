@@ -71,7 +71,7 @@ MAGIC_TO_CTA_EVENT_TYPE = {
 OPTICS = OpticsDescription(
     'MAGIC',
     num_mirrors=1,
-    equivalent_focal_length=u.Quantity(16.97, u.m),
+    equivalent_focal_length=u.Quantity(17.*1.0713, u.m),
     mirror_area=u.Quantity(239.0, u.m**2),
     num_mirror_tiles=964,
 )
@@ -571,10 +571,10 @@ class MAGICEventSource(EventSource):
         # }
 
         # MAGIC telescope positions in m wrt. to the center of MAGIC simulations, from
-        # CORSIKA and reflector input card
+        # CORSIKA and reflector input card and recomputed (rotated) to be w.r.t. geographical North 
         MAGIC_TEL_POSITIONS = {
-            1: [31.80, -28.10, 0.00] * u.m,
-            2: [-31.80, 28.10, 0.00] * u.m
+            1: [34.99, -24.02, 0.00] * u.m,
+            2: [-34.99, 24.02, 0.00] * u.m
         }
 
         # camera info from MAGICCam.camgeom.fits.gz file
