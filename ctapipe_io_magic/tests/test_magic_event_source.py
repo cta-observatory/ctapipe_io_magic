@@ -94,18 +94,31 @@ def test_compatible(dataset):
     assert MAGICEventSource.is_compatible(dataset)
 
 
+def test_not_compatible():
+    from ctapipe_io_magic import MAGICEventSource
+    assert MAGICEventSource.is_compatible(None) is False
+
+
 @pytest.mark.parametrize('dataset', test_calibrated_all)
 def test_stream(dataset):
     from ctapipe_io_magic import MAGICEventSource
-    with MAGICEventSource(input_url=dataset) as source:
+    with MAGICEventSource(input_url=dataset, process_run=False) as source:
         assert not source.is_stream
+
+
+def test_allowed_tels():
+    from ctapipe_io_magic import MAGICEventSource
+    import numpy as np
+    dataset = test_calibrated_real_dir / '20210314_M1_05095172.001_Y_CrabNebula-W0.40+035.root'
+    with MAGICEventSource(input_url=dataset, process_run=False, allowed_tels=[1]) as source:
+        assert np.array_equal(source.subarray.tel_ids, np.array([1]))
 
 
 @pytest.mark.parametrize('dataset', test_calibrated_all)
 def test_loop(dataset):
     from ctapipe_io_magic import MAGICEventSource
     n_events = 10
-    with MAGICEventSource(input_url=dataset, max_events=n_events) as source:
+    with MAGICEventSource(input_url=dataset, max_events=n_events, process_run=False) as source:
         for i, event in enumerate(source):
             assert event.count == i
             if "_M1_" in dataset.name:
@@ -126,7 +139,7 @@ def test_loop_pedestal(dataset):
     from ctapipe_io_magic import MAGICEventSource
     from ctapipe.containers import EventType
     n_events = 10
-    with MAGICEventSource(input_url=dataset, max_events=n_events, use_pedestals=True) as source:
+    with MAGICEventSource(input_url=dataset, max_events=n_events, use_pedestals=True, process_run=False) as source:
         for event in source:
             assert event.trigger.event_type == EventType.SKY_PEDESTAL
 
@@ -135,38 +148,71 @@ def test_loop_pedestal(dataset):
 def test_number_of_events(dataset):
     from ctapipe_io_magic import MAGICEventSource
 
-    with MAGICEventSource(input_url=dataset) as source:
-        run = source._set_active_run(run_number=source.run_numbers)
-        if '_M1_' in dataset.name:
-            assert run['data'].n_cosmics_stereo_events_m1 == data_dict[source.input_url.name]['n_events_stereo']
-            assert run['data'].n_pedestal_events_m1 == data_dict[source.input_url.name]['n_events_pedestal']
-        if '_M2_' in dataset.name:
-            assert run['data'].n_cosmics_stereo_events_m2 == data_dict[source.input_url.name]['n_events_stereo']
-            assert run['data'].n_pedestal_events_m2 == data_dict[source.input_url.name]['n_events_pedestal']
+    with MAGICEventSource(input_url=dataset, process_run=False) as source:
+        run = source._set_active_run(source.files_[0])
+        assert run['data'].n_cosmic_events == data_dict[source.input_url.name]['n_events_stereo']
+        assert run['data'].n_pedestal_events == data_dict[source.input_url.name]['n_events_pedestal']
+
+        # if '_M1_' in dataset.name:
+        #     assert run['data'].n_cosmics_stereo_events_m1 == data_dict[source.input_url.name]['n_events_stereo']
+        #     assert run['data'].n_pedestal_events_m1 == data_dict[source.input_url.name]['n_events_pedestal']
+        # if '_M2_' in dataset.name:
+        #     assert run['data'].n_cosmics_stereo_events_m2 == data_dict[source.input_url.name]['n_events_stereo']
+        #     assert run['data'].n_pedestal_events_m2 == data_dict[source.input_url.name]['n_events_pedestal']
 
 
 @pytest.mark.parametrize('dataset', test_calibrated_all)
 def test_run_info(dataset):
     from ctapipe_io_magic import MAGICEventSource
 
-    with MAGICEventSource(input_url=dataset) as source:
-        run_info = MAGICEventSource.get_run_info_from_name(str(source.input_url))
-        run_number = run_info[0]
-        is_mc = run_info[1]
-        telescope = run_info[2]
-        datalevel = run_info[3]
-        assert run_number == source.run_numbers
-        assert run_number == source.obs_ids[0]
+    with MAGICEventSource(input_url=dataset, process_run=False) as source:
+        run_info = [MAGICEventSource.get_run_info_from_name(item.name) for item in source.file_list]
+        run_numbers = [i[0] for i in run_info]
+        is_mc = [i[1] for i in run_info][0]
+        telescope = [i[2] for i in run_info][0]
+        datalevel = [i[3] for i in run_info][0]
+        assert run_numbers == source.run_numbers
         assert is_mc == source.is_simulation
         assert telescope == source.telescope
         assert datalevel == source.mars_datalevel
+
+
+def test_multiple_runs_real():
+    from ctapipe_io_magic import MAGICEventSource
+    from ctapipe.containers import EventType
+
+    real_data_mask = test_calibrated_real_dir / '20210314_M1_05095172.001_Y_CrabNebula-W0.40+035.root'
+
+    n_events = 600
+    with MAGICEventSource(input_url=real_data_mask, max_events=n_events) as source:
+        for i, event in enumerate(source):
+            assert event.trigger.event_type == EventType.SUBARRAY
+            assert event.count == i
+            assert event.trigger.tels_with_trigger == [source.telescope]
+
+        assert (i + 1) == n_events
+
+        for event in source:
+            # Check generator has restarted from beginning
+            assert event.count == 0
+            break
+
+
+def test_subarray_multiple_runs():
+    from ctapipe_io_magic import MAGICEventSource
+
+    simulated_data_mask = test_calibrated_simulated_dir / 'GA_M1_za35to50_8_824318_Y_w0.root'
+
+    source = MAGICEventSource(input_url=simulated_data_mask)
+    sim_config = source.simulation_config
+    assert list(sim_config.keys()) == source.obs_ids
 
 
 @pytest.mark.parametrize('dataset', test_calibrated_all)
 def test_that_event_is_not_modified_after_loop(dataset):
     from ctapipe_io_magic import MAGICEventSource
     n_events = 10
-    with MAGICEventSource(input_url=dataset, max_events=n_events) as source:
+    with MAGICEventSource(input_url=dataset, max_events=n_events, process_run=False) as source:
         for event in source:
             last_event = copy.deepcopy(event)
 
