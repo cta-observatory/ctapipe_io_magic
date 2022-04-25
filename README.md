@@ -109,3 +109,4 @@ Some general information about the simulated data, useful for IRF calculation, a
 -   v0.3.0: update uproot to v4, since v3 is deprecated
 -   v0.4.0: version compatible with ctapipe v0.12
 -   v0.4.1: added CI, refactoring of code, added tests, extract drive information once
+-   v0.4.2: added more tests, refactored code, allow the processing of all subruns from the same run at the same time (including drive information), correct de-rotation of quantities from the CORSIKA frame to the geographical frame, computation of bad pixels, modification of focal length to take into account the coma aberration, fix dowload of test data set
