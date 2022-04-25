@@ -38,8 +38,7 @@ with MAGICEventSource(input_url=file_name) as event_source:
         ...some processing...
 ```
 
-With more recent versions of *ctapipe*, only one file at a time can be read. This means that in the case of MAGIC calibrated files,
-data is loaded subrun by subrun. No matching of the events is performed at this level (if stereo data).
+With more recent versions of *ctapipe*, only one file at a time can be read. However, by default if a subrun of calibrated data is given as input, `MAGICEventSource` will read the events from all the subruns from the run to which the data file belongs. To suppress this behavior, set `process_run=False` No matching of the events is performed at this level (if stereo data).
 
 By default, assuming a calibrated file as input, the event generator will generate:
 -   if real data taken in stereo mode, cosmic events (trigger pattern = 128) from the corresponding telescope
@@ -72,10 +71,17 @@ for n in range(run['data'].n_pedestal_events_m1):
 Select events triggering in stereo and pedestal events from a single telescope (recognized automatically) over event generator:
 
 ```python
+# select (stereo) cosmic events from all subruns of a given run (the one to which file_name belongs)
 event_generator = MAGICEventSource(input_url=file_name)
 for cosmic_event in event_generator:
     ...some processing...
 
+# select (stereo) cosmic events from a single subrun
+event_generator = MAGICEventSource(input_url=file_name, process_run=False)
+for cosmic_event in event_generator:
+    ...some processing...
+
+# select pedestal events
 pedestal_event_generator = MAGICEventSource(input_url=file_name, use_pedestals=True)
 for pedestal_event in pedestal_event_generator:
     ...some processing...
@@ -83,17 +89,17 @@ for pedestal_event in pedestal_event_generator:
 
 #### Features
 
+##### Drive reports interpolation
+
+By default, when all subruns from a given run are processed, the drive reports are collected from all subruns so that the telescope pointing position for each event can be computed. Also in the case that only one subrun is processed (`process_run=False`), all drive reports from the subruns belonging to the same run will be used. This ensures that interpolation is performed correctly.
+
 ##### Monitoring data
 
-Monitoring data are saved in `run['data'].monitoring_data` and can also accessed event-wise via the `event.mon` container. Even if they can be accessed event-wise, they are saved only once per run, i.e., identical for all events in a run. If monitoring data is taken several times during a run, the `run['data'].monitoring_data`/`event.mon` sub-containers contain arrays of the quantities taken at the different times together with an array of the time stamps. So far, we have:
+Monitoring data are saved in `run['data'].monitoring_data` and can also accessed event-wise via the `event.mon` container. Available information is:
+-   dead pixels: `event.mon.tel[tel_id].pixel_status.hardware_failing_pixels[0]`
+-   hot pixels:  `event.mon.tel[tel_id].pixel_status.pedestal_failing_pixels[i_ped_type]`, where `i_ped_type` is an index indicating which pedestal type to use (0 is `PedestalFundamental`, 1 is `PedestalFromExtractor` and 2 is `PedestalFromExtractorRndm`)
 
--   Dead pixel information (MARS `RunHeaders.MBadPixelsCam.fArray.fInfo` tree), once per sub-run in `run['data'].monitoring_data['MX']['badpixelinfo']` (with X=1 or X=2) or `event.mon.tel[tel_id].pixel_status`
--   Pedestal information from MARS `Pedestals` tree to calculate hot pixels in `event.mon.tel[tel_id].pedestal` or:
-    -   `run['data'].monitoring_data['MX']['PedestalFundamental']`
-    -   `run['data'].monitoring_data['MX']['PedestalFromExtractor']`
-    -   `run['data'].monitoring_data['MX']['PedestalFromExtractorRndm']`
-
-Dead pixel and pedestal information are read by `magic-cta-pipe` `MAGIC_Badpixels.py` class.
+Dead and hot pixels are used in `magic-cta-pipe` for the MAGIC cleaning.
 
 ##### Simulation Configuration Data
 Some general information about the simulated data, useful for IRF calculation, are read from the root files and stored in data.simulation container.
