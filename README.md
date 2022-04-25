@@ -108,3 +108,4 @@ Some general information about the simulated data, useful for IRF calculation, a
 -   v0.2.4: fixes in mono_event_generator; fix to allow the use of relative paths as `input_url`
 -   v0.3.0: update uproot to v4, since v3 is deprecated
 -   v0.4.0: version compatible with ctapipe v0.12
+-   v0.4.1: added CI, refactoring of code, added tests, extract drive information once
