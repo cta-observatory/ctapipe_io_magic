@@ -215,6 +215,9 @@ class MAGICEventSource(EventSource):
         if not self.is_simulation:
             self.drive_information = self.prepare_drive_information()
 
+            # Get the arrival time differences
+            self.event_time_diffs = self.get_event_time_difference()
+
     def __exit__(self, exc_type, exc_val, exc_tb):
         """
         Releases resources (e.g. open files).
@@ -868,6 +871,36 @@ class MAGICEventSource(EventSource):
         }
 
         return drive_data
+
+    def get_event_time_difference(self):
+        """
+        Get the trigger time differences of consecutive events.
+        The time differences are computed considering all kind of events
+        (i.e., cosmic, pedestal and calibration events). However, here
+        only those of cosmic events are extracted since the others are
+        not used for dead time calculations.
+
+        Returns
+        -------
+        time_diffs: astropy.units.quantity.Quantity
+            Trigger time differences of consecutive events
+        """
+
+        time_diffs = np.array([])
+
+        for uproot_file in self.files_:
+
+            event_info = uproot_file['Events'].arrays(
+                expressions=['MRawEvtHeader.fTimeDiff'],
+                cut=f'(MTriggerPattern.fPrescaled == {DATA_STEREO_TRIGGER_PATTERN})',
+                library='np',
+            )
+
+            time_diffs = np.append(time_diffs, event_info['MRawEvtHeader.fTimeDiff'])
+
+        time_diffs *= u.s
+
+        return time_diffs
 
     @property
     def subarray(self):
