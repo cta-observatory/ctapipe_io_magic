@@ -882,7 +882,7 @@ class MAGICEventSource(EventSource):
 
         Returns
         -------
-        time_diffs: numpy.ndarray
+        time_diffs: astropy.units.quantity.Quantity
             Trigger time differences of consecutive events
         """
 
@@ -897,6 +897,8 @@ class MAGICEventSource(EventSource):
             )
 
             time_diffs = np.append(time_diffs, event_info['MRawEvtHeader.fTimeDiff'])
+
+        time_diffs *= u.s
 
         return time_diffs
 
