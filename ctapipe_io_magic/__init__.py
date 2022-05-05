@@ -586,9 +586,13 @@ class MAGICEventSource(EventSource):
         pulse_shape_lo_gain = np.array([0., 1., 2., 1., 0.])
         pulse_shape_hi_gain = np.array([1., 2., 3., 2., 1.])
         pulse_shape = np.vstack((pulse_shape_lo_gain, pulse_shape_hi_gain))
+        sampling_speed = u.Quantity(
+            self.files_[0]['RunHeaders']['MRawRunHeader.fSamplingFrequency'].array(library='np')[0]/1000,
+            u.GHz
+        )
         camera_readout = CameraReadout(
             camera_name='MAGICCam',
-            sampling_rate=u.Quantity(1.64, u.GHz),
+            sampling_rate=sampling_speed,
             reference_pulse_shape=pulse_shape,
             reference_pulse_sample_width=u.Quantity(0.5, u.ns)
         )
@@ -1328,6 +1332,9 @@ class MarsCalibratedRun:
             events_cut['cosmic_events'] = f'(MTriggerPattern.fPrescaled == {DATA_STEREO_TRIGGER_PATTERN})'
             events_cut['pedestal_events'] = f'(MTriggerPattern.fPrescaled == {PEDESTAL_TRIGGER_PATTERN})'
 
+        # read common information from RunHeaders
+        sampling_speed = self.uproot_file['RunHeaders']['MRawRunHeader.fSamplingFrequency'].array(library='np')[0]/1000. # GHz
+
         # Loop over the event types:
         event_types = events_cut.keys()
 
@@ -1349,6 +1356,7 @@ class MarsCalibratedRun:
             # between 0 and 1039 are extracted, since the other part of pixels has only zeros):
             calib_data[event_type]['image'] = np.array(common_info['MCerPhotEvt.fPixels.fPhot'].tolist())[:, :self.n_cam_pixels]
             calib_data[event_type]['peak_time'] = np.array(common_info['MArrivalTime.fData'].tolist())[:, :self.n_cam_pixels]
+            calib_data[event_type]['peak_time']/=sampling_speed # [ns]
 
             if self.is_mc:
 
