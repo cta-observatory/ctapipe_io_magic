@@ -702,33 +702,54 @@ class MAGICEventSource(EventSource):
             - ROOT version
         """
 
+        if self.mars_datalevel <= MARSDataLevel.STAR:
+            suffix = ""
+        else:
+            suffix = "_1"
+
         metadatainfo_array_list_runheaders = [
-            'MRawRunHeader.fSubRunIndex',
-            'MRawRunHeader.fSourceRA',
-            'MRawRunHeader.fSourceDEC',
-            'MRawRunHeader.fSourceName[80]',
-            'MRawRunHeader.fObservationMode[60]',
-            'MRawRunHeader.fProjectName[100]',
+            f'MRawRunHeader{suffix}.fSubRunIndex',
+            f'MRawRunHeader{suffix}.fSourceRA',
+            f'MRawRunHeader{suffix}.fSourceDEC',
+            f'MRawRunHeader{suffix}.fSourceName[80]',
+            f'MRawRunHeader{suffix}.fObservationMode[60]',
+            f'MRawRunHeader{suffix}.fProjectName[100]',
         ]
 
-        metadatainfo_array_list_runtails = [
-            'MMarsVersion_sorcerer.fMARSVersionCode',
-            'MMarsVersion_sorcerer.fROOTVersionCode',
-        ]
+        if self.mars_datalevel == MARSDataLevel.CALIBRATED:
+            metadatainfo_array_list_runtails = [
+                'MMarsVersion_sorcerer.fMARSVersionCode',
+                'MMarsVersion_sorcerer.fROOTVersionCode',
+            ]
+        elif self.mars_datalevel == MARSDataLevel.STAR:
+            metadatainfo_array_list_runtails = [
+                'MMarsVersion_star.fMARSVersionCode',
+                'MMarsVersion_star.fROOTVersionCode',
+            ]
+        elif self.mars_datalevel == MARSDataLevel.SUPERSTAR:
+            metadatainfo_array_list_runtails = [
+                'MMarsVersion_superstar.fMARSVersionCode',
+                'MMarsVersion_superstar.fROOTVersionCode',
+            ]
+        elif self.mars_datalevel == MARSDataLevel.MELIBEA:
+            metadatainfo_array_list_runtails = [
+                'MMarsVersion_melibea.fMARSVersionCode',
+                'MMarsVersion_melibea.fROOTVersionCode',
+            ]
 
         metadata = dict()
         metadata["file_list"] = self.file_list
         metadata['run_numbers'] = self.run_numbers
         metadata['is_simulation'] = self.is_simulation
-        metadata['telescope'] = self.telescope
+        metadata['telescopes'] = self.telescope
         metadata['subrun_number'] = []
         metadata['source_ra'] = []
         metadata['source_dec'] = []
         metadata['source_name'] = []
         metadata['observation_mode'] = []
         metadata['project_name'] = []
-        metadata['mars_version_sorcerer'] = []
-        metadata['root_version_sorcerer'] = []
+        metadata['mars_version'] = []
+        metadata['root_version'] = []
 
         for rootf in self.files_:
 
@@ -736,19 +757,19 @@ class MAGICEventSource(EventSource):
                     metadatainfo_array_list_runheaders, library="np"
             )
 
-            metadata['subrun_number'].append(int(meta_info_runh['MRawRunHeader.fSubRunIndex'][0]))
+            metadata['subrun_number'].append(int(meta_info_runh[f'MRawRunHeader{suffix}.fSubRunIndex'][0]))
             metadata['source_ra'].append(
-                meta_info_runh['MRawRunHeader.fSourceRA'][0] / seconds_per_hour * degrees_per_hour * u.deg
+                meta_info_runh[f'MRawRunHeader{suffix}.fSourceRA'][0] / seconds_per_hour * degrees_per_hour * u.deg
             )
             metadata['source_dec'].append(
-                meta_info_runh['MRawRunHeader.fSourceDEC'][0] / seconds_per_hour * u.deg
+                meta_info_runh[f'MRawRunHeader{suffix}.fSourceDEC'][0] / seconds_per_hour * u.deg
             )
             if not self.is_simulation:
-                src_name_array = meta_info_runh['MRawRunHeader.fSourceName[80]'][0]
+                src_name_array = meta_info_runh[f'MRawRunHeader{suffix}.fSourceName[80]'][0]
                 metadata['source_name'].append("".join([chr(item) for item in src_name_array if item != 0]))
-                obs_mode_array = meta_info_runh['MRawRunHeader.fObservationMode[60]'][0]
+                obs_mode_array = meta_info_runh[f'MRawRunHeader{suffix}.fObservationMode[60]'][0]
                 metadata['observation_mode'].append("".join([chr(item) for item in obs_mode_array if item != 0]))
-                project_name_array = meta_info_runh['MRawRunHeader.fProjectName[100]'][0]
+                project_name_array = meta_info_runh[f'MRawRunHeader{suffix}.fProjectName[100]'][0]
                 metadata['project_name'].append("".join([chr(item) for item in project_name_array if item != 0]))
 
             meta_info_runt = rootf['RunTails'].arrays(
@@ -756,10 +777,20 @@ class MAGICEventSource(EventSource):
                 library="np"
             )
 
-            mars_version_encoded = int(meta_info_runt['MMarsVersion_sorcerer.fMARSVersionCode'][0])
-            root_version_encoded = int(meta_info_runt['MMarsVersion_sorcerer.fROOTVersionCode'][0])
-            metadata['mars_version_sorcerer'].append(self.decode_version_number(mars_version_encoded))
-            metadata['root_version_sorcerer'].append(self.decode_version_number(root_version_encoded))
+            if self.mars_datalevel == MARSDataLevel.CALIBRATED:
+                mars_version_encoded = int(meta_info_runt['MMarsVersion_sorcerer.fMARSVersionCode'][0])
+                root_version_encoded = int(meta_info_runt['MMarsVersion_sorcerer.fROOTVersionCode'][0])
+            elif self.mars_datalevel == MARSDataLevel.STAR:
+                mars_version_encoded = int(meta_info_runt['MMarsVersion_star.fMARSVersionCode'][0])
+                root_version_encoded = int(meta_info_runt['MMarsVersion_star.fROOTVersionCode'][0])
+            elif self.mars_datalevel == MARSDataLevel.SUPERSTAR:
+                mars_version_encoded = int(meta_info_runt['MMarsVersion_superstar.fMARSVersionCode'][0])
+                root_version_encoded = int(meta_info_runt['MMarsVersion_superstar.fROOTVersionCode'][0])
+            elif self.mars_datalevel == MARSDataLevel.MELIBEA:
+                mars_version_encoded = int(meta_info_runt['MMarsVersion_melibea.fMARSVersionCode'][0])
+                root_version_encoded = int(meta_info_runt['MMarsVersion_melibea.fROOTVersionCode'][0])
+            metadata['mars_version'].append(self.decode_version_number(mars_version_encoded))
+            metadata['root_version'].append(self.decode_version_number(root_version_encoded))
 
         return metadata
 
