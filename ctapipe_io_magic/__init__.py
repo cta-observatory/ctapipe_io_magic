@@ -402,6 +402,15 @@ class MAGICEventSource(EventSource):
             'MRawRunHeader.fTelescopeNumber',
         ]
 
+        runinfo_stereo_array_list = [
+            'MRawRunHeader_1.fRunNumber',
+            'MRawRunHeader_1.fRunType',
+            'MRawRunHeader_1.fTelescopeNumber',
+            'MRawRunHeader_2.fRunNumber',
+            'MRawRunHeader_2.fRunType',
+            'MRawRunHeader_2.fTelescopeNumber',
+        ]
+
         run_numbers = []
         is_simulation = []
         telescope_numbers = []
@@ -409,11 +418,39 @@ class MAGICEventSource(EventSource):
 
         for rootf in self.files_:
 
-            run_info = rootf['RunHeaders'].arrays(
-                runinfo_array_list, library="np")
-            run_number = int(run_info['MRawRunHeader.fRunNumber'][0])
-            run_type = int(run_info['MRawRunHeader.fRunType'][0])
-            telescope_number = int(run_info['MRawRunHeader.fTelescopeNumber'][0])
+            events_tree = rootf['Events']
+
+            melibea_trees = ['MHadronness', 'MStereoParDisp', 'MEnergyEst']
+            superstar_trees = ['MHillas_1', 'MHillas_2', 'MStereoPar']
+            star_trees = ['MHillas']
+
+            datalevel = MARSDataLevel.CALIBRATED
+            events_keys = events_tree.keys()
+            trees_in_file = [tree in events_keys for tree in melibea_trees]
+            if all(trees_in_file):
+                datalevel = MARSDataLevel.MELIBEA
+            trees_in_file = [tree in events_keys for tree in superstar_trees]
+            if all(trees_in_file):
+                datalevel = MARSDataLevel.SUPERSTAR
+            trees_in_file = [tree in events_keys for tree in star_trees]
+            if all(trees_in_file):
+                datalevel = MARSDataLevel.STAR
+
+            if datalevel <= MARSDataLevel.STAR:
+                run_info = rootf['RunHeaders'].arrays(
+                    runinfo_array_list, library="np")
+
+                run_number = int(run_info['MRawRunHeader.fRunNumber'][0])
+                run_type = int(run_info['MRawRunHeader.fRunType'][0])
+                telescope_numbers.append(int(run_info['MRawRunHeader.fTelescopeNumber'][0]))
+            else:
+                run_info = rootf['RunHeaders'].arrays(
+                    runinfo_stereo_array_list, library="np")
+
+                run_number = int(run_info['MRawRunHeader_1.fRunNumber'][0])
+                run_type = int(run_info['MRawRunHeader_1.fRunType'][0])
+                telescope_numbers.append(int(run_info['MRawRunHeader_1.fTelescopeNumber'][0]))
+                telescope_numbers.append(int(run_info['MRawRunHeader_2.fTelescopeNumber'][0]))
 
             # a note about run numbers:
             # mono data has run numbers starting with 1 or 2 (telescope dependent)
