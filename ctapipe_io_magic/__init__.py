@@ -17,7 +17,7 @@ from astropy.time import Time
 from pkg_resources import resource_filename
 
 from ctapipe.io import EventSource, DataLevel
-from ctapipe.core import Container, Field, Provenance
+from ctapipe.core import Provenance
 from ctapipe.core.traits import Bool
 from ctapipe.coordinates import CameraFrame
 
