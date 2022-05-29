@@ -165,9 +165,22 @@ class MAGICEventSource(EventSource):
         info_tuple = self.get_run_info_from_name(name)
         run = info_tuple[0]
         telescope = info_tuple[2]
+        datalevel = info_tuple[3]
 
-        regex = rf"\d{{8}}_M{telescope}_0{run}\.\d{{3}}_Y_.*\.root"
-        regex_mc = rf"GA_M{telescope}_\w+_{run}_Y_.*\.root"
+        if datalevel == MARSDataLevel.CALIBRATED:
+            regex = rf"\d{{8}}_M{telescope}_0{run}\.\d{{3}}_Y_.*\.root"
+            regex_mc = rf"GA_M{telescope}_\w+_{run}_Y_.*\.root"
+        elif datalevel == MARSDataLevel.STAR:
+            regex = rf"\d{{8}}_M{telescope}_0{run}\.\d{{3}}_I_.*\.root"
+            regex_mc = rf"GA_M{telescope}_\w+_{run}_I_.*\.root"
+        elif datalevel == MARSDataLevel.SUPERSTAR:
+            regex = rf"\d{{8}}_0{run}_S_.*\.root"
+            regex_mc = r"GA_za.*_S_.*\.root"
+        elif datalevel == MARSDataLevel.MELIBEA:
+            regex = rf"\d{{8}}_0{run}_Q_.*\.root"
+            regex_mc = r"GA_za.*_Q_.*\.root"
+        else:
+            raise ValueError(f"Datalevel not recognized: {datalevel}")
 
         reg_comp = re.compile(regex)
         reg_comp_mc = re.compile(regex_mc)
