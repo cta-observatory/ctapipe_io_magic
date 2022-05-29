@@ -473,27 +473,8 @@ class MAGICEventSource(EventSource):
             else:
                 is_mc = False
 
-            events_tree = rootf['Events']
-
-            melibea_trees = ['MHadronness', 'MStereoParDisp', 'MEnergyEst']
-            superstar_trees = ['MHillas_1', 'MHillas_2', 'MStereoPar']
-            star_trees = ['MHillas']
-
-            datalevel = MARSDataLevel.CALIBRATED
-            events_keys = events_tree.keys()
-            trees_in_file = [tree in events_keys for tree in melibea_trees]
-            if all(trees_in_file):
-                datalevel = MARSDataLevel.MELIBEA
-            trees_in_file = [tree in events_keys for tree in superstar_trees]
-            if all(trees_in_file):
-                datalevel = MARSDataLevel.SUPERSTAR
-            trees_in_file = [tree in events_keys for tree in star_trees]
-            if all(trees_in_file):
-                datalevel = MARSDataLevel.STAR
-
             run_numbers.append(run_number)
             is_simulation.append(is_mc)
-            telescope_numbers.append(telescope_number)
             datalevels.append(datalevel)
 
         run_numbers = np.unique(run_numbers).tolist()
@@ -505,14 +486,14 @@ class MAGICEventSource(EventSource):
             raise ValueError(
                 "Loaded files contain both real data and simulation runs. \
                  Please load only data OR Monte Carlos.")
-        if len(telescope_numbers) > 1:
-            raise ValueError(
-                "Loaded files contain data from different telescopes. \
-                 Please load data belonging to the same telescope.")
         if len(datalevels) > 1:
             raise ValueError(
                 "Loaded files contain data at different datalevels. \
                  Please load data belonging to the same datalevel.")
+        if len(telescope_numbers) > 1 and datalevels[0] <= MARSDataLevel.STAR:
+            raise ValueError(
+                "Loaded files contain data from different telescopes. \
+                 Please load data belonging to the same telescope.")
 
         return run_numbers, is_simulation, telescope_numbers, datalevels
 
