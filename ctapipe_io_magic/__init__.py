@@ -621,10 +621,16 @@ class MAGICEventSource(EventSource):
         pulse_shape_lo_gain = np.array([0., 1., 2., 1., 0.])
         pulse_shape_hi_gain = np.array([1., 2., 3., 2., 1.])
         pulse_shape = np.vstack((pulse_shape_lo_gain, pulse_shape_hi_gain))
-        sampling_speed = u.Quantity(
-            self.files_[0]['RunHeaders']['MRawRunHeader.fSamplingFrequency'].array(library='np')[0]/1000,
-            u.GHz
-        )
+        if self.mars_datalevel <= MARSDataLevel.STAR:
+            sampling_speed = u.Quantity(
+                self.files_[0]['RunHeaders']['MRawRunHeader.fSamplingFrequency'].array(library='np')[0]/1000,
+                u.GHz
+            )
+        else:
+            sampling_speed = u.Quantity(
+                self.files_[0]['RunHeaders']['MRawRunHeader_1.fSamplingFrequency'].array(library='np')[0]/1000,
+                u.GHz
+            )
         camera_readout = CameraReadout(
             camera_name='MAGICCam',
             sampling_rate=sampling_speed,
