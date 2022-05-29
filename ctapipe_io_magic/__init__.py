@@ -527,26 +527,29 @@ class MAGICEventSource(EventSource):
             trigger_tree = rootf["Trigger"]
             L3T_tree = rootf["L3T"]
 
-            # here we take the 2nd element (if possible) because sometimes
-            # the first trigger report has still the old prescaler values from a previous run
-            try:
-                prescaler_array = trigger_tree["MTriggerPrescFact.fPrescFact"].array(library="np")
-            except AssertionError:
-                logger.warning("No prescaler info found. Will assume standard stereo data.")
-                stereo = True
-                sumt = False
-                return stereo, sumt
+            if self.mars_datalevel <= MARSDataLevel.STAR:
+                # here we take the 2nd element (if possible) because sometimes
+                # the first trigger report has still the old prescaler values from a previous run
+                try:
+                    prescaler_array = trigger_tree["MTriggerPrescFact.fPrescFact"].array(library="np")
+                except AssertionError:
+                    logger.warning("No prescaler info found. Will assume standard stereo data.")
+                    stereo = True
+                    sumt = False
+                    return stereo, sumt
 
-            prescaler_size = prescaler_array.size
-            if prescaler_size > 1:
-                prescaler = prescaler_array[1]
-            else:
-                prescaler = prescaler_array[0]
+                prescaler_size = prescaler_array.size
+                if prescaler_size > 1:
+                    prescaler = prescaler_array[1]
+                else:
+                    prescaler = prescaler_array[0]
 
-            if prescaler == prescaler_mono_nosumt or prescaler == prescaler_mono_sumt:
-                stereo = False
-            elif prescaler == prescaler_stereo:
-                stereo = True
+                if prescaler == prescaler_mono_nosumt or prescaler == prescaler_mono_sumt:
+                    stereo = False
+                elif prescaler == prescaler_stereo:
+                    stereo = True
+                else:
+                    stereo = True
             else:
                 stereo = True
 
