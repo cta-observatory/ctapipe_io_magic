@@ -226,7 +226,8 @@ class MAGICEventSource(EventSource):
         self._subarray_info = self.prepare_subarray_info()
 
         if not self.is_simulation:
-            self.drive_information = self.prepare_drive_information()
+            if self.mars_datalevel == MARSDataLevel.CALIBRATED:
+                self.drive_information = self.prepare_drive_information()
 
             # Get the arrival time differences
             self.event_time_diffs = self.get_event_time_difference()
