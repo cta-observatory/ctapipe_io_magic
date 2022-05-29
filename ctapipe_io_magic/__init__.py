@@ -962,19 +962,33 @@ class MAGICEventSource(EventSource):
             Trigger time differences of consecutive events
         """
 
-        time_diffs = np.array([])
+        time_diffs = dict()
+        for tel_id in self.telescope:
+            time_diffs[tel_id] = np.array([])
 
         for uproot_file in self.files_:
 
-            event_info = uproot_file['Events'].arrays(
-                expressions=['MRawEvtHeader.fTimeDiff'],
-                cut=f'(MTriggerPattern.fPrescaled == {DATA_STEREO_TRIGGER_PATTERN})',
-                library='np',
-            )
+            if self.mars_datalevel <= MARSDataLevel.STAR:
+                event_info = uproot_file['Events'].arrays(
+                    expressions=['MRawEvtHeader.fTimeDiff'],
+                    cut=f'(MTriggerPattern.fPrescaled == {DATA_STEREO_TRIGGER_PATTERN})',
+                    library='np',
+                )
 
-            time_diffs = np.append(time_diffs, event_info['MRawEvtHeader.fTimeDiff'])
+                time_diffs[self.telescope] = np.append(time_diffs, event_info['MRawEvtHeader.fTimeDiff'])
 
-        time_diffs *= u.s
+            else:
+                for tel_id in self.telescope:
+                    event_info = uproot_file['Events'].arrays(
+                        expressions=[f'MRawEvtHeader_{tel_id}.fTimeDiff'],
+                        cut=f'(MTriggerPattern_{tel_id}.fPrescaled == {DATA_STEREO_TRIGGER_PATTERN})',
+                        library='np',
+                    )
+
+                    time_diffs[tel_id] = np.append(time_diffs[tel_id], event_info[f'MRawEvtHeader_{tel_id}.fTimeDiff'])
+
+        for tel_id in self.telescope:
+            time_diffs[tel_id] *= u.s
 
         return time_diffs
 
