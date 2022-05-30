@@ -205,7 +205,7 @@ class MAGICEventSource(EventSource):
 
         self.run_numbers = run_info[0]
         self.is_mc = run_info[1][0]
-        self.telescope = run_info[2][0]
+        self.telescopes = run_info[2]
         self.mars_datalevel = run_info[3][0]
 
         self.metadata = self.parse_metadata_info()
@@ -741,7 +741,7 @@ class MAGICEventSource(EventSource):
         metadata["file_list"] = self.file_list
         metadata['run_numbers'] = self.run_numbers
         metadata['is_simulation'] = self.is_simulation
-        metadata['telescopes'] = self.telescope
+        metadata['telescopes'] = self.telescopes
         metadata['subrun_number'] = []
         metadata['source_ra'] = []
         metadata['source_dec'] = []
@@ -963,7 +963,7 @@ class MAGICEventSource(EventSource):
         """
 
         time_diffs = dict()
-        for tel_id in self.telescope:
+        for tel_id in self.telescopes:
             time_diffs[tel_id] = np.array([])
 
         for uproot_file in self.files_:
@@ -975,10 +975,11 @@ class MAGICEventSource(EventSource):
                     library='np',
                 )
 
-                time_diffs[self.telescope] = np.append(time_diffs, event_info['MRawEvtHeader.fTimeDiff'])
+                for tel_id in self.telescopes:
+                    time_diffs[tel_id] = np.append(time_diffs[tel_id], event_info['MRawEvtHeader.fTimeDiff'])
 
             else:
-                for tel_id in self.telescope:
+                for tel_id in self.telescopes:
                     event_info = uproot_file['Events'].arrays(
                         expressions=[f'MRawEvtHeader_{tel_id}.fTimeDiff'],
                         cut=f'(MTriggerPattern_{tel_id}.fPrescaled == {DATA_STEREO_TRIGGER_PATTERN})',
@@ -987,7 +988,7 @@ class MAGICEventSource(EventSource):
 
                     time_diffs[tel_id] = np.append(time_diffs[tel_id], event_info[f'MRawEvtHeader_{tel_id}.fTimeDiff'])
 
-        for tel_id in self.telescope:
+        for tel_id in self.telescopes:
             time_diffs[tel_id] *= u.s
 
         return time_diffs
@@ -1030,7 +1031,7 @@ class MAGICEventSource(EventSource):
         pedestal_level = 400
         pedestal_level_variance = 4.5
 
-        tel_id = self.telescope
+        tel_id = self.telescopes[0]
 
         event_time = event.trigger.tel[tel_id].time.unix
         pedestal_times = event.mon.tel[tel_id].pedestal.sample_time.unix
@@ -1151,7 +1152,7 @@ class MAGICEventSource(EventSource):
         event.meta['max_events'] = self.max_events
         event.index.obs_id = self.obs_ids[0]
 
-        tel_id = self.telescope
+        tel_id = self.telescopes[0]
         event.trigger.tels_with_trigger = np.array([tel_id])
 
         counter = 0

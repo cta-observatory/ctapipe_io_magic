@@ -173,7 +173,7 @@ def test_run_info(dataset):
         datalevel = [i[3] for i in run_info][0]
         assert run_numbers == source.run_numbers
         assert is_mc == source.is_simulation
-        assert telescope == source.telescope
+        assert telescope == source.telescopes[0]
         assert datalevel == source.mars_datalevel
 
 
@@ -188,7 +188,7 @@ def test_multiple_runs_real():
         for i, event in enumerate(source):
             assert event.trigger.event_type == EventType.SUBARRAY
             assert event.count == i
-            assert event.trigger.tels_with_trigger == [source.telescope]
+            assert event.trigger.tels_with_trigger == source.telescopes
 
         assert (i + 1) == n_events
 
