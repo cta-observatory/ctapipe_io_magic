@@ -1152,8 +1152,7 @@ class MAGICEventSource(EventSource):
         event.meta['max_events'] = self.max_events
         event.index.obs_id = self.obs_ids[0]
 
-        tel_id = self.telescopes[0]
-        event.trigger.tels_with_trigger = np.array([tel_id])
+        event.trigger.tels_with_trigger = np.array(self.telescopes)
 
         counter = 0
 
@@ -1172,130 +1171,135 @@ class MAGICEventSource(EventSource):
                 event_data = self.current_run['data'].cosmic_events
                 n_events = self.current_run['data'].n_cosmic_events
 
-            if not self.is_simulation:
+            for tel_id in self.telescopes:
 
-                monitoring_data = self.current_run['data'].monitoring_data
+                if not self.is_simulation:
 
-                # Set the pedestal information:
-                event.mon.tel[tel_id].pedestal.n_events = 500   # hardcoded number of pedestal events averaged over
-                event.mon.tel[tel_id].pedestal.sample_time = monitoring_data['pedestal_sample_time']
+                    monitoring_data = self.current_run['data'].monitoring_data
 
-                event.mon.tel[tel_id].pedestal.charge_mean = [
-                    monitoring_data['pedestal_fundamental']['mean'],
-                    monitoring_data['pedestal_from_extractor']['mean'],
-                    monitoring_data['pedestal_from_extractor_rndm']['mean'],
-                ]
+                    # Set the pedestal information:
+                    event.mon.tel[tel_id].pedestal.n_events = 500   # hardcoded number of pedestal events averaged over
+                    event.mon.tel[tel_id].pedestal.sample_time = monitoring_data[tel_id]['pedestal_sample_time']
 
-                event.mon.tel[tel_id].pedestal.charge_std = [
-                    monitoring_data['pedestal_fundamental']['rms'],
-                    monitoring_data['pedestal_from_extractor']['rms'],
-                    monitoring_data['pedestal_from_extractor_rndm']['rms'],
-                ]
+                    event.mon.tel[tel_id].pedestal.charge_mean = [
+                        monitoring_data[tel_id]['pedestal_fundamental']['mean'],
+                        monitoring_data[tel_id]['pedestal_from_extractor']['mean'],
+                        monitoring_data[tel_id]['pedestal_from_extractor_rndm']['mean'],
+                    ]
 
-                # Set the bad pixel information:
-                event.mon.tel[tel_id].pixel_status.hardware_failing_pixels = np.reshape(
-                    monitoring_data['bad_pixel'], (1, len(monitoring_data['bad_pixel']))
-                )
+                    event.mon.tel[tel_id].pedestal.charge_std = [
+                        monitoring_data[tel_id]['pedestal_fundamental']['rms'],
+                        monitoring_data[tel_id]['pedestal_from_extractor']['rms'],
+                        monitoring_data[tel_id]['pedestal_from_extractor_rndm']['rms'],
+                    ]
 
-                # Interpolate drive information:
-                drive_data = self.drive_information
-                n_drive_reports = len(drive_data['mjd'])
+                    # Set the bad pixel information:
+                    event.mon.tel[tel_id].pixel_status.hardware_failing_pixels = np.reshape(
+                        monitoring_data[tel_id]['bad_pixel'], (1, len(monitoring_data[tel_id]['bad_pixel']))
+                    )
 
-                if self.use_pedestals:
-                    logger.warning(f'Interpolating pedestals events information from {n_drive_reports} drive reports.')
-                else:
-                    logger.warning(f'Interpolating cosmic events information from {n_drive_reports} drive reports.')
+                    if self.mars_datalevel == MARSDataLevel.CALIBRATED:
+                        # Interpolate drive information:
+                        drive_data = self.drive_information
+                        n_drive_reports = len(drive_data['mjd'])
 
-                first_drive_report_time = Time(drive_data['mjd'][0], scale='utc', format='mjd')
-                last_drive_report_time = Time(drive_data['mjd'][-1], scale='utc', format='mjd')
+                        if self.use_pedestals:
+                            logger.warning(f'Interpolating pedestals events information from {n_drive_reports} drive reports.')
+                        else:
+                            logger.warning(f'Interpolating cosmic events information from {n_drive_reports} drive reports.')
 
-                logger.warning(f'Drive reports available from {first_drive_report_time.iso} to {last_drive_report_time.iso}.')
+                        first_drive_report_time = Time(drive_data['mjd'][0], scale='utc', format='mjd')
+                        last_drive_report_time = Time(drive_data['mjd'][-1], scale='utc', format='mjd')
 
-                # Create azimuth and zenith angles interpolators:
-                drive_az_pointing_interpolator = scipy.interpolate.interp1d(
-                    drive_data['mjd'], drive_data['az'], fill_value='extrapolate'
-                )
-                drive_zd_pointing_interpolator = scipy.interpolate.interp1d(
-                    drive_data['mjd'], drive_data['zd'], fill_value='extrapolate'
-                )
+                        logger.warning(f'Drive reports available from {first_drive_report_time.iso} to {last_drive_report_time.iso}.')
 
-                # Create RA and Dec interpolators:
-                drive_ra_pointing_interpolator = scipy.interpolate.interp1d(
-                    drive_data['mjd'], drive_data['ra'], fill_value='extrapolate'
-                )
-                drive_dec_pointing_interpolator = scipy.interpolate.interp1d(
-                    drive_data['mjd'], drive_data['dec'], fill_value='extrapolate'
-                )
+                        # Create azimuth and zenith angles interpolators:
+                        drive_az_pointing_interpolator = scipy.interpolate.interp1d(
+                            drive_data['mjd'], drive_data['az'], fill_value='extrapolate'
+                        )
+                        drive_zd_pointing_interpolator = scipy.interpolate.interp1d(
+                            drive_data['mjd'], drive_data['zd'], fill_value='extrapolate'
+                        )
 
-                # Interpolate the drive pointing to the event timestamps:
-                event_times = event_data['time'].mjd
+                        # Create RA and Dec interpolators:
+                        drive_ra_pointing_interpolator = scipy.interpolate.interp1d(
+                            drive_data['mjd'], drive_data['ra'], fill_value='extrapolate'
+                        )
+                        drive_dec_pointing_interpolator = scipy.interpolate.interp1d(
+                            drive_data['mjd'], drive_data['dec'], fill_value='extrapolate'
+                        )
 
-                pointing_az = drive_az_pointing_interpolator(event_times)
-                pointing_zd = drive_zd_pointing_interpolator(event_times)
-                pointing_ra = drive_ra_pointing_interpolator(event_times)
-                pointing_dec = drive_dec_pointing_interpolator(event_times)
+                        # Interpolate the drive pointing to the event timestamps:
+                        event_times = event_data[tel_id]['time'].mjd
 
-                event_data['pointing_az'] = u.Quantity(pointing_az, u.deg)
-                event_data['pointing_alt'] = u.Quantity(90 - pointing_zd, u.deg)
-                event_data['pointing_ra'] = u.Quantity(pointing_ra, u.deg)
-                event_data['pointing_dec'] = u.Quantity(pointing_dec, u.deg)
+                        pointing_az = drive_az_pointing_interpolator(event_times)
+                        pointing_zd = drive_zd_pointing_interpolator(event_times)
+                        pointing_ra = drive_ra_pointing_interpolator(event_times)
+                        pointing_dec = drive_dec_pointing_interpolator(event_times)
+
+                        event_data[tel_id]['pointing_az'] = u.Quantity(pointing_az, u.deg)
+                        event_data[tel_id]['pointing_alt'] = u.Quantity(90 - pointing_zd, u.deg)
+                        event_data[tel_id]['pointing_ra'] = u.Quantity(pointing_ra, u.deg)
+                        event_data[tel_id]['pointing_dec'] = u.Quantity(pointing_dec, u.deg)
 
             # Loop over the events:
             for i_event in range(n_events):
 
-                event.count = counter
-                event.index.event_id = event_data['stereo_event_number'][i_event]
+                for tel_id in self.telescopes:
 
-                event.trigger.event_type = MAGIC_TO_CTA_EVENT_TYPE.get(event_data['trigger_pattern'][i_event])
+                    event.count = counter
+                    event.index.event_id = event_data[tel_id]['stereo_event_number'][i_event]
 
-                if not self.is_simulation:
-                    event.trigger.time = event_data['time'][i_event]
-                    event.trigger.tel[tel_id].time = event_data['time'][i_event]
+                    event.trigger.event_type = MAGIC_TO_CTA_EVENT_TYPE.get(event_data[tel_id]['trigger_pattern'][i_event])
 
-                    if not self.use_pedestals:
-                        badrmspixel_mask = self._get_badrmspixel_mask(event)
-                        event.mon.tel[tel_id].pixel_status.pedestal_failing_pixels = badrmspixel_mask
+                    if not self.is_simulation:
+                        event.trigger.time = event_data[tel_id]['time'][i_event]
+                        event.trigger.tel[tel_id].time = event_data[tel_id]['time'][i_event]
 
-                # Set the telescope pointing container:
-                event.pointing.array_azimuth = event_data['pointing_az'][i_event].to(u.rad)
-                event.pointing.array_altitude = event_data['pointing_alt'][i_event].to(u.rad)
-                event.pointing.array_ra = event_data['pointing_ra'][i_event].to(u.rad)
-                event.pointing.array_dec = event_data['pointing_dec'][i_event].to(u.rad)
+                        if not self.use_pedestals:
+                            badrmspixel_mask = self._get_badrmspixel_mask(event)
+                            event.mon.tel[tel_id].pixel_status.pedestal_failing_pixels = badrmspixel_mask
 
-                event.pointing.tel[tel_id].azimuth = event_data['pointing_az'][i_event].to(u.rad)
-                event.pointing.tel[tel_id].altitude = event_data['pointing_alt'][i_event].to(u.rad)
+                    # Set the telescope pointing container:
+                    event.pointing.array_azimuth = event_data[tel_id]['pointing_az'][i_event].to(u.rad)
+                    event.pointing.array_altitude = event_data[tel_id]['pointing_alt'][i_event].to(u.rad)
+                    event.pointing.array_ra = event_data[tel_id]['pointing_ra'][i_event].to(u.rad)
+                    event.pointing.array_dec = event_data[tel_id]['pointing_dec'][i_event].to(u.rad)
 
-                # Set event charge and peak positions per pixel:
-                event.dl1.tel[tel_id].image = event_data['image'][i_event]
-                event.dl1.tel[tel_id].peak_time = event_data['peak_time'][i_event]
+                    event.pointing.tel[tel_id].azimuth = event_data[tel_id]['pointing_az'][i_event].to(u.rad)
+                    event.pointing.tel[tel_id].altitude = event_data[tel_id]['pointing_alt'][i_event].to(u.rad)
 
-                # Set the simulated event container:
-                if self.is_simulation:
+                    # Set event charge and peak positions per pixel:
+                    event.dl1.tel[tel_id].image = event_data[tel_id]['image'][i_event]
+                    event.dl1.tel[tel_id].peak_time = event_data[tel_id]['peak_time'][i_event]
 
-                    event.simulation = SimulatedEventContainer()
+                    # Set the simulated event container:
+                    if self.is_simulation:
 
-                    event.simulation.shower.energy = event_data['mc_energy'][i_event].to(u.TeV)
-                    event.simulation.shower.shower_primary_id = 1 - event_data['mc_shower_primary_id'][i_event]
-                    event.simulation.shower.h_first_int = event_data['mc_h_first_int'][i_event].to(u.m)
+                        event.simulation = SimulatedEventContainer()
 
-                    # Convert the corsika coordinate (x-axis: magnetic north) to the geographical one.
-                    # Rotate the corsika coordinate by the magnetic declination (= 7 deg):
-                    mfield_dec = self.simulation_config[self.obs_ids[0]]['prod_site_B_declination']
+                        event.simulation.shower.energy = event_data[tel_id]['mc_energy'][i_event].to(u.TeV)
+                        event.simulation.shower.shower_primary_id = 1 - event_data[tel_id]['mc_shower_primary_id'][i_event]
+                        event.simulation.shower.h_first_int = event_data[tel_id]['mc_h_first_int'][i_event].to(u.m)
 
-                    event.simulation.shower.alt = u.Quantity(90, u.deg) - event_data['mc_theta'][i_event].to(u.deg)
-                    event.simulation.shower.az = u.Quantity(180, u.deg) - event_data['mc_phi'][i_event].to(u.deg) + mfield_dec
+                        # Convert the corsika coordinate (x-axis: magnetic north) to the geographical one.
+                        # Rotate the corsika coordinate by the magnetic declination (= 7 deg):
+                        mfield_dec = self.simulation_config[self.obs_ids[0]]['prod_site_B_declination']
 
-                    if event.simulation.shower.az > u.Quantity(180, u.deg):
-                        event.simulation.shower.az -= u.Quantity(360, u.deg)
+                        event.simulation.shower.alt = u.Quantity(90, u.deg) - event_data[tel_id]['mc_theta'][i_event].to(u.deg)
+                        event.simulation.shower.az = u.Quantity(180, u.deg) - event_data[tel_id]['mc_phi'][i_event].to(u.deg) + mfield_dec
 
-                    event.simulation.shower.core_x = event_data['mc_core_x'][i_event].to(u.m) * np.cos(mfield_dec) \
-                                                     + event_data['mc_core_y'][i_event].to(u.m) * np.sin(mfield_dec)
+                        if event.simulation.shower.az > u.Quantity(180, u.deg):
+                            event.simulation.shower.az -= u.Quantity(360, u.deg)
 
-                    event.simulation.shower.core_y = event_data['mc_core_y'][i_event].to(u.m) * np.cos(mfield_dec) \
-                                                     - event_data['mc_core_x'][i_event].to(u.m) * np.sin(mfield_dec)
+                        event.simulation.shower.core_x = event_data[tel_id]['mc_core_x'][i_event].to(u.m) * np.cos(mfield_dec) \
+                                                         + event_data[tel_id]['mc_core_y'][i_event].to(u.m) * np.sin(mfield_dec)
 
-                yield event
-                counter += 1
+                        event.simulation.shower.core_y = event_data[tel_id]['mc_core_y'][i_event].to(u.m) * np.cos(mfield_dec) \
+                                                         - event_data[tel_id]['mc_core_x'][i_event].to(u.m) * np.sin(mfield_dec)
+
+                    yield event
+                    counter += 1
 
         return
 
