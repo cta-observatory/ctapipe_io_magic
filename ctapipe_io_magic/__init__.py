@@ -1306,7 +1306,7 @@ class MarsCalibratedRun:
     and monitoring data from a MAGIC calibrated subrun file.
     """
 
-    def __init__(self, uproot_file, is_mc, n_cam_pixels=1039):
+    def __init__(self, uproot_file, is_mc, tel_id, n_cam_pixels=1039):
         """
         Constructor of the class. Loads an input uproot file
         and store the informaiton to constructor variables.
@@ -1317,12 +1317,15 @@ class MarsCalibratedRun:
             A calibrated file opened by uproot via uproot.open(file_path)
         is_mc: bool
             Flag to MC data
+        tel_id: int
+            Telescope number (1 for M1, 2 for M2)
         n_cam_pixels: int
             The number of pixels of the MAGIC camera
         """
 
         self.uproot_file = uproot_file
         self.is_mc = is_mc
+        self.tel_id = tel_id
         self.n_cam_pixels = n_cam_pixels
 
         # Load the input data:
@@ -1334,11 +1337,11 @@ class MarsCalibratedRun:
 
     @property
     def n_cosmic_events(self):
-        return len(self.cosmic_events.get('trigger_pattern', []))
+        return len(self.cosmic_events[self.tel_id].get('trigger_pattern', []))
 
     @property
     def n_pedestal_events(self):
-        return len(self.pedestal_events.get('trigger_pattern', []))
+        return len(self.pedestal_events[self.tel_id].get('trigger_pattern', []))
 
     def _load_data(self):
         """
@@ -1403,9 +1406,9 @@ class MarsCalibratedRun:
 
         # Initialize the data container:
         calib_data = {
-            'cosmic_events': dict(),
-            'pedestal_events': dict(),
-            'monitoring_data': dict(),
+            'cosmic_events': {self.tel_id: dict()},
+            'pedestal_events': {self.tel_id: dict()},
+            'monitoring_data': {self.tel_id: dict()},
         }
 
         # Set event cuts:
@@ -1434,16 +1437,16 @@ class MarsCalibratedRun:
                 library='np',
             )
 
-            calib_data[event_type]['trigger_pattern'] = np.array(common_info['MTriggerPattern.fPrescaled'], dtype=int)
-            calib_data[event_type]['stereo_event_number'] = np.array(common_info['MRawEvtHeader.fStereoEvtNumber'], dtype=int)
+            calib_data[event_type][self.tel_id]['trigger_pattern'] = np.array(common_info['MTriggerPattern.fPrescaled'], dtype=int)
+            calib_data[event_type][self.tel_id]['stereo_event_number'] = np.array(common_info['MRawEvtHeader.fStereoEvtNumber'], dtype=int)
 
             # Set pixel-wise charge and peak time information.
             # The length of the pixel array is 1183, but here only the first part of the pixel
             # information are extracted (i.e., for the current MAGIC camera geometry, the pixels
             # between 0 and 1039 are extracted, since the other part of pixels has only zeros):
-            calib_data[event_type]['image'] = np.array(common_info['MCerPhotEvt.fPixels.fPhot'].tolist())[:, :self.n_cam_pixels]
-            calib_data[event_type]['peak_time'] = np.array(common_info['MArrivalTime.fData'].tolist())[:, :self.n_cam_pixels]
-            calib_data[event_type]['peak_time']/=sampling_speed # [ns]
+            calib_data[event_type][self.tel_id]['image'] = np.array(common_info['MCerPhotEvt.fPixels.fPhot'].tolist())[:, :self.n_cam_pixels]
+            calib_data[event_type][self.tel_id]['peak_time'] = np.array(common_info['MArrivalTime.fData'].tolist())[:, :self.n_cam_pixels]
+            calib_data[event_type][self.tel_id]['peak_time']/=sampling_speed # [ns]
 
             if self.is_mc:
 
@@ -1458,13 +1461,13 @@ class MarsCalibratedRun:
                 # of the magnetic north and the momentum of a simulated primary particle, defined
                 # between -pi and pi, negative if the momentum pointing eastward, positive westward.
                 # The conversion to azimuth should be 180 - fPhi + magnetic_declination:
-                calib_data[event_type]['mc_energy'] = u.Quantity(mc_info['MMcEvt.fEnergy'], u.GeV)
-                calib_data[event_type]['mc_theta'] = u.Quantity(mc_info['MMcEvt.fTheta'], u.rad)
-                calib_data[event_type]['mc_phi'] = u.Quantity(mc_info['MMcEvt.fPhi'], u.rad)
-                calib_data[event_type]['mc_shower_primary_id'] = np.array(mc_info['MMcEvt.fPartId'], dtype=int)
-                calib_data[event_type]['mc_h_first_int'] = u.Quantity(mc_info['MMcEvt.fZFirstInteraction'], u.cm)
-                calib_data[event_type]['mc_core_x'] = u.Quantity(mc_info['MMcEvt.fCoreX'], u.cm)
-                calib_data[event_type]['mc_core_y'] = u.Quantity(mc_info['MMcEvt.fCoreY'], u.cm)
+                calib_data[event_type][self.tel_id]['mc_energy'] = u.Quantity(mc_info['MMcEvt.fEnergy'], u.GeV)
+                calib_data[event_type][self.tel_id]['mc_theta'] = u.Quantity(mc_info['MMcEvt.fTheta'], u.rad)
+                calib_data[event_type][self.tel_id]['mc_phi'] = u.Quantity(mc_info['MMcEvt.fPhi'], u.rad)
+                calib_data[event_type][self.tel_id]['mc_shower_primary_id'] = np.array(mc_info['MMcEvt.fPartId'], dtype=int)
+                calib_data[event_type][self.tel_id]['mc_h_first_int'] = u.Quantity(mc_info['MMcEvt.fZFirstInteraction'], u.cm)
+                calib_data[event_type][self.tel_id]['mc_core_x'] = u.Quantity(mc_info['MMcEvt.fCoreX'], u.cm)
+                calib_data[event_type][self.tel_id]['mc_core_y'] = u.Quantity(mc_info['MMcEvt.fCoreY'], u.cm)
 
                 # Reading the telescope pointing information:
                 pointing = self.uproot_file['Events'].arrays(
@@ -1480,10 +1483,10 @@ class MarsCalibratedRun:
                 pointing_ra = (pointing['MPointingPos.fRa'] + pointing['MPointingPos.fDevHa']) * degrees_per_hour
                 pointing_dec = pointing['MPointingPos.fDec'] - pointing['MPointingPos.fDevDec']
 
-                calib_data[event_type]['pointing_az'] = u.Quantity(pointing_az, u.deg)
-                calib_data[event_type]['pointing_alt'] = u.Quantity(90 - pointing_zd, u.deg)
-                calib_data[event_type]['pointing_ra'] = u.Quantity(pointing_ra, u.deg)
-                calib_data[event_type]['pointing_dec'] = u.Quantity(pointing_dec, u.deg)
+                calib_data[event_type][self.tel_id]['pointing_az'] = u.Quantity(pointing_az, u.deg)
+                calib_data[event_type][self.tel_id]['pointing_alt'] = u.Quantity(90 - pointing_zd, u.deg)
+                calib_data[event_type][self.tel_id]['pointing_ra'] = u.Quantity(pointing_ra, u.deg)
+                calib_data[event_type][self.tel_id]['pointing_dec'] = u.Quantity(pointing_dec, u.deg)
 
             else:
                 # Reading the event timing information:
@@ -1507,7 +1510,7 @@ class MarsCalibratedRun:
                 event_nanosec = np.array([Decimal(str(x)) for x in event_nanosec])
 
                 event_time = event_obs_day + event_millisec + event_nanosec
-                calib_data[event_type]['time'] = Time(event_time, format='unix', scale='utc')
+                calib_data[event_type][self.tel_id]['time'] = Time(event_time, format='unix', scale='utc')
 
         # Reading the monitoring data:
         if not self.is_mc:
@@ -1533,7 +1536,7 @@ class MarsCalibratedRun:
             for i_pix in range(self.n_cam_pixels):
                 unsuitable_pixels[i_pix] = int('{:08b}'.format(unsuitable_pixels_bit[i_pix])[-2])
 
-            calib_data['monitoring_data']['bad_pixel'] = unsuitable_pixels
+            calib_data['monitoring_data'][self.tel_id]['bad_pixel'] = unsuitable_pixels
 
             # Try to read the Pedestals tree (soft fail if not present):
             try:
@@ -1555,20 +1558,20 @@ class MarsCalibratedRun:
 
                 pedestal_sample_time = pedestal_obs_day + pedestal_millisec + pedestal_nanosec
 
-                calib_data['monitoring_data']['pedestal_sample_time'] = Time(
+                calib_data['monitoring_data'][self.tel_id]['pedestal_sample_time'] = Time(
                     pedestal_sample_time, format='unix', scale='utc'
                 )
 
                 # Set the mean and RMS of pedestal charges:
-                calib_data['monitoring_data']['pedestal_fundamental'] = {
+                calib_data['monitoring_data'][self.tel_id]['pedestal_fundamental'] = {
                     'mean': np.array(pedestal_info[f'MPedPhotFundamental.fArray.fMean'].tolist())[:, :self.n_cam_pixels],
                     'rms': np.array(pedestal_info[f'MPedPhotFundamental.fArray.fRms'].tolist())[:, :self.n_cam_pixels],
                 }
-                calib_data['monitoring_data']['pedestal_from_extractor'] = {
+                calib_data['monitoring_data'][self.tel_id]['pedestal_from_extractor'] = {
                     'mean': np.array(pedestal_info[f'MPedPhotFromExtractor.fArray.fMean'].tolist())[:, :self.n_cam_pixels],
                     'rms': np.array(pedestal_info[f'MPedPhotFromExtractor.fArray.fRms'].tolist())[:, :self.n_cam_pixels],
                 }
-                calib_data['monitoring_data']['pedestal_from_extractor_rndm'] = {
+                calib_data['monitoring_data'][self.tel_id]['pedestal_from_extractor_rndm'] = {
                     'mean': np.array(pedestal_info[f'MPedPhotFromExtractorRndm.fArray.fMean'].tolist())[:, :self.n_cam_pixels],
                     'rms': np.array(pedestal_info[f'MPedPhotFromExtractorRndm.fArray.fRms'].tolist())[:, :self.n_cam_pixels],
                 }
@@ -1579,7 +1582,7 @@ class MarsCalibratedRun:
             # Check for bit flips in the stereo event IDs:
             uplim_total_jumps = 100
 
-            stereo_event_number = calib_data['cosmic_events']['stereo_event_number'].astype(int)
+            stereo_event_number = calib_data['cosmic_events'][self.tel_id]['stereo_event_number'].astype(int)
             number_difference = np.diff(stereo_event_number)
 
             indices_flip = np.where(number_difference < 0)[0]
