@@ -1132,8 +1132,7 @@ class MAGICEventSource(EventSource):
             self._event_generator
         """
 
-        if self.mars_datalevel == MARSDataLevel.CALIBRATED:
-            return self._event_generator()
+        return self._event_generator()
 
     def _event_generator(self):
         """
