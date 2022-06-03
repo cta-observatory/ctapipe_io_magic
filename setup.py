@@ -16,9 +16,13 @@ setup(
     use_scm_version={"write_to": os.path.join("ctapipe_io_magic", "_version.py")},
     packages=find_packages(),
     install_requires=[
-        'ctapipe~=0.12.0',
-        'astropy>=4.0.5,<5',
-        'uproot~=4.1',
+        'ctapipe~=0.15.0',
+        'astropy~=5.0',
+        'bokeh~=2.0',
+        'eventio>=1.5.0,<2.0.0a0',
+        'uproot~=4.2',
+        'traitlets~=5.0,>=5.0.5',
+        'tables~=3.4',
         'numpy',
         'scipy'
     ],
