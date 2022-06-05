@@ -1010,7 +1010,7 @@ class MAGICEventSource(EventSource):
         # ToCheck: will this be compatible in the future, e.g. with merged MC files
         return self.run_numbers
 
-    def _get_badrmspixel_mask(self, event):
+    def _get_badrmspixel_mask(self, event, tel_id):
         """
         Fetch bad RMS pixel mask for a given event.
 
@@ -1018,6 +1018,8 @@ class MAGICEventSource(EventSource):
         ----------
         event: ctapipe.containers.ArrayEventContainer
             array event container
+        tel_id: int
+            telescope ID
 
         Returns
         -------
@@ -1030,8 +1032,6 @@ class MAGICEventSource(EventSource):
 
         pedestal_level = 400
         pedestal_level_variance = 4.5
-
-        tel_id = self.telescopes[0]
 
         event_time = event.trigger.tel[tel_id].time.unix
         pedestal_times = event.mon.tel[tel_id].pedestal.sample_time.unix
@@ -1257,7 +1257,7 @@ class MAGICEventSource(EventSource):
                         event.trigger.tel[tel_id].time = event_data[tel_id]['time'][i_event]
 
                         if not self.use_pedestals:
-                            badrmspixel_mask = self._get_badrmspixel_mask(event)
+                            badrmspixel_mask = self._get_badrmspixel_mask(event, tel_id)
                             event.mon.tel[tel_id].pixel_status.pedestal_failing_pixels = badrmspixel_mask
 
                     # Set the telescope pointing container:
