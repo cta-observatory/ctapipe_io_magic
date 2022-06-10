@@ -18,7 +18,7 @@ from pkg_resources import resource_filename
 
 from ctapipe.io import EventSource, DataLevel
 from ctapipe.core import Container, Field, Provenance
-from ctapipe.core.traits import Bool
+from ctapipe.core.traits import Bool, CaselessStrEnum
 from ctapipe.coordinates import CameraFrame
 
 from ctapipe.containers import (
@@ -67,14 +67,6 @@ MAGIC_TO_CTA_EVENT_TYPE = {
     DATA_STEREO_TRIGGER_PATTERN: EventType.SUBARRAY,
     PEDESTAL_TRIGGER_PATTERN: EventType.SKY_PEDESTAL,
 }
-
-OPTICS = OpticsDescription(
-    'MAGIC',
-    num_mirrors=1,
-    equivalent_focal_length=u.Quantity(17.*1.0713, u.m),
-    mirror_area=u.Quantity(239.0, u.m**2),
-    num_mirror_tiles=964,
-)
 
 
 def load_camera_geometry():
@@ -130,8 +122,14 @@ class MAGICEventSource(EventSource):
     ).tag(config=True)
 
     use_pedestals = Bool(
-           default_value=False,
-           help='Extract pedestal events instead of cosmic events.'
+        default_value=False,
+        help='Extract pedestal events instead of cosmic events.'
+    ).tag(config=True)
+
+    focal_length_choice = CaselessStrEnum(
+        ['nominal', 'effective'],
+        default_value='effective',
+        help='Which focal length to use when constructing the SubarrayDescription.',
     ).tag(config=True)
 
     def __init__(self, input_url=None, config=None, parent=None, **kwargs):
@@ -574,11 +572,25 @@ class MAGICEventSource(EventSource):
         # }
 
         # MAGIC telescope positions in m wrt. to the center of MAGIC simulations, from
-        # CORSIKA and reflector input card and recomputed (rotated) to be w.r.t. geographical North 
+        # CORSIKA and reflector input card and recomputed (rotated) to be w.r.t. geographical North
         MAGIC_TEL_POSITIONS = {
             1: [34.99, -24.02, 0.00] * u.m,
             2: [-34.99, 24.02, 0.00] * u.m
         }
+
+        if self.focal_length_choice == 'effective':
+            # Use the effective focal length that the coma aberration is corrected
+            focal_length = u.Quantity(17*1.0713, u.m)
+        else:
+            focal_length = u.Quantity(17, u.m)
+
+        OPTICS = OpticsDescription(
+            'MAGIC',
+            num_mirrors=1,
+            equivalent_focal_length=focal_length,
+            mirror_area=u.Quantity(239.0, u.m**2),
+            num_mirror_tiles=964,
+        )
 
         # camera info from MAGICCam.camgeom.fits.gz file
         camera_geom = load_camera_geometry()
