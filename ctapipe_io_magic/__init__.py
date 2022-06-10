@@ -26,6 +26,11 @@ from ctapipe.containers import (
     ArrayEventContainer,
     SimulationConfigContainer,
     SimulatedEventContainer,
+    ImageParametersContainer,
+    CameraHillasParametersContainer,
+    TimingParametersContainer,
+    LeakageContainer,
+    MorphologyContainer,
 )
 
 from ctapipe.instrument import (
@@ -1269,9 +1274,23 @@ class MAGICEventSource(EventSource):
                     event.pointing.tel[tel_id].azimuth = event_data[tel_id]['pointing_az'][i_event].to(u.rad)
                     event.pointing.tel[tel_id].altitude = event_data[tel_id]['pointing_alt'][i_event].to(u.rad)
 
-                    # Set event charge and peak positions per pixel:
-                    event.dl1.tel[tel_id].image = event_data[tel_id]['image'][i_event]
-                    event.dl1.tel[tel_id].peak_time = event_data[tel_id]['peak_time'][i_event]
+                    if self.mars_datalevel == MARSDataLevel.CALIBRATED:
+                        # Set event charge and peak positions per pixel:
+                        event.dl1.tel[tel_id].image = event_data[tel_id]['image'][i_event]
+                        event.dl1.tel[tel_id].peak_time = event_data[tel_id]['peak_time'][i_event]
+
+                    if self.mars_datalevel == MARSDataLevel.SUPERSTAR:
+                        event.dl1.tel[tel_id].parameters = ImageParametersContainer()
+                        event.dl1.tel[tel_id].parameters.hillas = CameraHillasParametersContainer(
+                            x=-event_data[tel_id]["y"],
+                            y=-event_data[tel_id]["x"],
+                            length=event_data[tel_id]["length"],
+                            width=event_data[tel_id]["width"],
+                            intensity=event_data[tel_id]["intensity"],
+                            r=np.sqrt(event_data[tel_id]["x"]*event_data[tel_id]["x"]+event_data[tel_id]["y"]*event_data[tel_id]["y"]),
+                            psi=event_data[tel_id]["psi"],
+                            phi=event_data[tel_id]["phi"],
+                        )
 
                     # Set the simulated event container:
                     if self.is_simulation:
