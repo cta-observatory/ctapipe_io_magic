@@ -128,8 +128,8 @@ class MAGICEventSource(EventSource):
 
     focal_length_choice = CaselessStrEnum(
         ['nominal', 'effective'],
-        default_value='nominal',
-        help='which focal length to use when constructing the SubarrayDescription',
+        default_value='effective',
+        help='Which focal length to use when constructing the SubarrayDescription.',
     ).tag(config=True)
 
     def __init__(self, input_url=None, config=None, parent=None, **kwargs):
@@ -579,6 +579,7 @@ class MAGICEventSource(EventSource):
         }
 
         if self.focal_length_choice == 'effective':
+            # Use the effective focal length that the coma aberration is corrected
             focal_length = u.Quantity(17*1.0713, u.m)
         else:
             focal_length = u.Quantity(17, u.m)
