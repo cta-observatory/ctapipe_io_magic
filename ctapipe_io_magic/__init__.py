@@ -428,9 +428,9 @@ class MAGICEventSource(EventSource):
 
             events_tree = rootf['Events']
 
-            melibea_trees = ['MHadronness', 'MStereoParDisp', 'MEnergyEst']
-            superstar_trees = ['MHillas_1', 'MHillas_2', 'MStereoPar']
-            star_trees = ['MHillas']
+            melibea_trees = ['MHadronness.', 'MStereoParDisp.', 'MEnergyEst.']
+            superstar_trees = ['MHillas_1.', 'MHillas_2.', 'MStereoPar.']
+            star_trees = ['MHillas.']
 
             datalevel = MARSDataLevel.CALIBRATED
             events_keys = events_tree.keys()
