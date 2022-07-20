@@ -31,6 +31,7 @@ from ctapipe.containers import (
     TimingParametersContainer,
     LeakageContainer,
     MorphologyContainer,
+    ReconstructedGeometryContainer,
 )
 
 from ctapipe.instrument import (
@@ -66,6 +67,8 @@ msec2sec = 1e-3
 nsec2sec = 1e-9
 
 mc_data_type = 256
+
+m2deg = 180./(17.*np.pi)
 
 MAGIC_TO_CTA_EVENT_TYPE = {
     MC_STEREO_TRIGGER_PATTERN: EventType.SUBARRAY,
@@ -1279,7 +1282,7 @@ class MAGICEventSource(EventSource):
                         event.dl1.tel[tel_id].image = event_data[tel_id]['image'][i_event]
                         event.dl1.tel[tel_id].peak_time = event_data[tel_id]['peak_time'][i_event]
 
-                    if self.mars_datalevel == MARSDataLevel.SUPERSTAR:
+                    if self.mars_datalevel >= MARSDataLevel.SUPERSTAR:
                         event.dl1.tel[tel_id].parameters = ImageParametersContainer()
                         event.dl1.tel[tel_id].parameters.hillas = CameraHillasParametersContainer(
                             x=-event_data[tel_id]["y"],
@@ -1290,6 +1293,34 @@ class MAGICEventSource(EventSource):
                             r=np.sqrt(event_data[tel_id]["x"]*event_data[tel_id]["x"]+event_data[tel_id]["y"]*event_data[tel_id]["y"]),
                             psi=event_data[tel_id]["psi"],
                             phi=event_data[tel_id]["phi"],
+                        )
+
+                        event.dl1.tel[tel_id].parameters.timing = TimingParametersContainer(
+                            slope=event_data[tel_id]["slope"].value*(1./m2deg)*u.deg,
+                            intercept=event_data[tel_id]["intercept"],
+                        )
+
+                        # not fully filled
+                        event.dl1.tel[tel_id].parameters.leakage = LeakageContainer(
+                            intensity_width_1=event_data[tel_id]["intensity_width_1"],
+                            intensity_width_2=event_data[tel_id]["intensity_width_2"],
+                        )
+
+                        # not fully filled
+                        event.dl1.tel[tel_id].parameters.morphology = MorphologyContainer(
+                            num_pixels=event_data[tel_id]["num_pixels"],
+                            num_islands=event_data[tel_id]["num_islands"],
+                        )
+
+                        event.dl2.stereo.geometry["HillasReconstructor"] = ReconstructedGeometryContainer(
+                            alt=event_data["stereo"]["alt"],
+                            az=event_data["stereo"]["az"],
+                            core_x=event_data["stereo"]["core_x"],
+                            core_y=event_data["stereo"]["core_y"],
+                            h_max=event_data["stereo"]["h_max"],
+                            is_valid=True if event_data["stereo"]["is_valid"] == 1 else False,
+                            average_intensity=(event_data[1]["intensity"]+event_data[2]["intensity"]) / 2.,
+                            tel_ids=[1, 2],
                         )
 
                     # Set the simulated event container:
