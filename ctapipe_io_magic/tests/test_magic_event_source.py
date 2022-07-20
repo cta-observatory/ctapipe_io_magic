@@ -21,7 +21,21 @@ test_calibrated_simulated = [
     test_calibrated_simulated_dir / 'GA_M2_za35to50_8_824319_Y_w0.root',
 ]
 
+test_superstar_real_dir = test_data / "real/superstar"
+test_superstar_simulated_dir = test_data / "simulated/superstar"
+
+test_superstar_mars_real = [
+    test_superstar_real_dir / "20210314_05095172_S_CrabNebula-W0.40+035.root",
+]
+
+test_superstar_mars_simulated = [
+    test_superstar_simulated_dir / "GA_za35to50_8_824318_S_w0.root",
+    test_superstar_simulated_dir / "GA_za35to50_8_824319_S_w0.root",
+]
+
 test_calibrated_all = test_calibrated_real+test_calibrated_simulated
+
+test_superstar_all = test_superstar_mars_real + test_superstar_mars_simulated
 
 data_dict = dict()
 
@@ -75,7 +89,7 @@ data_dict['GA_M2_za35to50_8_824319_Y_w0.root']['n_events_pedestal'] = 0
 data_dict['GA_M2_za35to50_8_824319_Y_w0.root']['n_events_mc_mono'] = 52
 
 
-@pytest.mark.parametrize('dataset', test_calibrated_all)
+@pytest.mark.parametrize('dataset', test_calibrated_all+test_superstar_all)
 def test_event_source_for_magic_file(dataset):
     from ctapipe.io import EventSource
 
@@ -88,7 +102,7 @@ def test_event_source_for_magic_file(dataset):
     assert reader.input_url == dataset
 
 
-@pytest.mark.parametrize('dataset', test_calibrated_all)
+@pytest.mark.parametrize('dataset', test_calibrated_all+test_superstar_all)
 def test_compatible(dataset):
     from ctapipe_io_magic import MAGICEventSource
     assert MAGICEventSource.is_compatible(dataset)
@@ -99,7 +113,7 @@ def test_not_compatible():
     assert MAGICEventSource.is_compatible(None) is False
 
 
-@pytest.mark.parametrize('dataset', test_calibrated_all)
+@pytest.mark.parametrize('dataset', test_calibrated_all+test_superstar_all)
 def test_stream(dataset):
     from ctapipe_io_magic import MAGICEventSource
     with MAGICEventSource(input_url=dataset, process_run=False) as source:
