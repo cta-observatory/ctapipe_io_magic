@@ -331,8 +331,8 @@ class MAGICEventSource(EventSource):
         mask_data_melibea = r"\d{8}_(\d+)_Q_.*"
         mask_mc_calibrated = r"GA_M(\d)_za\d+to\d+_\d_(\d+)_Y_.*"
         mask_mc_star = r"GA_M(\d)_za\d+to\d+_\d_(\d+)_I_.*"
-        mask_mc_superstar = r"GA_za\d+to\d+_\d_S_.*"
-        mask_mc_melibea = r"GA_za\d+to\d+_\d_Q_.*"
+        mask_mc_superstar = r"GA_za\d+to\d+_\d_(\d+)_S_.*"
+        mask_mc_melibea = r"GA_za\d+to\d+_\d_(\d+)_Q_.*"
         if re.match(mask_data_calibrated, file_name) is not None:
             parsed_info = re.match(mask_data_calibrated, file_name)
             telescope = int(parsed_info.group(1))
@@ -384,7 +384,7 @@ class MAGICEventSource(EventSource):
         else:
             raise IndexError(
                 'Can not identify the run number and type (data/MC) of the file'
-                '{:s}'.format(file_name))
+                ' {:s}'.format(file_name))
 
         return run_number, is_mc, telescope, datalevel
 
