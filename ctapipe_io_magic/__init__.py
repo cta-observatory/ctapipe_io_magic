@@ -348,13 +348,13 @@ class MAGICEventSource(EventSource):
         elif re.match(mask_data_superstar, file_name) is not None:
             parsed_info = re.match(mask_data_superstar, file_name)
             telescope = None
-            run_number = int(parsed_info.grou(1))
+            run_number = int(parsed_info.group(1))
             datalevel = MARSDataLevel.SUPERSTAR
             is_mc = False
         elif re.match(mask_data_melibea, file_name) is not None:
             parsed_info = re.match(mask_data_melibea, file_name)
             telescope = None
-            run_number = int(parsed_info.grou(1))
+            run_number = int(parsed_info.group(1))
             datalevel = MARSDataLevel.MELIBEA
             is_mc = False
         elif re.match(mask_mc_calibrated, file_name) is not None:
