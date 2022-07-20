@@ -532,10 +532,10 @@ class MAGICEventSource(EventSource):
 
         for rootf in self.files_:
 
-            trigger_tree = rootf["Trigger"]
-            L3T_tree = rootf["L3T"]
-
             if self.mars_datalevel <= MARSDataLevel.STAR:
+
+                trigger_tree = rootf["Trigger"]
+                L3T_tree = rootf["L3T"]
                 # here we take the 2nd element (if possible) because sometimes
                 # the first trigger report has still the old prescaler values from a previous run
                 try:
@@ -558,30 +558,33 @@ class MAGICEventSource(EventSource):
                     stereo = True
                 else:
                     stereo = True
+
+                sumt = False
+                if stereo:
+                    # here we take the 2nd element for the same reason as above
+                    # L3Table is empty for mono data i.e. taken with one telescope only
+                    # if both telescopes take data with no L3, L3Table is filled anyway
+                    L3Table_array = L3T_tree["MReportL3T.fTablename"].array(library="np")
+                    L3Table_size = L3Table_array.size
+                    if L3Table_size > 1:
+                        L3Table = L3Table_array[1]
+                    else:
+                        L3Table = L3Table_array[0]
+
+                    if L3Table == L3_table_sumt:
+                        sumt = True
+                    elif L3Table == L3_table_nosumt:
+                        sumt = False
+                    else:
+                        sumt = False
+                else:
+                    if prescaler == prescaler_mono_sumt:
+                        sumt = True
+
             else:
+                # to be changed
                 stereo = True
-
-            sumt = False
-            if stereo:
-                # here we take the 2nd element for the same reason as above
-                # L3Table is empty for mono data i.e. taken with one telescope only
-                # if both telescopes take data with no L3, L3Table is filled anyway
-                L3Table_array = L3T_tree["MReportL3T.fTablename"].array(library="np")
-                L3Table_size = L3Table_array.size
-                if L3Table_size > 1:
-                    L3Table = L3Table_array[1]
-                else:
-                    L3Table = L3Table_array[0]
-
-                if L3Table == L3_table_sumt:
-                    sumt = True
-                elif L3Table == L3_table_nosumt:
-                    sumt = False
-                else:
-                    sumt = False
-            else:
-                if prescaler == prescaler_mono_sumt:
-                    sumt = True
+                sumt = False
 
             is_stereo.append(stereo)
             is_sumt.append(sumt)
