@@ -149,6 +149,7 @@ def test_allowed_tels():
 @pytest.mark.parametrize('dataset', test_calibrated_all+test_superstar_all)
 def test_loop(dataset):
     from ctapipe_io_magic import MAGICEventSource, MARSDataLevel
+    import numpy as np
     n_events = 10
     with MAGICEventSource(input_url=dataset, max_events=n_events, process_run=False) as source:
         for i, event in enumerate(source):
@@ -159,7 +160,7 @@ def test_loop(dataset):
                 if "_M2_" in dataset.name:
                     assert event.trigger.tels_with_trigger == [2]
             else:
-                assert event.trigger.tels_with_trigger == [1, 2]
+                assert np.array_equal(event.trigger.tels_with_trigger, np.array([1, 2]))
 
         assert (i + 1) == n_events
 
