@@ -1130,6 +1130,11 @@ class MAGICEventSource(EventSource):
                 self.is_simulation,
                 self.telescopes[0],
             )
+        if self.mars_datalevel == MARSDataLevel.SUPERSTAR:
+            run['data'] = MarsSuperstarRun(
+                uproot_file,
+                self.is_simulation,
+            )
 
         return run
 
