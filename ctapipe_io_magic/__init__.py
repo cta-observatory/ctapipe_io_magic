@@ -1779,8 +1779,8 @@ class MarsSuperstarRun:
             ]
 
             hillas_timefit_branches[tel_id] = [
-                f'MHillaTimeFit_{tel_id}.fP1Const',  # [Time_slices]
-                f'MHillaTimeFit_{tel_id}.fP1Grad',  # [Time_slices]/[mm]
+                f'MHillasTimeFit_{tel_id}.fP1Const',  # [Time_slices]
+                f'MHillasTimeFit_{tel_id}.fP1Grad',  # [Time_slices]/[mm]
             ]
 
             mc_branches[tel_id] = [
