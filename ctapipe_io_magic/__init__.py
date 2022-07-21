@@ -1698,6 +1698,10 @@ class MarsSuperstarRun:
     def n_cosmic_events(self):
         return len(self.cosmic_events[1].get('trigger_pattern', []))
 
+    @property
+    def n_pedestal_events(self):
+        return 0
+
     def _load_data(self):
         """
         This method loads cosmic and pedestal events, and monitoring data
