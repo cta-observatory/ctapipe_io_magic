@@ -1191,30 +1191,31 @@ class MAGICEventSource(EventSource):
 
                 if not self.is_simulation:
 
-                    monitoring_data = self.current_run['data'].monitoring_data
-
-                    # Set the pedestal information:
-                    event.mon.tel[tel_id].pedestal.n_events = 500   # hardcoded number of pedestal events averaged over
-                    event.mon.tel[tel_id].pedestal.sample_time = monitoring_data[tel_id]['pedestal_sample_time']
-
-                    event.mon.tel[tel_id].pedestal.charge_mean = [
-                        monitoring_data[tel_id]['pedestal_fundamental']['mean'],
-                        monitoring_data[tel_id]['pedestal_from_extractor']['mean'],
-                        monitoring_data[tel_id]['pedestal_from_extractor_rndm']['mean'],
-                    ]
-
-                    event.mon.tel[tel_id].pedestal.charge_std = [
-                        monitoring_data[tel_id]['pedestal_fundamental']['rms'],
-                        monitoring_data[tel_id]['pedestal_from_extractor']['rms'],
-                        monitoring_data[tel_id]['pedestal_from_extractor_rndm']['rms'],
-                    ]
-
-                    # Set the bad pixel information:
-                    event.mon.tel[tel_id].pixel_status.hardware_failing_pixels = np.reshape(
-                        monitoring_data[tel_id]['bad_pixel'], (1, len(monitoring_data[tel_id]['bad_pixel']))
-                    )
-
                     if self.mars_datalevel == MARSDataLevel.CALIBRATED:
+
+                        monitoring_data = self.current_run['data'].monitoring_data
+
+                        # Set the pedestal information:
+                        event.mon.tel[tel_id].pedestal.n_events = 500   # hardcoded number of pedestal events averaged over
+                        event.mon.tel[tel_id].pedestal.sample_time = monitoring_data[tel_id]['pedestal_sample_time']
+
+                        event.mon.tel[tel_id].pedestal.charge_mean = [
+                            monitoring_data[tel_id]['pedestal_fundamental']['mean'],
+                            monitoring_data[tel_id]['pedestal_from_extractor']['mean'],
+                            monitoring_data[tel_id]['pedestal_from_extractor_rndm']['mean'],
+                        ]
+
+                        event.mon.tel[tel_id].pedestal.charge_std = [
+                            monitoring_data[tel_id]['pedestal_fundamental']['rms'],
+                            monitoring_data[tel_id]['pedestal_from_extractor']['rms'],
+                            monitoring_data[tel_id]['pedestal_from_extractor_rndm']['rms'],
+                        ]
+
+                        # Set the bad pixel information:
+                        event.mon.tel[tel_id].pixel_status.hardware_failing_pixels = np.reshape(
+                            monitoring_data[tel_id]['bad_pixel'], (1, len(monitoring_data[tel_id]['bad_pixel']))
+                        )
+
                         # Interpolate drive information:
                         drive_data = self.drive_information
                         n_drive_reports = len(drive_data['mjd'])
@@ -1272,7 +1273,7 @@ class MAGICEventSource(EventSource):
                         event.trigger.time = event_data[tel_id]['time'][i_event]
                         event.trigger.tel[tel_id].time = event_data[tel_id]['time'][i_event]
 
-                        if not self.use_pedestals:
+                        if not self.use_pedestals and self.mars_datalevel == MARSDataLevel.CALIBRATED:
                             badrmspixel_mask = self._get_badrmspixel_mask(event, tel_id)
                             event.mon.tel[tel_id].pixel_status.pedestal_failing_pixels = badrmspixel_mask
 
