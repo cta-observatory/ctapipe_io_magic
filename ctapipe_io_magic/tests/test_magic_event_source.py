@@ -146,17 +146,20 @@ def test_allowed_tels():
         assert np.array_equal(source.subarray.tel_ids, np.array([1]))
 
 
-@pytest.mark.parametrize('dataset', test_calibrated_all)
+@pytest.mark.parametrize('dataset', test_calibrated_all+test_superstar_all)
 def test_loop(dataset):
-    from ctapipe_io_magic import MAGICEventSource
+    from ctapipe_io_magic import MAGICEventSource, MARSDataLevel
     n_events = 10
     with MAGICEventSource(input_url=dataset, max_events=n_events, process_run=False) as source:
         for i, event in enumerate(source):
             assert event.count == i
-            if "_M1_" in dataset.name:
-                assert event.trigger.tels_with_trigger == [1]
-            if "_M2_" in dataset.name:
-                assert event.trigger.tels_with_trigger == [2]
+            if source.mars_datalevel <= MARSDataLevel.STAR:
+                if "_M1_" in dataset.name:
+                    assert event.trigger.tels_with_trigger == [1]
+                if "_M2_" in dataset.name:
+                    assert event.trigger.tels_with_trigger == [2]
+            else:
+                assert event.trigger.tels_with_trigger == [1, 2]
 
         assert (i + 1) == n_events
 
@@ -176,7 +179,7 @@ def test_loop_pedestal(dataset):
             assert event.trigger.event_type == EventType.SKY_PEDESTAL
 
 
-@pytest.mark.parametrize('dataset', test_calibrated_all)
+@pytest.mark.parametrize('dataset', test_calibrated_all+test_superstar_all)
 def test_number_of_events(dataset):
     from ctapipe_io_magic import MAGICEventSource
 
@@ -193,7 +196,7 @@ def test_number_of_events(dataset):
         #     assert run['data'].n_pedestal_events_m2 == data_dict[source.input_url.name]['n_events_pedestal']
 
 
-@pytest.mark.parametrize('dataset', test_calibrated_all)
+@pytest.mark.parametrize('dataset', test_calibrated_all+test_superstar_all)
 def test_run_info(dataset):
     from ctapipe_io_magic import MAGICEventSource
 
@@ -240,7 +243,7 @@ def test_subarray_multiple_runs():
     assert list(sim_config.keys()) == source.obs_ids
 
 
-@pytest.mark.parametrize('dataset', test_calibrated_all)
+@pytest.mark.parametrize('dataset', test_calibrated_all+test_superstar_all)
 def test_that_event_is_not_modified_after_loop(dataset):
     from ctapipe_io_magic import MAGICEventSource
     n_events = 10
@@ -256,7 +259,7 @@ def test_that_event_is_not_modified_after_loop(dataset):
         assert event.index.event_id == last_event.index.event_id
 
 
-@pytest.mark.parametrize('dataset', test_calibrated_all)
+@pytest.mark.parametrize('dataset', test_calibrated_all+test_superstar_all)
 def test_geom(dataset):
     from ctapipe_io_magic import MAGICEventSource
 
