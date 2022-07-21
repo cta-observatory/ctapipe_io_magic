@@ -43,10 +43,13 @@ data_dict['20210314_M1_05095172.001_Y_CrabNebula-W0.40+035.root'] = dict()
 data_dict['20210314_M1_05095172.002_Y_CrabNebula-W0.40+035.root'] = dict()
 data_dict['20210314_M2_05095172.001_Y_CrabNebula-W0.40+035.root'] = dict()
 data_dict['20210314_M2_05095172.002_Y_CrabNebula-W0.40+035.root'] = dict()
+data_dict['20210314_05095172_S_CrabNebula-W0.40+035.root'] = dict()
 data_dict['GA_M1_za35to50_8_824318_Y_w0.root'] = dict()
 data_dict['GA_M1_za35to50_8_824319_Y_w0.root'] = dict()
 data_dict['GA_M2_za35to50_8_824318_Y_w0.root'] = dict()
 data_dict['GA_M2_za35to50_8_824319_Y_w0.root'] = dict()
+data_dict['GA_za35to50_8_824318_S_w0.root'] = dict()
+data_dict['GA_za35to50_8_824319_S_w0.root'] = dict()
 
 data_dict['20210314_M1_05095172.001_Y_CrabNebula-W0.40+035.root']['n_events_tot'] = 500
 data_dict['20210314_M1_05095172.001_Y_CrabNebula-W0.40+035.root']['n_events_stereo'] = 458
@@ -87,6 +90,21 @@ data_dict['GA_M2_za35to50_8_824319_Y_w0.root']['n_events_tot'] = 132
 data_dict['GA_M2_za35to50_8_824319_Y_w0.root']['n_events_stereo'] = 80
 data_dict['GA_M2_za35to50_8_824319_Y_w0.root']['n_events_pedestal'] = 0
 data_dict['GA_M2_za35to50_8_824319_Y_w0.root']['n_events_mc_mono'] = 52
+
+data_dict['20210314_05095172_S_CrabNebula-W0.40+035.root']['n_events_tot'] = 356
+data_dict['20210314_05095172_S_CrabNebula-W0.40+035.root']['n_events_stereo'] = 356
+data_dict['20210314_05095172_S_CrabNebula-W0.40+035.root']['n_events_pedestal'] = 0
+data_dict['20210314_05095172_S_CrabNebula-W0.40+035.root']['n_events_mc_mono'] = 0
+
+data_dict['GA_za35to50_8_824318_S_w0.root']['n_events_tot'] = 53
+data_dict['GA_za35to50_8_824318_S_w0.root']['n_events_stereo'] = 53
+data_dict['GA_za35to50_8_824318_S_w0.root']['n_events_pedestal'] = 0
+data_dict['GA_za35to50_8_824318_S_w0.root']['n_events_mc_mono'] = 0
+
+data_dict['GA_za35to50_8_824319_S_w0.root']['n_events_tot'] = 67
+data_dict['GA_za35to50_8_824319_S_w0.root']['n_events_stereo'] = 67
+data_dict['GA_za35to50_8_824319_S_w0.root']['n_events_pedestal'] = 0
+data_dict['GA_za35to50_8_824319_S_w0.root']['n_events_mc_mono'] = 0
 
 
 @pytest.mark.parametrize('dataset', test_calibrated_all+test_superstar_all)
