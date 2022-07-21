@@ -1294,41 +1294,41 @@ class MAGICEventSource(EventSource):
                     if self.mars_datalevel >= MARSDataLevel.SUPERSTAR:
                         event.dl1.tel[tel_id].parameters = ImageParametersContainer()
                         event.dl1.tel[tel_id].parameters.hillas = CameraHillasParametersContainer(
-                            x=-event_data[tel_id]["y"],
-                            y=-event_data[tel_id]["x"],
-                            length=event_data[tel_id]["length"],
-                            width=event_data[tel_id]["width"],
-                            intensity=event_data[tel_id]["intensity"],
-                            r=np.sqrt(event_data[tel_id]["x"]*event_data[tel_id]["x"]+event_data[tel_id]["y"]*event_data[tel_id]["y"]),
-                            psi=event_data[tel_id]["psi"],
-                            phi=event_data[tel_id]["phi"],
+                            x=-event_data[tel_id]["y"][i_event],
+                            y=-event_data[tel_id]["x"][i_event],
+                            length=event_data[tel_id]["length"][i_event],
+                            width=event_data[tel_id]["width"][i_event],
+                            intensity=event_data[tel_id]["intensity"][i_event],
+                            r=np.sqrt(event_data[tel_id]["x"][i_event]*event_data[tel_id]["x"][i_event]+event_data[tel_id]["y"][i_event]*event_data[tel_id]["y"][i_event]),
+                            psi=event_data[tel_id]["psi"][i_event],
+                            phi=event_data[tel_id]["phi"][i_event],
                         )
 
                         event.dl1.tel[tel_id].parameters.timing = TimingParametersContainer(
-                            slope=event_data[tel_id]["slope"].value*(1./m2deg)*u.deg,
-                            intercept=event_data[tel_id]["intercept"],
+                            slope=event_data[tel_id]["slope"][i_event].value*(1./m2deg)*u.deg,
+                            intercept=event_data[tel_id]["intercept"][i_event],
                         )
 
                         # not fully filled
                         event.dl1.tel[tel_id].parameters.leakage = LeakageContainer(
-                            intensity_width_1=event_data[tel_id]["intensity_width_1"],
-                            intensity_width_2=event_data[tel_id]["intensity_width_2"],
+                            intensity_width_1=event_data[tel_id]["intensity_width_1"][i_event],
+                            intensity_width_2=event_data[tel_id]["intensity_width_2"][i_event],
                         )
 
                         # not fully filled
                         event.dl1.tel[tel_id].parameters.morphology = MorphologyContainer(
-                            num_pixels=event_data[tel_id]["num_pixels"],
-                            num_islands=event_data[tel_id]["num_islands"],
+                            num_pixels=event_data[tel_id]["num_pixels"][i_event],
+                            num_islands=event_data[tel_id]["num_islands"][i_event],
                         )
 
                         event.dl2.stereo.geometry["HillasReconstructor"] = ReconstructedGeometryContainer(
-                            alt=event_data["stereo"]["alt"],
-                            az=event_data["stereo"]["az"],
-                            core_x=event_data["stereo"]["core_x"],
-                            core_y=event_data["stereo"]["core_y"],
-                            h_max=event_data["stereo"]["h_max"],
-                            is_valid=True if event_data["stereo"]["is_valid"] == 1 else False,
-                            average_intensity=(event_data[1]["intensity"]+event_data[2]["intensity"]) / 2.,
+                            alt=event_data["stereo"]["alt"][i_event],
+                            az=event_data["stereo"]["az"][i_event],
+                            core_x=event_data["stereo"]["core_x"][i_event],
+                            core_y=event_data["stereo"]["core_y"][i_event],
+                            h_max=event_data["stereo"]["h_max"][i_event],
+                            is_valid=True if event_data["stereo"]["is_valid"][i_event] == 1 else False,
+                            average_intensity=(event_data[1]["intensity"][i_event]+event_data[2]["intensity"][i_event]) / 2.,
                             tel_ids=[1, 2],
                         )
 
