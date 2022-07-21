@@ -1950,8 +1950,8 @@ class MarsSuperstarRun:
                 library='np',
             )
 
-            event_data[tel_id]['slope'] = u.Quantity(hillas_timefit[f'MHillaTimeFit_{tel_id}.fP1Grad'], 1/u.mm).to(1/u.m) * (1./sampling_speed)
-            event_data[tel_id]['intercept'] = hillas_timefit[f'MHillaTimeFit_{tel_id}.fP1Const'] * (1./sampling_speed)
+            event_data[tel_id]['slope'] = u.Quantity(hillas_timefit[f'MHillasTimeFit_{tel_id}.fP1Grad'], 1/u.mm).to(1/u.m) * (1./sampling_speed)
+            event_data[tel_id]['intercept'] = hillas_timefit[f'MHillasTimeFit_{tel_id}.fP1Const'] * (1./sampling_speed)
 
         stereo_data["cosmic_events"] = event_data
 
