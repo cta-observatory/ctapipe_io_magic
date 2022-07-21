@@ -1957,7 +1957,7 @@ class MarsSuperstarRun:
         stereo_data["cosmic_events"] = event_data
 
         stereo_parameters = self.uproot_file['Events'].arrays(
-            expressions=stereo_branches[tel_id],
+            expressions=stereo_branches,
             cut=events_cut,
             library='np',
         )
