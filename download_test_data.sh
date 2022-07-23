@@ -9,6 +9,8 @@ echo "https://webdav-magic.pic.es:8451/Users/ctapipe_io_magic/test_data/real/cal
 
 echo "https://webdav-magic.pic.es:8451/Users/ctapipe_io_magic/test_data/real/superstar/20210314_05095172_S_CrabNebula-W0.40+035.root" > test_data_superstar_real.txt
 
+echo "https://webdav-magic.pic.es:8451/Users/ctapipe_io_magic/test_data/real/superstar/20210314_05095172_Q_CrabNebula-W0.40+035.root" > test_data_melibea_real.txt
+
 echo "https://webdav-magic.pic.es:8451/Users/ctapipe_io_magic/test_data/simulated/calibrated/GA_M1_za35to50_8_824318_Y_w0.root" >  test_data_simulated.txt
 echo "https://webdav-magic.pic.es:8451/Users/ctapipe_io_magic/test_data/simulated/calibrated/GA_M1_za35to50_8_824319_Y_w0.root" >> test_data_simulated.txt
 echo "https://webdav-magic.pic.es:8451/Users/ctapipe_io_magic/test_data/simulated/calibrated/GA_M2_za35to50_8_824318_Y_w0.root" >> test_data_simulated.txt
@@ -16,6 +18,9 @@ echo "https://webdav-magic.pic.es:8451/Users/ctapipe_io_magic/test_data/simulate
 
 echo "https://webdav-magic.pic.es:8451/Users/ctapipe_io_magic/test_data/simulated/superstar/GA_za35to50_8_824318_S_w0.root" > test_data_superstar_simulated.txt
 echo "https://webdav-magic.pic.es:8451/Users/ctapipe_io_magic/test_data/simulated/superstar/GA_za35to50_8_824319_S_w0.root" >> test_data_superstar_simulated.txt
+
+echo "https://webdav-magic.pic.es:8451/Users/ctapipe_io_magic/test_data/simulated/superstar/GA_za35to50_8_824318_Q_w0.root" > test_data_melibea_simulated.txt
+echo "https://webdav-magic.pic.es:8451/Users/ctapipe_io_magic/test_data/simulated/superstar/GA_za35to50_8_824319_Q_w0.root" >> test_data_melibea_simulated.txt
 
 if [ -z "$TEST_DATA_USER" ]; then
     echo -n "Username: "
@@ -52,6 +57,17 @@ if ! wget \
 fi
 
 if ! wget \
+    -i test_data_melibea_real.txt \
+    --user="$TEST_DATA_USER" \
+    --password="$TEST_DATA_PASSWORD" \
+    --no-check-certificate \
+    --no-verbose \
+    --timestamping \
+    --directory-prefix=test_data/real/superstar; then
+    echo "Problem in downloading the test data set for real data."
+fi
+
+if ! wget \
     -i test_data_simulated.txt \
     --user="$TEST_DATA_USER" \
     --password="$TEST_DATA_PASSWORD" \
@@ -73,4 +89,15 @@ if ! wget \
     echo "Problem in downloading the test data set for simulated data."
 fi
 
-rm -f test_data_real.txt test_data_simulated.txt test_data_superstar_real.txt test_data_superstar_simulated.txt
+if ! wget \
+    -i test_data_melibea_simulated.txt \
+    --user="$TEST_DATA_USER" \
+    --password="$TEST_DATA_PASSWORD" \
+    --no-check-certificate \
+    --no-verbose \
+    --timestamping \
+    --directory-prefix=test_data/simulated/superstar; then
+    echo "Problem in downloading the test data set for simulated data."
+fi
+
+rm -f test_data_real.txt test_data_simulated.txt test_data_superstar_real.txt test_data_superstar_simulated.txt test_data_melibea_real.txt test_data_melibea_simulated.txt
