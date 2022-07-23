@@ -49,6 +49,8 @@ test_calibrated_all = test_calibrated_real+test_calibrated_simulated
 
 test_superstar_all = test_superstar_mars_real + test_superstar_mars_simulated
 
+test_melibea_all = test_melibea_mars_real + test_melibea_mars_simulated
+
 data_dict = dict()
 
 data_dict['20210314_M1_05095172.001_Y_CrabNebula-W0.40+035.root'] = dict()
@@ -137,7 +139,7 @@ data_dict['GA_za35to50_8_824319_Q_w0.root']['n_events_pedestal'] = 0
 data_dict['GA_za35to50_8_824319_Q_w0.root']['n_events_mc_mono'] = 0
 
 
-@pytest.mark.parametrize('dataset', test_calibrated_all+test_superstar_all)
+@pytest.mark.parametrize('dataset', test_calibrated_all+test_superstar_all+test_melibea_all)
 def test_event_source_for_magic_file(dataset):
     from ctapipe.io import EventSource
 
@@ -150,7 +152,7 @@ def test_event_source_for_magic_file(dataset):
     assert reader.input_url == dataset
 
 
-@pytest.mark.parametrize('dataset', test_calibrated_all+test_superstar_all)
+@pytest.mark.parametrize('dataset', test_calibrated_all+test_superstar_all+test_melibea_all)
 def test_compatible(dataset):
     from ctapipe_io_magic import MAGICEventSource
     assert MAGICEventSource.is_compatible(dataset)
@@ -161,7 +163,7 @@ def test_not_compatible():
     assert MAGICEventSource.is_compatible(None) is False
 
 
-@pytest.mark.parametrize('dataset', test_calibrated_all+test_superstar_all)
+@pytest.mark.parametrize('dataset', test_calibrated_all+test_superstar_all+test_melibea_all)
 def test_stream(dataset):
     from ctapipe_io_magic import MAGICEventSource
     with MAGICEventSource(input_url=dataset, process_run=False) as source:
@@ -176,7 +178,7 @@ def test_allowed_tels():
         assert np.array_equal(source.subarray.tel_ids, np.array([1]))
 
 
-@pytest.mark.parametrize('dataset', test_calibrated_all+test_superstar_all)
+@pytest.mark.parametrize('dataset', test_calibrated_all+test_superstar_all+test_melibea_all)
 def test_loop(dataset):
     from ctapipe_io_magic import MAGICEventSource, MARSDataLevel
     import numpy as np
@@ -210,7 +212,7 @@ def test_loop_pedestal(dataset):
             assert event.trigger.event_type == EventType.SKY_PEDESTAL
 
 
-@pytest.mark.parametrize('dataset', test_calibrated_all+test_superstar_all)
+@pytest.mark.parametrize('dataset', test_calibrated_all+test_superstar_all+test_melibea_all)
 def test_number_of_events(dataset):
     from ctapipe_io_magic import MAGICEventSource
 
@@ -227,7 +229,7 @@ def test_number_of_events(dataset):
         #     assert run['data'].n_pedestal_events_m2 == data_dict[source.input_url.name]['n_events_pedestal']
 
 
-@pytest.mark.parametrize('dataset', test_calibrated_all+test_superstar_all)
+@pytest.mark.parametrize('dataset', test_calibrated_all+test_superstar_all+test_melibea_all)
 def test_run_info(dataset):
     from ctapipe_io_magic import MAGICEventSource
 
@@ -274,7 +276,7 @@ def test_subarray_multiple_runs():
     assert list(sim_config.keys()) == source.obs_ids
 
 
-@pytest.mark.parametrize('dataset', test_calibrated_all+test_superstar_all)
+@pytest.mark.parametrize('dataset', test_calibrated_all+test_superstar_all+test_melibea_all)
 def test_that_event_is_not_modified_after_loop(dataset):
     from ctapipe_io_magic import MAGICEventSource
     n_events = 10
@@ -290,7 +292,7 @@ def test_that_event_is_not_modified_after_loop(dataset):
         assert event.index.event_id == last_event.index.event_id
 
 
-@pytest.mark.parametrize('dataset', test_calibrated_all+test_superstar_all)
+@pytest.mark.parametrize('dataset', test_calibrated_all+test_superstar_all+test_melibea_all)
 def test_geom(dataset):
     from ctapipe_io_magic import MAGICEventSource
 
