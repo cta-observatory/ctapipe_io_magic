@@ -1137,6 +1137,11 @@ class MAGICEventSource(EventSource):
                 uproot_file,
                 self.is_simulation,
             )
+        if self.mars_datalevel == MARSDataLevel.MELIBEA:
+            run['data'] = MarsMelibeaRun(
+                uproot_file,
+                self.is_simulation,
+            )
 
         return run
 
