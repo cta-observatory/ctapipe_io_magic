@@ -209,7 +209,7 @@ def test_run_info(dataset):
         datalevel = [i[3] for i in run_info][0]
         assert run_numbers == source.run_numbers
         assert is_mc == source.is_simulation
-        assert telescope == source.telescopes[0]
+        assert telescope == source.telescopes
         assert datalevel == source.mars_datalevel
 
 
