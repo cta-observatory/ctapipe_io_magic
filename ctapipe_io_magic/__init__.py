@@ -32,6 +32,8 @@ from ctapipe.containers import (
     LeakageContainer,
     MorphologyContainer,
     ReconstructedGeometryContainer,
+    ReconstructedEnergyContainer,
+    ParticleClassificationContainer,
 )
 
 from ctapipe.instrument import (
@@ -1332,6 +1334,20 @@ class MAGICEventSource(EventSource):
                             tel_ids=[1, 2],
                         )
 
+                    if self.mars_datalevel >= MARSDataLevel.MELIBEA:
+                        event.dl2.stereo.energy = ReconstructedEnergyContainer(
+                            energy=event_data["reconstructed"]["energy"][i_event],
+                            energy_uncert=event_data["reconstructed"]["energy_uncert"][i_event],
+                            is_valid=True if event_data["stereo"]["is_valid"][i_event] == 1 else False,
+                            tel_ids=[1, 2],
+                        )
+
+                        event.dl2.stereo.classification = ParticleClassificationContainer(
+                            predictiion=event_data["reconstructed"]["gammanness"][i_event],
+                            is_valid=True if event_data["stereo"]["is_valid"][i_event] == 1 else False,
+                            tel_ids=[1, 2],
+                        )
+
                     # Set the simulated event container:
                     if self.is_simulation:
 
@@ -1684,7 +1700,7 @@ class MarsSuperstarRun:
         Parameters
         ----------
         uproot_file: uproot.reading.ReadOnlyDirectory
-            A calibrated file opened by uproot via uproot.open(file_path)
+            A superstar file opened by uproot via uproot.open(file_path)
         is_mc: bool
             Flag to MC data
         n_cam_pixels: int
@@ -1971,5 +1987,342 @@ class MarsSuperstarRun:
         stereo_params['is_valid'] = stereo_parameters['MStereoPar.fValid']
 
         stereo_data["cosmic_events"]["stereo"] = stereo_params
+
+        return stereo_data
+
+
+class MarsMelibeaRun:
+    """
+    This class implements reading of cosmic events from a MAGIC melibea run file.
+    """
+
+    def __init__(self, uproot_file, is_mc, n_cam_pixels=1039):
+        """
+        Constructor of the class. Loads an input uproot file
+        and store the informaiton to constructor variables.
+
+        Parameters
+        ----------
+        uproot_file: uproot.reading.ReadOnlyDirectory
+            A melibea file opened by uproot via uproot.open(file_path)
+        is_mc: bool
+            Flag to MC data
+        n_cam_pixels: int
+            The number of pixels of the MAGIC camera
+        """
+
+        self.uproot_file = uproot_file
+        self.is_mc = is_mc
+        self.n_cam_pixels = n_cam_pixels
+
+        # Load the input data:
+        stereo_data = self._load_data()
+
+        self.cosmic_events = stereo_data["cosmic_events"]
+
+    @property
+    def n_cosmic_events(self):
+        return len(self.cosmic_events[1].get('trigger_pattern', []))
+
+    @property
+    def n_pedestal_events(self):
+        return 0
+
+    def _load_data(self):
+        """
+        This method loads cosmic and pedestal events, and monitoring data
+        from an input calibrated file and returns them as a dictionary.
+
+        Returns
+        -------
+        stereo_data: dict
+            A dictionary with the event properties,
+            cosmic and pedestal events, and monitoring data
+        """
+
+        common_branches = dict()
+        pointing_branches = dict()
+        timing_branches = dict()
+        hillas_branches = dict()
+        hillas_src_branches = dict()
+        imagepar_branches = dict()
+        imagepar_disp_branches = dict()
+        new_imagepar_branches = dict()
+        hillas_timefit_branches = dict()
+        mc_branches = dict()
+
+        for tel_id in [1, 2]:
+
+            common_branches[tel_id] = [
+                f'MRawEvtHeader_{tel_id}.fStereoEvtNumber',
+                f'MTriggerPattern_{tel_id}.fPrescaled',
+            ]
+
+            pointing_branches[tel_id] = [
+                f'MPointingPos_{tel_id}.fZd',  # [deg]
+                f'MPointingPos_{tel_id}.fAz',  # [deg]
+                f'MPointingPos_{tel_id}.fRa',  # [h]
+                f'MPointingPos_{tel_id}.fDec',  # [deg]
+                f'MPointingPos_{tel_id}.fDevZd',  # [deg]
+                f'MPointingPos_{tel_id}.fDevAz',  # [deg]
+                f'MPointingPos_{tel_id}.fDevHa',  # [h]
+                f'MPointingPos_{tel_id}.fDevDec',  # [deg]
+            ]
+
+            # Branches applicable for real data:
+            timing_branches[tel_id] = [
+                f'MTime_{tel_id}.fMjd',
+                f'MTime_{tel_id}.fTime.fMilliSec',
+                f'MTime_{tel_id}.fNanoSec',
+            ]
+
+            hillas_branches[tel_id] = [
+                f'MHillas_{tel_id}.fLength',  # [mm]
+                f'MHillas_{tel_id}.fWidth',  # [mm]
+                f'MHillas_{tel_id}.fDelta',  # [rad]
+                f'MHillas_{tel_id}.fSize',
+                f'MHillas_{tel_id}.fMeanX',  # [mm]
+                f'MHillas_{tel_id}.fMeanY',  # [mm]
+            ]
+
+            hillas_src_branches[tel_id] = [
+                f'MHillasSrc_{tel_id}.fDCADelta',  # [deg]  Angle of the shower axis with respect to the x-axis
+                f'MHillasSrc_{tel_id}.fDist',  # [mm]   distance between src and center of ellipse
+            ]
+
+            imagepar_branches[tel_id] = [
+                f'MImagePar_{tel_id}.fNumIslands',  # Number of distinct pixel groupings in image
+            ]
+
+            new_imagepar_branches[tel_id] = [
+                f'MNewImagePar_{tel_id}.fNumUsedPixels',  # Number of pixels which survived the image cleaning
+                f'MNewImagePar_{tel_id}.fLeakage1',  # (photons in most outer ring of pixels) over fSize
+                f'MNewImagePar_{tel_id}.fLeakage2',  # (photons in the 2 outer rings of pixels) over fSize
+            ]
+
+            hillas_timefit_branches[tel_id] = [
+                f'MHillasTimeFit_{tel_id}.fP1Const',  # [Time_slices]
+                f'MHillasTimeFit_{tel_id}.fP1Grad',  # [Time_slices]/[mm]
+            ]
+
+            mc_branches[tel_id] = [
+                f'MMcEvt_{tel_id}.fEnergy',
+                f'MMcEvt_{tel_id}.fTheta',
+                f'MMcEvt_{tel_id}.fPhi',
+                f'MMcEvt_{tel_id}.fPartId',
+                f'MMcEvt_{tel_id}.fZFirstInteraction',
+                f'MMcEvt_{tel_id}.fCoreX',
+                f'MMcEvt_{tel_id}.fCoreY',
+            ]
+
+            imagepar_disp_branches[tel_id] = [
+                f'MImageParDisp_{tel_id}.fDisp',
+                f'MImageParDisp_{tel_id}.fDispRMS',
+                f'MImageParDisp_{tel_id}.fXDisp',
+                f'MImageParDisp_{tel_id}.fYDisp',
+            ]
+
+        stereo_branches = [
+            'MStereoParDisp.fValid',
+            'MStereoParDisp.fDirectionX',
+            'MStereoParDisp.fDirectionY',
+            'MStereoParDisp.fDirectionZd',
+            'MStereoParDisp.fDirectionAz',
+            'MStereoParDisp.fDirectionDec',
+            'MStereoParDisp.fDirectionRA',
+            'MStereoParDisp.fTheta2',
+            'MStereoParDisp.fCoreX',
+            'MStereoParDisp.fCoreY',
+            'MStereoParDisp.fM1Impact',
+            'MStereoParDisp.fM2Impact',
+            'MStereoParDisp.fMaxHeight',
+        ]
+
+        melibea_branches = [
+            'MHadronness.fHadronness',
+            'MHadronness.fHadronnessRMS',
+            'MEnergyEst.fEnergy',
+            'MEnergyEst.fEnergyRMS',
+            'MEnergyEst.fUncertainty',
+            'MEnergyEst.fImpact',
+            'MEnergyEstAtmCorr.fEnergy',
+            'MEnergyEstAtmCorr.fEnergyRMS',
+            'MEnergyEstAtmCorr.fImpact',
+        ]
+
+        stereo_data = {
+            'cosmic_events': dict(),
+        }
+
+        event_data = dict()
+
+        for tel_id in [1, 2]:
+
+            # Initialize the data container:
+
+            event_data[tel_id] = dict()
+
+            if self.is_mc:
+                # Only for cosmic events because MC data do not have pedestal events:
+                events_cut = f'(MTriggerPattern_{tel_id}.fPrescaled == {MC_STEREO_TRIGGER_PATTERN})' \
+                                              f' & (MRawEvtHeader_{tel_id}.fStereoEvtNumber != 0)'
+            else:
+                events_cut = f'(MTriggerPattern_{tel_id}.fPrescaled == {DATA_STEREO_TRIGGER_PATTERN})'
+
+            # read common information from RunHeaders
+            sampling_speed = self.uproot_file['RunHeaders'][f'MRawRunHeader_{tel_id}.fSamplingFrequency'].array(library='np')[0]/1000. # GHz
+
+            # Reading the information common to cosmic and pedestal events:
+            common_info = self.uproot_file['Events'].arrays(
+                expressions=common_branches[tel_id],
+                cut=events_cut,
+                library='np',
+            )
+
+            event_data[tel_id]['trigger_pattern'] = np.array(common_info[f'MTriggerPattern_{tel_id}.fPrescaled'], dtype=int)
+            event_data[tel_id]['stereo_event_number'] = np.array(common_info[f'MRawEvtHeader_{tel_id}.fStereoEvtNumber'], dtype=int)
+
+            if self.is_mc:
+
+                # Reading the MC information:
+                mc_info = self.uproot_file['Events'].arrays(
+                    expressions=mc_branches[tel_id],
+                    cut=events_cut,
+                    library='np',
+                )
+
+                # Note that the branch "MMcEvt.fPhi" seems to be the angle between the direction
+                # of the magnetic north and the momentum of a simulated primary particle, defined
+                # between -pi and pi, negative if the momentum pointing eastward, positive westward.
+                # The conversion to azimuth should be 180 - fPhi + magnetic_declination:
+                event_data[tel_id]['mc_energy'] = u.Quantity(mc_info[f'MMcEvt_{tel_id}.fEnergy'], u.GeV)
+                event_data[tel_id]['mc_theta'] = u.Quantity(mc_info[f'MMcEvt_{tel_id}.fTheta'], u.rad)
+                event_data[tel_id]['mc_phi'] = u.Quantity(mc_info[f'MMcEvt_{tel_id}.fPhi'], u.rad)
+                event_data[tel_id]['mc_shower_primary_id'] = np.array(mc_info[f'MMcEvt_{tel_id}.fPartId'], dtype=int)
+                event_data[tel_id]['mc_h_first_int'] = u.Quantity(mc_info[f'MMcEvt_{tel_id}.fZFirstInteraction'], u.cm)
+                event_data[tel_id]['mc_core_x'] = u.Quantity(mc_info[f'MMcEvt_{tel_id}.fCoreX'], u.cm)
+                event_data[tel_id]['mc_core_y'] = u.Quantity(mc_info[f'MMcEvt_{tel_id}.fCoreY'], u.cm)
+
+            else:
+                # Reading the event timing information:
+                timing_info = self.uproot_file['Events'].arrays(
+                    expressions=timing_branches[tel_id],
+                    cut=events_cut,
+                    library='np',
+                )
+
+                # In order to keep the precision of timestamps, here the Decimal module is used.
+                # At the later steps, the precise information can be extracted by specifying
+                # the sub-format of value to 'long', i.e., Time.to_value(format='unix', subfmt='long'):
+                event_obs_day = Time(timing_info[f'MTime_{tel_id}.fMjd'], format='mjd', scale='utc')
+                event_obs_day = np.round(event_obs_day.unix)
+                event_obs_day = np.array([Decimal(str(x)) for x in event_obs_day])
+
+                event_millisec = np.round(timing_info[f'MTime_{tel_id}.fTime.fMilliSec'] * msec2sec, 3)
+                event_millisec = np.array([Decimal(str(x)) for x in event_millisec])
+
+                event_nanosec = np.round(timing_info[f'MTime_{tel_id}.fNanoSec'] * nsec2sec, 7)
+                event_nanosec = np.array([Decimal(str(x)) for x in event_nanosec])
+
+                event_time = event_obs_day + event_millisec + event_nanosec
+                event_data[tel_id]['time'] = Time(event_time, format='unix', scale='utc')
+
+            # Reading the telescope pointing information:
+            pointing = self.uproot_file['Events'].arrays(
+                expressions=pointing_branches[tel_id],
+                cut=events_cut,
+                library='np',
+            )
+
+            pointing_az = pointing[f'MPointingPos_{tel_id}.fAz'] - pointing[f'MPointingPos_{tel_id}.fDevAz']
+            pointing_zd = pointing[f'MPointingPos_{tel_id}.fZd'] - pointing[f'MPointingPos_{tel_id}.fDevZd']
+
+            # N.B. the positive sign here, as HA = local sidereal time - ra:
+            pointing_ra = (pointing[f'MPointingPos_{tel_id}.fRa'] + pointing[f'MPointingPos_{tel_id}.fDevHa']) * degrees_per_hour
+            pointing_dec = pointing[f'MPointingPos_{tel_id}.fDec'] - pointing[f'MPointingPos_{tel_id}.fDevDec']
+
+            event_data[tel_id]['pointing_az'] = u.Quantity(pointing_az, u.deg)
+            event_data[tel_id]['pointing_alt'] = u.Quantity(90 - pointing_zd, u.deg)
+            event_data[tel_id]['pointing_ra'] = u.Quantity(pointing_ra, u.deg)
+            event_data[tel_id]['pointing_dec'] = u.Quantity(pointing_dec, u.deg)
+
+            hillas = self.uproot_file['Events'].arrays(
+                expressions=hillas_branches[tel_id],
+                cut=events_cut,
+                library='np',
+            )
+
+            event_data[tel_id]['length'] = u.Quantity(hillas[f'MHillas_{tel_id}.fLength'], u.mm).to(u.m)
+            event_data[tel_id]['width'] = u.Quantity(hillas[f'MHillas_{tel_id}.fWidth'], u.mm).to(u.m)
+            event_data[tel_id]['x'] = u.Quantity(hillas[f'MHillas_{tel_id}.fMeanX'], u.mm).to(u.m)
+            event_data[tel_id]['y'] = u.Quantity(hillas[f'MHillas_{tel_id}.fMeanY'], u.mm).to(u.m)
+            event_data[tel_id]['intensity'] = u.Quantity(hillas[f'MHillas_{tel_id}.fSize'], u.mm).to(u.m)
+            event_data[tel_id]['psi'] = u.Quantity(hillas[f'MHillas_{tel_id}.fDelta'], u.rad).to(u.deg)
+
+            hillas_src = self.uproot_file['Events'].arrays(
+                expressions=hillas_src_branches[tel_id],
+                cut=events_cut,
+                library='np',
+            )
+
+            event_data[tel_id]['phi'] = u.Quantity(hillas_src[f'MHillasSrc_{tel_id}.fDCADelta'], u.deg)
+
+            imagepar = self.uproot_file['Events'].arrays(
+                expressions=imagepar_branches[tel_id],
+                cut=events_cut,
+                library='np',
+            )
+
+            event_data[tel_id]['num_islands'] = imagepar[f'MImagePar_{tel_id}.fNumIslands']
+
+            new_imagepar = self.uproot_file['Events'].arrays(
+                expressions=new_imagepar_branches[tel_id],
+                cut=events_cut,
+                library='np',
+            )
+
+            event_data[tel_id]['num_pixels'] = new_imagepar[f'MNewImagePar_{tel_id}.fNumUsedPixels']
+            event_data[tel_id]['intensity_width_1'] = new_imagepar[f'MNewImagePar_{tel_id}.fLeakage1'] * event_data[tel_id]['intensity']
+            event_data[tel_id]['intensity_width_2'] = new_imagepar[f'MNewImagePar_{tel_id}.fLeakage2'] * event_data[tel_id]['intensity']
+
+            hillas_timefit = self.uproot_file['Events'].arrays(
+                expressions=hillas_timefit_branches[tel_id],
+                cut=events_cut,
+                library='np',
+            )
+
+            event_data[tel_id]['slope'] = u.Quantity(hillas_timefit[f'MHillasTimeFit_{tel_id}.fP1Grad'], 1/u.mm).to(1/u.m) * (1./sampling_speed)
+            event_data[tel_id]['intercept'] = hillas_timefit[f'MHillasTimeFit_{tel_id}.fP1Const'] * (1./sampling_speed)
+
+        stereo_data["cosmic_events"] = event_data
+
+        stereo_parameters = self.uproot_file['Events'].arrays(
+            expressions=stereo_branches,
+            cut=events_cut,
+            library='np',
+        )
+
+        stereo_params = dict()
+        stereo_params['alt'] = u.Quantity(90 - stereo_parameters['MStereoParDisp.fDirectionZd'], u.deg)
+        stereo_params['az'] = u.Quantity(stereo_parameters['MStereoParDisp.fDirectionAz'], u.deg)
+        stereo_params['core_x'] = u.Quantity(stereo_parameters['MStereoParDisp.fCoreX'], u.cm).to(u.m)
+        stereo_params['core_y'] = u.Quantity(stereo_parameters['MStereoParDisp.fCoreY'], u.cm).to(u.m)
+        stereo_params['h_max'] = u.Quantity(stereo_parameters['MStereoParDisp.fMaxHeight'], u.cm).to(u.m)
+        stereo_params['is_valid'] = stereo_parameters['MStereoParDisp.fValid']
+
+        stereo_data["cosmic_events"]["stereo"] = stereo_params
+
+        melibea_parameters = self.uproot_file['Events'].arrays(
+            expressions=melibea_branches,
+            cut=events_cut,
+            library='np',
+        )
+
+        melibea_params = dict()
+        melibea_params['gammanness'] = 1.0 - melibea_parameters['MHadronness.fHadronness']
+        melibea_params['energy'] = u.Quantity(melibea_parameters['MEnergyEst.fEnergy'], u.GeV).to(u.TeV)
+        melibea_params['energy_uncert'] = u.Quantity(melibea_parameters['MEnergyEst.fUncertainty'], u.GeV).to(u.TeV)
+
+        stereo_data["cosmic_events"]["reconstructed"] = melibea_params
 
         return stereo_data
