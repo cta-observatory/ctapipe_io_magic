@@ -335,50 +335,50 @@ class MAGICEventSource(EventSource):
         mask_mc_melibea = r"GA_za\d+to\d+_\d_(\d+)_Q_.*"
         if re.match(mask_data_calibrated, file_name) is not None:
             parsed_info = re.match(mask_data_calibrated, file_name)
-            telescope = int(parsed_info.group(1))
+            telescope = [int(parsed_info.group(1))]
             run_number = int(parsed_info.group(2))
             datalevel = MARSDataLevel.CALIBRATED
             is_mc = False
         elif re.match(mask_data_star, file_name) is not None:
             parsed_info = re.match(mask_data_star, file_name)
-            telescope = int(parsed_info.group(1))
+            telescope = [int(parsed_info.group(1))]
             run_number = int(parsed_info.group(2))
             datalevel = MARSDataLevel.STAR
             is_mc = False
         elif re.match(mask_data_superstar, file_name) is not None:
             parsed_info = re.match(mask_data_superstar, file_name)
-            telescope = None
+            telescope = [1, 2]
             run_number = int(parsed_info.group(1))
             datalevel = MARSDataLevel.SUPERSTAR
             is_mc = False
         elif re.match(mask_data_melibea, file_name) is not None:
             parsed_info = re.match(mask_data_melibea, file_name)
-            telescope = None
+            telescope = [1, 2]
             run_number = int(parsed_info.group(1))
             datalevel = MARSDataLevel.MELIBEA
             is_mc = False
         elif re.match(mask_mc_calibrated, file_name) is not None:
             parsed_info = re.match(mask_mc_calibrated, file_name)
-            telescope = int(parsed_info.group(1))
+            telescope = [int(parsed_info.group(1))]
             run_number = int(parsed_info.group(2))
             datalevel = MARSDataLevel.CALIBRATED
             is_mc = True
         elif re.match(mask_mc_star, file_name) is not None:
             parsed_info = re.match(mask_mc_star, file_name)
-            telescope = int(parsed_info.group(1))
+            telescope = [int(parsed_info.group(1))]
             run_number = int(parsed_info.group(2))
             datalevel = MARSDataLevel.STAR
             is_mc = True
         elif re.match(mask_mc_superstar, file_name) is not None:
             parsed_info = re.match(mask_mc_superstar, file_name)
-            telescope = None
-            run_number = None
+            telescope = [1, 2]
+            run_number = int(parsed_info.group(1))
             datalevel = MARSDataLevel.SUPERSTAR
             is_mc = True
         elif re.match(mask_mc_melibea, file_name) is not None:
             parsed_info = re.match(mask_mc_melibea, file_name)
-            telescope = None
-            run_number = None
+            telescope = [1, 2]
+            run_number = int(parsed_info.group(1))
             datalevel = MARSDataLevel.MELIBEA
             is_mc = True
         else:
