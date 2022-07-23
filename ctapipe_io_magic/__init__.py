@@ -1648,16 +1648,16 @@ class MarsCalibratedRun:
 
                 # Set the mean and RMS of pedestal charges:
                 calib_data['monitoring_data'][self.tel_id]['pedestal_fundamental'] = {
-                    'mean': np.array(pedestal_info[f'MPedPhotFundamental.fArray.fMean'].tolist())[:, :self.n_cam_pixels],
-                    'rms': np.array(pedestal_info[f'MPedPhotFundamental.fArray.fRms'].tolist())[:, :self.n_cam_pixels],
+                    'mean': np.array(pedestal_info['MPedPhotFundamental.fArray.fMean'].tolist())[:, :self.n_cam_pixels],
+                    'rms': np.array(pedestal_info['MPedPhotFundamental.fArray.fRms'].tolist())[:, :self.n_cam_pixels],
                 }
                 calib_data['monitoring_data'][self.tel_id]['pedestal_from_extractor'] = {
-                    'mean': np.array(pedestal_info[f'MPedPhotFromExtractor.fArray.fMean'].tolist())[:, :self.n_cam_pixels],
-                    'rms': np.array(pedestal_info[f'MPedPhotFromExtractor.fArray.fRms'].tolist())[:, :self.n_cam_pixels],
+                    'mean': np.array(pedestal_info['MPedPhotFromExtractor.fArray.fMean'].tolist())[:, :self.n_cam_pixels],
+                    'rms': np.array(pedestal_info['MPedPhotFromExtractor.fArray.fRms'].tolist())[:, :self.n_cam_pixels],
                 }
                 calib_data['monitoring_data'][self.tel_id]['pedestal_from_extractor_rndm'] = {
-                    'mean': np.array(pedestal_info[f'MPedPhotFromExtractorRndm.fArray.fMean'].tolist())[:, :self.n_cam_pixels],
-                    'rms': np.array(pedestal_info[f'MPedPhotFromExtractorRndm.fArray.fRms'].tolist())[:, :self.n_cam_pixels],
+                    'mean': np.array(pedestal_info['MPedPhotFromExtractorRndm.fArray.fMean'].tolist())[:, :self.n_cam_pixels],
+                    'rms': np.array(pedestal_info['MPedPhotFromExtractorRndm.fArray.fRms'].tolist())[:, :self.n_cam_pixels],
                 }
 
             except KeyError:
