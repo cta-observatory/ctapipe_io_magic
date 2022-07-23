@@ -1348,7 +1348,7 @@ class MAGICEventSource(EventSource):
                         )
 
                         event.dl2.stereo.classification = ParticleClassificationContainer(
-                            predictiion=event_data["reconstructed"]["gammanness"][i_event],
+                            prediction=event_data["reconstructed"]["gammanness"][i_event],
                             is_valid=True if event_data["stereo"]["is_valid"][i_event] == 1 else False,
                             tel_ids=[1, 2],
                         )
