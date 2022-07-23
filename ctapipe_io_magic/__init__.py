@@ -3,56 +3,41 @@
 # Requires uproot package (https://github.com/scikit-hep/uproot).
 """
 
+import logging
 import os
 import re
+from decimal import Decimal
+from pathlib import Path
+
+import numpy as np
 import scipy
 import scipy.interpolate
 import uproot
-import logging
-import numpy as np
-from pathlib import Path
-from decimal import Decimal
 from astropy import units as u
 from astropy.time import Time
-from pkg_resources import resource_filename
-
-from ctapipe.io import EventSource, DataLevel
+from ctapipe.containers import (ArrayEventContainer,
+                                CameraHillasParametersContainer, EventType,
+                                ImageParametersContainer, LeakageContainer,
+                                MorphologyContainer,
+                                ParticleClassificationContainer,
+                                ReconstructedEnergyContainer,
+                                ReconstructedGeometryContainer,
+                                SimulatedEventContainer,
+                                SimulationConfigContainer,
+                                TimingParametersContainer)
+from ctapipe.coordinates import CameraFrame
 from ctapipe.core import Provenance
 from ctapipe.core.traits import Bool
-from ctapipe.coordinates import CameraFrame
+from ctapipe.instrument import (CameraDescription, CameraGeometry,
+                                CameraReadout, OpticsDescription,
+                                SubarrayDescription, TelescopeDescription)
+from ctapipe.io import DataLevel, EventSource
+from pkg_resources import resource_filename
 
-from ctapipe.containers import (
-    EventType,
-    ArrayEventContainer,
-    SimulationConfigContainer,
-    SimulatedEventContainer,
-    ImageParametersContainer,
-    CameraHillasParametersContainer,
-    TimingParametersContainer,
-    LeakageContainer,
-    MorphologyContainer,
-    ReconstructedGeometryContainer,
-    ReconstructedEnergyContainer,
-    ParticleClassificationContainer,
-)
-
-from ctapipe.instrument import (
-    TelescopeDescription,
-    SubarrayDescription,
-    OpticsDescription,
-    CameraDescription,
-    CameraGeometry,
-    CameraReadout,
-)
-
+from .constants import (DATA_STEREO_TRIGGER_PATTERN, MC_STEREO_TRIGGER_PATTERN,
+                        PEDESTAL_TRIGGER_PATTERN)
 from .mars_datalevels import MARSDataLevel
 from .version import __version__
-
-from .constants import (
-    MC_STEREO_TRIGGER_PATTERN,
-    PEDESTAL_TRIGGER_PATTERN,
-    DATA_STEREO_TRIGGER_PATTERN,
-)
 
 __all__ = [
     'MAGICEventSource',
