@@ -436,15 +436,15 @@ class MAGICEventSource(EventSource):
 
             datalevel = MARSDataLevel.CALIBRATED
             events_keys = events_tree.keys()
-            trees_in_file = [tree in events_keys for tree in melibea_trees]
-            if all(trees_in_file):
-                datalevel = MARSDataLevel.MELIBEA
-            trees_in_file = [tree in events_keys for tree in superstar_trees]
-            if all(trees_in_file):
-                datalevel = MARSDataLevel.SUPERSTAR
             trees_in_file = [tree in events_keys for tree in star_trees]
             if all(trees_in_file):
                 datalevel = MARSDataLevel.STAR
+            trees_in_file = [tree in events_keys for tree in superstar_trees]
+            if all(trees_in_file):
+                datalevel = MARSDataLevel.SUPERSTAR
+            trees_in_file = [tree in events_keys for tree in melibea_trees]
+            if all(trees_in_file):
+                datalevel = MARSDataLevel.MELIBEA
 
             if datalevel <= MARSDataLevel.STAR:
                 run_info = rootf['RunHeaders'].arrays(
