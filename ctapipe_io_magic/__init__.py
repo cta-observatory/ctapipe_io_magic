@@ -2143,17 +2143,30 @@ class MarsMelibeaRun:
             'MStereoParDisp.fMaxHeight',
         ]
 
-        melibea_branches = [
-            'MHadronness.fHadronness',
-            'MHadronness.fHadronnessRMS',
-            'MEnergyEst.fEnergy',
-            'MEnergyEst.fEnergyRMS',
-            'MEnergyEst.fUncertainty',
-            'MEnergyEst.fImpact',
-            'MEnergyEstAtmCorr.fEnergy',
-            'MEnergyEstAtmCorr.fEnergyRMS',
-            'MEnergyEstAtmCorr.fImpact',
-        ]
+        if self.is_mc:
+
+            melibea_branches = [
+                'MHadronness.fHadronness',
+                'MHadronness.fHadronnessRMS',
+                'MEnergyEst.fEnergy',
+                'MEnergyEst.fEnergyRMS',
+                'MEnergyEst.fUncertainty',
+                'MEnergyEst.fImpact',
+            ]
+
+        else:
+
+            melibea_branches = [
+                'MHadronness.fHadronness',
+                'MHadronness.fHadronnessRMS',
+                'MEnergyEst.fEnergy',
+                'MEnergyEst.fEnergyRMS',
+                'MEnergyEst.fUncertainty',
+                'MEnergyEst.fImpact',
+                'MEnergyEstAtmCorr.fEnergy',
+                'MEnergyEstAtmCorr.fEnergyRMS',
+                'MEnergyEstAtmCorr.fImpact',
+            ]
 
         stereo_data = {
             'cosmic_events': dict(),
