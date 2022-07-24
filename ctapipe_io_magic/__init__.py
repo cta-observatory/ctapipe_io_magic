@@ -1177,7 +1177,7 @@ class MAGICEventSource(EventSource):
         # ToCheck: will this be compatible in the future, e.g. with merged MC files
         return self.run_numbers
 
-    def _get_badrmspixel_mask(self, event, tel_id):
+    def get_badrmspixel_mask(self, event, tel_id):
         """
         Fetch bad RMS pixel mask for a given event.
 
@@ -1517,7 +1517,7 @@ class MAGICEventSource(EventSource):
                             not self.use_pedestals
                             and self.mars_datalevel == MARSDataLevel.CALIBRATED
                         ):
-                            badrmspixel_mask = self._get_badrmspixel_mask(
+                            badrmspixel_mask = self.get_badrmspixel_mask(
                                 event, tel_id
                             )
                             event.mon.tel[
