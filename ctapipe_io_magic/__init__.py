@@ -505,9 +505,9 @@ class MAGICEventSource(EventSource):
 
             prescaler_size = prescaler_array.size
             if prescaler_size > 1:
-                prescaler = prescaler_array[1]
+                prescaler = list(prescaler_array[1])
             else:
-                prescaler = prescaler_array[0]
+                prescaler = list(prescaler_array[0])
 
             if prescaler == prescaler_mono_nosumt or prescaler == prescaler_mono_sumt:
                 stereo = False
@@ -553,7 +553,7 @@ class MAGICEventSource(EventSource):
             logger.warning("Found data with both standard and Sum trigger. While this is \
                 not an issue, check that this is what you really want to do.")
 
-        return is_stereo, is_sumt
+        return is_stereo[0], is_sumt[0]
 
     def prepare_subarray_info(self):
         """
