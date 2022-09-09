@@ -1042,6 +1042,7 @@ class MAGICEventSource(EventSource):
             run['data'] = MarsCalibratedRun(
                 uproot_file,
                 self.is_simulation,
+                self.is_stereo,
             )
 
         return run
@@ -1231,7 +1232,7 @@ class MarsCalibratedRun:
     and monitoring data from a MAGIC calibrated subrun file.
     """
 
-    def __init__(self, uproot_file, is_mc, n_cam_pixels=1039):
+    def __init__(self, uproot_file, is_mc, is_stereo, n_cam_pixels=1039):
         """
         Constructor of the class. Loads an input uproot file
         and store the informaiton to constructor variables.
@@ -1242,12 +1243,15 @@ class MarsCalibratedRun:
             A calibrated file opened by uproot via uproot.open(file_path)
         is_mc: bool
             Flag to MC data
+        is_stereo: bool
+            Flag for mono/stereo data
         n_cam_pixels: int
             The number of pixels of the MAGIC camera
         """
 
         self.uproot_file = uproot_file
         self.is_mc = is_mc
+        self.is_stereo = is_stereo
         self.n_cam_pixels = n_cam_pixels
 
         # Load the input data:
