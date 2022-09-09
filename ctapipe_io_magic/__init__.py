@@ -41,6 +41,7 @@ from .mars_datalevels import MARSDataLevel
 from .version import __version__
 
 from .constants import (
+    DATA_MONO_TRIGGER_PATTERN,
     MC_STEREO_TRIGGER_PATTERN,
     PEDESTAL_TRIGGER_PATTERN,
     DATA_STEREO_TRIGGER_PATTERN,
@@ -1345,7 +1346,10 @@ class MarsCalibratedRun:
             events_cut['cosmic_events'] = f'(MTriggerPattern.fPrescaled == {MC_STEREO_TRIGGER_PATTERN})' \
                                           ' & (MRawEvtHeader.fStereoEvtNumber != 0)'
         else:
-            events_cut['cosmic_events'] = f'(MTriggerPattern.fPrescaled == {DATA_STEREO_TRIGGER_PATTERN})'
+            if self.is_stereo:
+                events_cut['cosmic_events'] = f'(MTriggerPattern.fPrescaled == {DATA_STEREO_TRIGGER_PATTERN})'
+            else:
+                events_cut['cosmic_events'] = f'(MTriggerPattern.fPrescaled == {DATA_MONO_TRIGGER_PATTERN})'
             events_cut['pedestal_events'] = f'(MTriggerPattern.fPrescaled == {PEDESTAL_TRIGGER_PATTERN})'
 
         # read common information from RunHeaders
