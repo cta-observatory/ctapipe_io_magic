@@ -119,3 +119,4 @@ Some general information about the simulated data, useful for IRF calculation, a
 -   v0.4.3: difference of arrival times between events read from ROOT files, used for effective observation time calculation
 -   v0.4.4: changed units of peak_time from time slices (as stored in MARS) to nanoseconds
 -   v0.4.5: fixed automatic tests, add possibility to choose between effective and nominal focal length
+-   v0.4.6: add support to read in data taken in mono mode (full for real data, partial for MCs). Fixed bug in recognition of mono/stereo or standard trigger/SumT data (added also for MC)
