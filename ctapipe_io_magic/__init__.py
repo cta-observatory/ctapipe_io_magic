@@ -41,7 +41,9 @@ from .mars_datalevels import MARSDataLevel
 from .version import __version__
 
 from .constants import (
+    DATA_MONO_TRIGGER_PATTERN,
     MC_STEREO_TRIGGER_PATTERN,
+    MC_SUMT_TRIGGER_PATTERN,
     PEDESTAL_TRIGGER_PATTERN,
     DATA_STEREO_TRIGGER_PATTERN,
 )
@@ -63,7 +65,9 @@ nsec2sec = 1e-9
 mc_data_type = 256
 
 MAGIC_TO_CTA_EVENT_TYPE = {
+    DATA_MONO_TRIGGER_PATTERN: EventType.SUBARRAY,
     MC_STEREO_TRIGGER_PATTERN: EventType.SUBARRAY,
+    MC_SUMT_TRIGGER_PATTERN: EventType.SUBARRAY,
     DATA_STEREO_TRIGGER_PATTERN: EventType.SUBARRAY,
     PEDESTAL_TRIGGER_PATTERN: EventType.SKY_PEDESTAL,
 }
@@ -201,8 +205,7 @@ class MAGICEventSource(EventSource):
         if self.is_simulation:
             self.simulation_config = self.parse_simulation_header()
 
-        if not self.is_simulation:
-            self.is_stereo, self.is_sumt = self.parse_data_info()
+        self.is_stereo, self.is_sumt = self.parse_data_info()
 
         # # Setting up the current run with the first run present in the data
         # self.current_run = self._set_active_run(run_number=0)
@@ -475,71 +478,94 @@ class MAGICEventSource(EventSource):
             True if SUMT data, False if std trigger
         """
 
-        prescaler_mono_nosumt = [1, 1, 0, 1, 0, 0, 0, 0]
-        prescaler_mono_sumt = [0, 1, 0, 1, 0, 1, 0, 0]
-        prescaler_stereo = [0, 1, 0, 1, 0, 0, 0, 1]
-
-        # L1_table_mono = "L1_4NN"
-        # L1_table_stereo = "L1_3NN"
-
-        L3_table_nosumt = "L3T_L1L1_100_SYNC"
-        L3_table_sumt = "L3T_SUMSUM_100_SYNC"
-
         is_stereo = []
         is_sumt = []
 
-        for rootf in self.files_:
+        if not self.is_simulation:
+            prescaler_mono_nosumt = [1, 1, 0, 1, 0, 0, 0, 0]
+            prescaler_mono_sumt = [0, 1, 0, 1, 0, 1, 0, 0]
+            prescaler_stereo = [0, 1, 0, 1, 0, 0, 0, 1]
 
-            trigger_tree = rootf["Trigger"]
-            L3T_tree = rootf["L3T"]
+            # L1_table_mono = "L1_4NN"
+            # L1_table_stereo = "L1_3NN"
 
-            # here we take the 2nd element (if possible) because sometimes
-            # the first trigger report has still the old prescaler values from a previous run
-            try:
-                prescaler_array = trigger_tree["MTriggerPrescFact.fPrescFact"].array(library="np")
-            except AssertionError:
-                logger.warning("No prescaler info found. Will assume standard stereo data.")
-                stereo = True
+            L3_table_nosumt = "L3T_L1L1_100_SYNC"
+            L3_table_sumt = "L3T_SUMSUM_100_SYNC"
+
+            for rootf in self.files_:
+
+                trigger_tree = rootf["Trigger"]
+                L3T_tree = rootf["L3T"]
+
+                # here we take the 2nd element (if possible) because sometimes
+                # the first trigger report has still the old prescaler values from a previous run
+                try:
+                    prescaler_array = trigger_tree["MTriggerPrescFact.fPrescFact"].array(library="np")
+                except AssertionError:
+                    logger.warning("No prescaler info found. Will assume standard stereo data.")
+                    stereo = True
+                    sumt = False
+                    return stereo, sumt
+
+                prescaler_size = prescaler_array.size
+                if prescaler_size > 1:
+                    prescaler = list(prescaler_array[1])
+                else:
+                    prescaler = list(prescaler_array[0])
+
+                if prescaler == prescaler_mono_nosumt or prescaler == prescaler_mono_sumt:
+                    stereo = False
+                elif prescaler == prescaler_stereo:
+                    stereo = True
+                else:
+                    stereo = True
+
                 sumt = False
-                return stereo, sumt
+                if stereo:
+                    # here we take the 2nd element for the same reason as above
+                    # L3Table is empty for mono data i.e. taken with one telescope only
+                    # if both telescopes take data with no L3, L3Table is filled anyway
+                    L3Table_array = L3T_tree["MReportL3T.fTablename"].array(library="np")
+                    L3Table_size = L3Table_array.size
+                    if L3Table_size > 1:
+                        L3Table = L3Table_array[1]
+                    else:
+                        L3Table = L3Table_array[0]
 
-            prescaler_size = prescaler_array.size
-            if prescaler_size > 1:
-                prescaler = prescaler_array[1]
-            else:
-                prescaler = prescaler_array[0]
-
-            if prescaler == prescaler_mono_nosumt or prescaler == prescaler_mono_sumt:
-                stereo = False
-            elif prescaler == prescaler_stereo:
-                stereo = True
-            else:
-                stereo = True
-
-            sumt = False
-            if stereo:
-                # here we take the 2nd element for the same reason as above
-                # L3Table is empty for mono data i.e. taken with one telescope only
-                # if both telescopes take data with no L3, L3Table is filled anyway
-                L3Table_array = L3T_tree["MReportL3T.fTablename"].array(library="np")
-                L3Table_size = L3Table_array.size
-                if L3Table_size > 1:
-                    L3Table = L3Table_array[1]
+                    if L3Table == L3_table_sumt:
+                        sumt = True
+                    elif L3Table == L3_table_nosumt:
+                        sumt = False
+                    else:
+                        sumt = False
                 else:
-                    L3Table = L3Table_array[0]
+                    if prescaler == prescaler_mono_sumt:
+                        sumt = True
 
-                if L3Table == L3_table_sumt:
-                    sumt = True
-                elif L3Table == L3_table_nosumt:
-                    sumt = False
+                is_stereo.append(stereo)
+                is_sumt.append(sumt)
+
+        else:
+            for rootf in self.files_:
+                # looking into MC data, when SumT is simulated, trigger pattern of all events is set to 32 (bit 5), except the first (set to 0)
+                trigger_pattern_array_unique = np.unique(rootf["Events"]["MTriggerPattern.fPrescaled"].array(library="np")[1:])
+                if len(trigger_pattern_array_unique) == 1:
+                    if trigger_pattern_array_unique[0] == MC_SUMT_TRIGGER_PATTERN:
+                        sumt = True
+                    else:
+                        sumt = False
                 else:
                     sumt = False
-            else:
-                if prescaler == prescaler_mono_sumt:
-                    sumt = True
+                is_sumt.append(sumt)
 
-            is_stereo.append(stereo)
-            is_sumt.append(sumt)
+                # looking into MC data, MMcCorsikaRunHeader.fNumCT is set to 1 if mono, 2 if stereo
+                num_telescopes = rootf["RunHeaders"]["MMcCorsikaRunHeader.fNumCT"].array(library="np")[0]
+                if num_telescopes == 1:
+                    stereo = False
+                else:
+                    stereo = True
+
+                is_stereo.append(stereo)
 
         is_stereo = np.unique(is_stereo).tolist()
         is_sumt = np.unique(is_sumt).tolist()
@@ -553,7 +579,7 @@ class MAGICEventSource(EventSource):
             logger.warning("Found data with both standard and Sum trigger. While this is \
                 not an issue, check that this is what you really want to do.")
 
-        return is_stereo, is_sumt
+        return is_stereo[0], is_sumt[0]
 
     def prepare_subarray_info(self):
         """
@@ -1042,6 +1068,7 @@ class MAGICEventSource(EventSource):
             run['data'] = MarsCalibratedRun(
                 uproot_file,
                 self.is_simulation,
+                self.is_stereo,
             )
 
         return run
@@ -1169,7 +1196,7 @@ class MAGICEventSource(EventSource):
             for i_event in range(n_events):
 
                 event.count = counter
-                event.index.event_id = event_data['stereo_event_number'][i_event]
+                event.index.event_id = event_data['event_number'][i_event]
 
                 event.trigger.event_type = MAGIC_TO_CTA_EVENT_TYPE.get(event_data['trigger_pattern'][i_event])
 
@@ -1231,7 +1258,7 @@ class MarsCalibratedRun:
     and monitoring data from a MAGIC calibrated subrun file.
     """
 
-    def __init__(self, uproot_file, is_mc, n_cam_pixels=1039):
+    def __init__(self, uproot_file, is_mc, is_stereo, n_cam_pixels=1039):
         """
         Constructor of the class. Loads an input uproot file
         and store the informaiton to constructor variables.
@@ -1242,12 +1269,15 @@ class MarsCalibratedRun:
             A calibrated file opened by uproot via uproot.open(file_path)
         is_mc: bool
             Flag to MC data
+        is_stereo: bool
+            Flag for mono/stereo data
         n_cam_pixels: int
             The number of pixels of the MAGIC camera
         """
 
         self.uproot_file = uproot_file
         self.is_mc = is_mc
+        self.is_stereo = is_stereo
         self.n_cam_pixels = n_cam_pixels
 
         # Load the input data:
@@ -1278,12 +1308,21 @@ class MarsCalibratedRun:
         """
 
         # Branches applicable for cosmic and pedestal events:
-        common_branches = [
-            'MRawEvtHeader.fStereoEvtNumber',
-            'MTriggerPattern.fPrescaled',
-            'MCerPhotEvt.fPixels.fPhot',
-            'MArrivalTime.fData',
-        ]
+        if self.is_stereo:
+            common_branches = [
+                'MRawEvtHeader.fStereoEvtNumber',
+                'MTriggerPattern.fPrescaled',
+                'MCerPhotEvt.fPixels.fPhot',
+                'MArrivalTime.fData',
+            ]
+        else:
+            common_branches = [
+                'MRawEvtHeader.fStereoEvtNumber',
+                'MRawEvtHeader.fDAQEvtNumber',
+                'MTriggerPattern.fPrescaled',
+                'MCerPhotEvt.fPixels.fPhot',
+                'MArrivalTime.fData',
+            ]
 
         # Branches applicable for MC events:
         mc_branches = [
@@ -1341,7 +1380,10 @@ class MarsCalibratedRun:
             events_cut['cosmic_events'] = f'(MTriggerPattern.fPrescaled == {MC_STEREO_TRIGGER_PATTERN})' \
                                           ' & (MRawEvtHeader.fStereoEvtNumber != 0)'
         else:
-            events_cut['cosmic_events'] = f'(MTriggerPattern.fPrescaled == {DATA_STEREO_TRIGGER_PATTERN})'
+            if self.is_stereo:
+                events_cut['cosmic_events'] = f'(MTriggerPattern.fPrescaled == {DATA_STEREO_TRIGGER_PATTERN})'
+            else:
+                events_cut['cosmic_events'] = f'(MTriggerPattern.fPrescaled == {DATA_MONO_TRIGGER_PATTERN})'
             events_cut['pedestal_events'] = f'(MTriggerPattern.fPrescaled == {PEDESTAL_TRIGGER_PATTERN})'
 
         # read common information from RunHeaders
@@ -1360,7 +1402,19 @@ class MarsCalibratedRun:
             )
 
             calib_data[event_type]['trigger_pattern'] = np.array(common_info['MTriggerPattern.fPrescaled'], dtype=int)
-            calib_data[event_type]['stereo_event_number'] = np.array(common_info['MRawEvtHeader.fStereoEvtNumber'], dtype=int)
+
+            # For stereo data, the event ID is simply given by MRawEvtHeader.fStereoEvtNumber
+            # For data taken in mono however (i.e. only with one telescope in SA), fStereoEvtNumber
+            # is always 0. So one should take fDAQEvtNumber instead. However this DAQ event id is reset
+            # for each subrun. Given that each subrun has a maximum number of events which is ~17000
+            # (set in the DAQ code), we create an artificial event ID by using the subrun number and
+            # attaching the DAQ event id padded with 0 (to have 5 digits for the DAQ event id).
+            # Like this we obtain an event id which is unique within a data run (like fStereoEvtNumber).
+            if self.is_stereo:
+                calib_data[event_type]['event_number'] = np.array(common_info['MRawEvtHeader.fStereoEvtNumber'], dtype=int)
+            else:
+                subrun_id = self.uproot_file["RunHeaders"]['MRawRunHeader.fSubRunIndex'].array(library="np")[0]
+                calib_data[event_type]['event_number'] = np.array([f"{subrun_id}{daq_id:05}" for daq_id in common_info['MRawEvtHeader.fDAQEvtNumber']], dtype=int)
 
             # Set pixel-wise charge and peak time information.
             # The length of the pixel array is 1183, but here only the first part of the pixel
@@ -1501,30 +1555,31 @@ class MarsCalibratedRun:
             except KeyError:
                 logger.warning('The Pedestals tree is not present in the input file. Cleaning algorithm may fail.')
 
-            # Check for bit flips in the stereo event IDs:
-            uplim_total_jumps = 100
+            if self.is_stereo:
+                # Check for bit flips in the stereo event IDs:
+                uplim_total_jumps = 100
 
-            stereo_event_number = calib_data['cosmic_events']['stereo_event_number'].astype(int)
-            number_difference = np.diff(stereo_event_number)
+                stereo_event_number = calib_data['cosmic_events']['event_number'].astype(int)
+                number_difference = np.diff(stereo_event_number)
 
-            indices_flip = np.where(number_difference < 0)[0]
-            n_flips = len(indices_flip)
+                indices_flip = np.where(number_difference < 0)[0]
+                n_flips = len(indices_flip)
 
-            if n_flips > 0:
+                if n_flips > 0:
 
-                logger.warning(f'Warning: detected {n_flips} bit flips in the input file')
-                total_jumped_number = 0
+                    logger.warning(f'Warning: detected {n_flips} bit flips in the input file')
+                    total_jumped_number = 0
 
-                for i in indices_flip:
+                    for i in indices_flip:
 
-                    jumped_number = stereo_event_number[i] - stereo_event_number[i+1]
-                    total_jumped_number += jumped_number
+                        jumped_number = stereo_event_number[i] - stereo_event_number[i+1]
+                        total_jumped_number += jumped_number
 
-                    logger.warning(f'Jump of L3 number backward from {stereo_event_number[i]} to ' \
-                                   f'{stereo_event_number[i+1]}; total jumped number so far: {total_jumped_number}')
+                        logger.warning(f'Jump of L3 number backward from {stereo_event_number[i]} to ' \
+                                       f'{stereo_event_number[i+1]}; total jumped number so far: {total_jumped_number}')
 
-                if total_jumped_number > uplim_total_jumps:
-                    logger.warning(f'More than {uplim_total_jumps} jumps in the stereo trigger number; ' \
-                                   f'You may have to match events by timestamp at a later stage.')
+                    if total_jumped_number > uplim_total_jumps:
+                        logger.warning(f'More than {uplim_total_jumps} jumps in the stereo trigger number; ' \
+                                       f'You may have to match events by timestamp at a later stage.')
 
         return calib_data
