@@ -1401,6 +1401,14 @@ class MarsCalibratedRun:
             )
 
             calib_data[event_type]['trigger_pattern'] = np.array(common_info['MTriggerPattern.fPrescaled'], dtype=int)
+
+            # For stereo data, the event ID is simply given by MRawEvtHeader.fStereoEvtNumber
+            # For data taken in mono however (i.e. only with one telescope in SA), fStereoEvtNumber
+            # is always 0. So one should take fDAQEvtNumber instead. However this DAQ event id is reset
+            # for each subrun. Given that each subrun has a maximum number of events which is ~17000
+            # (set in the DAQ code), we create an artificial event ID by using the subrun number and
+            # attaching the DAQ event id padded with 0 (to have 5 digits for the DAQ event id).
+            # Like this we obtain an event id which is unique within a data run (like fStereoEvtNumber).
             if self.is_stereo:
                 calib_data[event_type]['event_number'] = np.array(common_info['MRawEvtHeader.fStereoEvtNumber'], dtype=int)
             else:
