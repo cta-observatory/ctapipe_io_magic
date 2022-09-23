@@ -1283,12 +1283,21 @@ class MarsCalibratedRun:
         """
 
         # Branches applicable for cosmic and pedestal events:
-        common_branches = [
-            'MRawEvtHeader.fStereoEvtNumber',
-            'MTriggerPattern.fPrescaled',
-            'MCerPhotEvt.fPixels.fPhot',
-            'MArrivalTime.fData',
-        ]
+        if self.is_stereo:
+            common_branches = [
+                'MRawEvtHeader.fStereoEvtNumber',
+                'MTriggerPattern.fPrescaled',
+                'MCerPhotEvt.fPixels.fPhot',
+                'MArrivalTime.fData',
+            ]
+        else:
+            common_branches = [
+                'MRawEvtHeader.fStereoEvtNumber',
+                'MRawEvtHeader.fDAQEvtNumber',
+                'MTriggerPattern.fPrescaled',
+                'MCerPhotEvt.fPixels.fPhot',
+                'MArrivalTime.fData',
+            ]
 
         # Branches applicable for MC events:
         mc_branches = [
@@ -1368,7 +1377,11 @@ class MarsCalibratedRun:
             )
 
             calib_data[event_type]['trigger_pattern'] = np.array(common_info['MTriggerPattern.fPrescaled'], dtype=int)
-            calib_data[event_type]['stereo_event_number'] = np.array(common_info['MRawEvtHeader.fStereoEvtNumber'], dtype=int)
+            if self.is_stereo:
+                calib_data[event_type]['stereo_event_number'] = np.array(common_info['MRawEvtHeader.fStereoEvtNumber'], dtype=int)
+            else:
+                subrun_id = self.uproot_file["RunHeaders"]['MRawRunHeader.fSubRunIndex'].array(library="np")[0]
+                calib_data[event_type]['stereo_event_number'] = np.array([f"{subrun_id}{daq_id:05}" for daq_id in common_info['MRawEvtHeader.fDAQEvtNumber']], dtype=int)
 
             # Set pixel-wise charge and peak time information.
             # The length of the pixel array is 1183, but here only the first part of the pixel
