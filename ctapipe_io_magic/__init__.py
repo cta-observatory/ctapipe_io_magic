@@ -1195,7 +1195,7 @@ class MAGICEventSource(EventSource):
             for i_event in range(n_events):
 
                 event.count = counter
-                event.index.event_id = event_data['stereo_event_number'][i_event]
+                event.index.event_id = event_data['event_number'][i_event]
 
                 event.trigger.event_type = MAGIC_TO_CTA_EVENT_TYPE.get(event_data['trigger_pattern'][i_event])
 
@@ -1402,10 +1402,10 @@ class MarsCalibratedRun:
 
             calib_data[event_type]['trigger_pattern'] = np.array(common_info['MTriggerPattern.fPrescaled'], dtype=int)
             if self.is_stereo:
-                calib_data[event_type]['stereo_event_number'] = np.array(common_info['MRawEvtHeader.fStereoEvtNumber'], dtype=int)
+                calib_data[event_type]['event_number'] = np.array(common_info['MRawEvtHeader.fStereoEvtNumber'], dtype=int)
             else:
                 subrun_id = self.uproot_file["RunHeaders"]['MRawRunHeader.fSubRunIndex'].array(library="np")[0]
-                calib_data[event_type]['stereo_event_number'] = np.array([f"{subrun_id}{daq_id:05}" for daq_id in common_info['MRawEvtHeader.fDAQEvtNumber']], dtype=int)
+                calib_data[event_type]['event_number'] = np.array([f"{subrun_id}{daq_id:05}" for daq_id in common_info['MRawEvtHeader.fDAQEvtNumber']], dtype=int)
 
             # Set pixel-wise charge and peak time information.
             # The length of the pixel array is 1183, but here only the first part of the pixel
@@ -1546,30 +1546,31 @@ class MarsCalibratedRun:
             except KeyError:
                 logger.warning('The Pedestals tree is not present in the input file. Cleaning algorithm may fail.')
 
-            # Check for bit flips in the stereo event IDs:
-            uplim_total_jumps = 100
+            if self.is_stereo:
+                # Check for bit flips in the stereo event IDs:
+                uplim_total_jumps = 100
 
-            stereo_event_number = calib_data['cosmic_events']['stereo_event_number'].astype(int)
-            number_difference = np.diff(stereo_event_number)
+                stereo_event_number = calib_data['cosmic_events']['event_number'].astype(int)
+                number_difference = np.diff(stereo_event_number)
 
-            indices_flip = np.where(number_difference < 0)[0]
-            n_flips = len(indices_flip)
+                indices_flip = np.where(number_difference < 0)[0]
+                n_flips = len(indices_flip)
 
-            if n_flips > 0:
+                if n_flips > 0:
 
-                logger.warning(f'Warning: detected {n_flips} bit flips in the input file')
-                total_jumped_number = 0
+                    logger.warning(f'Warning: detected {n_flips} bit flips in the input file')
+                    total_jumped_number = 0
 
-                for i in indices_flip:
+                    for i in indices_flip:
 
-                    jumped_number = stereo_event_number[i] - stereo_event_number[i+1]
-                    total_jumped_number += jumped_number
+                        jumped_number = stereo_event_number[i] - stereo_event_number[i+1]
+                        total_jumped_number += jumped_number
 
-                    logger.warning(f'Jump of L3 number backward from {stereo_event_number[i]} to ' \
-                                   f'{stereo_event_number[i+1]}; total jumped number so far: {total_jumped_number}')
+                        logger.warning(f'Jump of L3 number backward from {stereo_event_number[i]} to ' \
+                                       f'{stereo_event_number[i+1]}; total jumped number so far: {total_jumped_number}')
 
-                if total_jumped_number > uplim_total_jumps:
-                    logger.warning(f'More than {uplim_total_jumps} jumps in the stereo trigger number; ' \
-                                   f'You may have to match events by timestamp at a later stage.')
+                    if total_jumped_number > uplim_total_jumps:
+                        logger.warning(f'More than {uplim_total_jumps} jumps in the stereo trigger number; ' \
+                                       f'You may have to match events by timestamp at a later stage.')
 
         return calib_data
