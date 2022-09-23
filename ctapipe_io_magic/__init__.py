@@ -43,6 +43,7 @@ from .version import __version__
 from .constants import (
     DATA_MONO_TRIGGER_PATTERN,
     MC_STEREO_TRIGGER_PATTERN,
+    MC_SUMT_TRIGGER_PATTERN,
     PEDESTAL_TRIGGER_PATTERN,
     DATA_STEREO_TRIGGER_PATTERN,
 )
@@ -203,8 +204,7 @@ class MAGICEventSource(EventSource):
         if self.is_simulation:
             self.simulation_config = self.parse_simulation_header()
 
-        if not self.is_simulation:
-            self.is_stereo, self.is_sumt = self.parse_data_info()
+        self.is_stereo, self.is_sumt = self.parse_data_info()
 
         # # Setting up the current run with the first run present in the data
         # self.current_run = self._set_active_run(run_number=0)
@@ -477,71 +477,94 @@ class MAGICEventSource(EventSource):
             True if SUMT data, False if std trigger
         """
 
-        prescaler_mono_nosumt = [1, 1, 0, 1, 0, 0, 0, 0]
-        prescaler_mono_sumt = [0, 1, 0, 1, 0, 1, 0, 0]
-        prescaler_stereo = [0, 1, 0, 1, 0, 0, 0, 1]
-
-        # L1_table_mono = "L1_4NN"
-        # L1_table_stereo = "L1_3NN"
-
-        L3_table_nosumt = "L3T_L1L1_100_SYNC"
-        L3_table_sumt = "L3T_SUMSUM_100_SYNC"
-
         is_stereo = []
         is_sumt = []
 
-        for rootf in self.files_:
+        if not self.is_simulation:
+            prescaler_mono_nosumt = [1, 1, 0, 1, 0, 0, 0, 0]
+            prescaler_mono_sumt = [0, 1, 0, 1, 0, 1, 0, 0]
+            prescaler_stereo = [0, 1, 0, 1, 0, 0, 0, 1]
 
-            trigger_tree = rootf["Trigger"]
-            L3T_tree = rootf["L3T"]
+            # L1_table_mono = "L1_4NN"
+            # L1_table_stereo = "L1_3NN"
 
-            # here we take the 2nd element (if possible) because sometimes
-            # the first trigger report has still the old prescaler values from a previous run
-            try:
-                prescaler_array = trigger_tree["MTriggerPrescFact.fPrescFact"].array(library="np")
-            except AssertionError:
-                logger.warning("No prescaler info found. Will assume standard stereo data.")
-                stereo = True
+            L3_table_nosumt = "L3T_L1L1_100_SYNC"
+            L3_table_sumt = "L3T_SUMSUM_100_SYNC"
+
+            for rootf in self.files_:
+
+                trigger_tree = rootf["Trigger"]
+                L3T_tree = rootf["L3T"]
+
+                # here we take the 2nd element (if possible) because sometimes
+                # the first trigger report has still the old prescaler values from a previous run
+                try:
+                    prescaler_array = trigger_tree["MTriggerPrescFact.fPrescFact"].array(library="np")
+                except AssertionError:
+                    logger.warning("No prescaler info found. Will assume standard stereo data.")
+                    stereo = True
+                    sumt = False
+                    return stereo, sumt
+
+                prescaler_size = prescaler_array.size
+                if prescaler_size > 1:
+                    prescaler = list(prescaler_array[1])
+                else:
+                    prescaler = list(prescaler_array[0])
+
+                if prescaler == prescaler_mono_nosumt or prescaler == prescaler_mono_sumt:
+                    stereo = False
+                elif prescaler == prescaler_stereo:
+                    stereo = True
+                else:
+                    stereo = True
+
                 sumt = False
-                return stereo, sumt
+                if stereo:
+                    # here we take the 2nd element for the same reason as above
+                    # L3Table is empty for mono data i.e. taken with one telescope only
+                    # if both telescopes take data with no L3, L3Table is filled anyway
+                    L3Table_array = L3T_tree["MReportL3T.fTablename"].array(library="np")
+                    L3Table_size = L3Table_array.size
+                    if L3Table_size > 1:
+                        L3Table = L3Table_array[1]
+                    else:
+                        L3Table = L3Table_array[0]
 
-            prescaler_size = prescaler_array.size
-            if prescaler_size > 1:
-                prescaler = list(prescaler_array[1])
-            else:
-                prescaler = list(prescaler_array[0])
-
-            if prescaler == prescaler_mono_nosumt or prescaler == prescaler_mono_sumt:
-                stereo = False
-            elif prescaler == prescaler_stereo:
-                stereo = True
-            else:
-                stereo = True
-
-            sumt = False
-            if stereo:
-                # here we take the 2nd element for the same reason as above
-                # L3Table is empty for mono data i.e. taken with one telescope only
-                # if both telescopes take data with no L3, L3Table is filled anyway
-                L3Table_array = L3T_tree["MReportL3T.fTablename"].array(library="np")
-                L3Table_size = L3Table_array.size
-                if L3Table_size > 1:
-                    L3Table = L3Table_array[1]
+                    if L3Table == L3_table_sumt:
+                        sumt = True
+                    elif L3Table == L3_table_nosumt:
+                        sumt = False
+                    else:
+                        sumt = False
                 else:
-                    L3Table = L3Table_array[0]
+                    if prescaler == prescaler_mono_sumt:
+                        sumt = True
 
-                if L3Table == L3_table_sumt:
-                    sumt = True
-                elif L3Table == L3_table_nosumt:
-                    sumt = False
+                is_stereo.append(stereo)
+                is_sumt.append(sumt)
+
+        else:
+            for rootf in self.files_:
+                # looking into MC data, when SumT is simulated, trigger pattern of all events is set to 32 (bit 5), except the first (set to 0)
+                trigger_pattern_array_unique = np.unique(rootf["Events"]["MTriggerPattern.fPrescaled"].array(library="np")[1:])
+                if len(trigger_pattern_array_unique) == 1:
+                    if trigger_pattern_array_unique[0] == MC_SUMT_TRIGGER_PATTERN:
+                        sumt = True
+                    else:
+                        sumt = False
                 else:
                     sumt = False
-            else:
-                if prescaler == prescaler_mono_sumt:
-                    sumt = True
+                is_sumt.append(sumt)
 
-            is_stereo.append(stereo)
-            is_sumt.append(sumt)
+                # looking into MC data, MMcCorsikaRunHeader.fNumCT is set to 1 if mono, 2 if stereo
+                num_telescopes = rootf["RunHeaders"]["MMcCorsikaRunHeader.fNumCT"].array(library="np")[0]
+                if num_telescopes == 1:
+                    stereo = False
+                else:
+                    stereo = True
+
+                is_stereo.append(stereo)
 
         is_stereo = np.unique(is_stereo).tolist()
         is_sumt = np.unique(is_sumt).tolist()
