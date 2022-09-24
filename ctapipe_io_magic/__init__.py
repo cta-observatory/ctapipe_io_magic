@@ -1420,6 +1420,9 @@ class MarsCalibratedRun:
                 library='np',
             )
 
+            if common_info['MTriggerPattern.fPrescaled'].size == 0:
+                raise IndexError(f"No events survived after selection (cut: {events_cut[event_type]})")
+
             calib_data[event_type]['trigger_pattern'] = np.array(common_info['MTriggerPattern.fPrescaled'], dtype=int)
 
             # For stereo data, the event ID is simply given by MRawEvtHeader.fStereoEvtNumber
