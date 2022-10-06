@@ -984,13 +984,16 @@ class MAGICEventSource(EventSource):
 
         tel_id = self.telescope
 
-        event_time = event.trigger.tel[tel_id].time.unix
-        pedestal_times = event.mon.tel[tel_id].pedestal.sample_time.unix
-
-        if np.all(pedestal_times >= event_time):
+        if self.is_simulation:
             index = 0
         else:
-            index = np.where(pedestal_times < event_time)[0][-1]
+            event_time = event.trigger.tel[tel_id].time.unix
+            pedestal_times = event.mon.tel[tel_id].pedestal.sample_time.unix
+
+            if np.all(pedestal_times >= event_time):
+                index = 0
+            else:
+                index = np.where(pedestal_times < event_time)[0][-1]
 
         badrmspixel_mask = []
         n_ped_types = len(event.mon.tel[tel_id].pedestal.charge_std)
@@ -1124,31 +1127,30 @@ class MAGICEventSource(EventSource):
                 event_data = self.current_run['data'].cosmic_events
                 n_events = self.current_run['data'].n_cosmic_events
 
+            monitoring_data = self.current_run['data'].monitoring_data
+
+            # Set the pedestal information:
+            event.mon.tel[tel_id].pedestal.n_events = 500   # hardcoded number of pedestal events averaged over
+            event.mon.tel[tel_id].pedestal.sample_time = monitoring_data['pedestal_sample_time']
+
+            event.mon.tel[tel_id].pedestal.charge_mean = [
+                monitoring_data['pedestal_fundamental']['mean'],
+                monitoring_data['pedestal_from_extractor']['mean'],
+                monitoring_data['pedestal_from_extractor_rndm']['mean'],
+            ]
+
+            event.mon.tel[tel_id].pedestal.charge_std = [
+                monitoring_data['pedestal_fundamental']['rms'],
+                monitoring_data['pedestal_from_extractor']['rms'],
+                monitoring_data['pedestal_from_extractor_rndm']['rms'],
+            ]
+
+            # Set the bad pixel information:
+            event.mon.tel[tel_id].pixel_status.hardware_failing_pixels = np.reshape(
+                monitoring_data['bad_pixel'], (1, len(monitoring_data['bad_pixel']))
+            )
+
             if not self.is_simulation:
-
-                monitoring_data = self.current_run['data'].monitoring_data
-
-                # Set the pedestal information:
-                event.mon.tel[tel_id].pedestal.n_events = 500   # hardcoded number of pedestal events averaged over
-                event.mon.tel[tel_id].pedestal.sample_time = monitoring_data['pedestal_sample_time']
-
-                event.mon.tel[tel_id].pedestal.charge_mean = [
-                    monitoring_data['pedestal_fundamental']['mean'],
-                    monitoring_data['pedestal_from_extractor']['mean'],
-                    monitoring_data['pedestal_from_extractor_rndm']['mean'],
-                ]
-
-                event.mon.tel[tel_id].pedestal.charge_std = [
-                    monitoring_data['pedestal_fundamental']['rms'],
-                    monitoring_data['pedestal_from_extractor']['rms'],
-                    monitoring_data['pedestal_from_extractor_rndm']['rms'],
-                ]
-
-                # Set the bad pixel information:
-                event.mon.tel[tel_id].pixel_status.hardware_failing_pixels = np.reshape(
-                    monitoring_data['bad_pixel'], (1, len(monitoring_data['bad_pixel']))
-                )
-
                 # Interpolate drive information:
                 drive_data = self.drive_information
                 n_drive_reports = len(drive_data['mjd'])
@@ -1204,9 +1206,9 @@ class MAGICEventSource(EventSource):
                     event.trigger.time = event_data['time'][i_event]
                     event.trigger.tel[tel_id].time = event_data['time'][i_event]
 
-                    if not self.use_pedestals:
-                        badrmspixel_mask = self._get_badrmspixel_mask(event)
-                        event.mon.tel[tel_id].pixel_status.pedestal_failing_pixels = badrmspixel_mask
+                if not self.use_pedestals:
+                    badrmspixel_mask = self._get_badrmspixel_mask(event)
+                    event.mon.tel[tel_id].pixel_status.pedestal_failing_pixels = badrmspixel_mask
 
                 # Set the telescope pointing container:
                 event.pointing.array_azimuth = event_data['pointing_az'][i_event].to(u.rad)
@@ -1353,10 +1355,13 @@ class MarsCalibratedRun:
             'MTime.fNanoSec',
         ]
 
-        pedestal_branches = [
+        pedestal_time_branches = [
             'MTimePedestals.fMjd',
             'MTimePedestals.fTime.fMilliSec',
             'MTimePedestals.fNanoSec',
+        ]
+
+        pedestal_branches = [
             'MPedPhotFundamental.fArray.fMean',
             'MPedPhotFundamental.fArray.fRms',
             'MPedPhotFromExtractor.fArray.fMean',
@@ -1488,40 +1493,52 @@ class MarsCalibratedRun:
                 event_time = event_obs_day + event_millisec + event_nanosec
                 calib_data[event_type]['time'] = Time(event_time, format='unix', scale='utc')
 
-        # Reading the monitoring data:
-        if not self.is_mc:
+        # Reading the monitoring data, both for real data and MC
+        # In MAGIC simulations, pixel 0 is always set as bad
 
-            # Reading the bad pixel information:
-            as_dtype = uproot.interpretation.numerical.AsDtype(np.dtype('>i4'))
-            as_jagged = uproot.interpretation.jagged.AsJagged(as_dtype)
+        # Reading the bad pixel information:
+        as_dtype = uproot.interpretation.numerical.AsDtype(np.dtype('>i4'))
+        as_jagged = uproot.interpretation.jagged.AsJagged(as_dtype)
 
-            badpixel_info = self.uproot_file['RunHeaders']['MBadPixelsCam.fArray.fInfo'].array(as_jagged, library='np')[0]
-            badpixel_info = badpixel_info.reshape((4, 1183), order='F')
+        badpixel_info = self.uproot_file['RunHeaders']['MBadPixelsCam.fArray.fInfo'].array(as_jagged, library='np')[0]
+        badpixel_info = badpixel_info.reshape((4, 1183), order='F')
 
-            # now we have 4 axes:
-            # 0st axis: empty (?)
-            # 1st axis: Unsuitable pixels
-            # 2nd axis: Uncalibrated pixels (says why pixel is unsuitable)
-            # 3rd axis: Bad hardware pixels (says why pixel is unsuitable)
-            # Each axis cointains a 32bit integer encoding more information about the specific problem
-            # See MARS software, MBADPixelsPix.h for more information
-            # Here we take the first axis:
-            unsuitable_pixels_bit = badpixel_info[1]
-            unsuitable_pixels = np.zeros(self.n_cam_pixels, dtype=bool)
+        # now we have 4 axes:
+        # 0st axis: empty (?)
+        # 1st axis: Unsuitable pixels
+        # 2nd axis: Uncalibrated pixels (says why pixel is unsuitable)
+        # 3rd axis: Bad hardware pixels (says why pixel is unsuitable)
+        # Each axis cointains a 32bit integer encoding more information about the specific problem
+        # See MARS software, MBADPixelsPix.h for more information
+        # Here we take the first axis:
+        unsuitable_pixels_bit = badpixel_info[1]
+        unsuitable_pixels = np.zeros(self.n_cam_pixels, dtype=bool)
 
-            for i_pix in range(self.n_cam_pixels):
-                unsuitable_pixels[i_pix] = int('{:08b}'.format(unsuitable_pixels_bit[i_pix])[-2])
+        for i_pix in range(self.n_cam_pixels):
+            unsuitable_pixels[i_pix] = int('{:08b}'.format(unsuitable_pixels_bit[i_pix])[-2])
 
-            calib_data['monitoring_data']['bad_pixel'] = unsuitable_pixels
+        calib_data['monitoring_data']['bad_pixel'] = unsuitable_pixels
 
-            # Try to read the Pedestals tree (soft fail if not present):
-            try:
+        # Try to read the Pedestals tree (soft fail if not present):
+        try:
+            if self.is_mc:
+                pedestal_branch_list = pedestal_branches
+                pedestal_info = self.uproot_file['Events'].arrays(
+                    expressions=pedestal_branch_list,
+                    library='np',
+                )
+            else:
+                pedestal_branch_list = pedestal_time_branches + pedestal_branches
+
                 pedestal_info = self.uproot_file['Pedestals'].arrays(
-                    expressions=pedestal_branches,
+                    expressions=pedestal_branch_list,
                     library='np',
                 )
 
-                # Set sample times of pedestal events:
+            # Set sample times of pedestal events:
+            if self.is_mc:
+                calib_data['monitoring_data']['pedestal_sample_time'] = np.array([])
+            else:
                 pedestal_obs_day = Time(pedestal_info['MTimePedestals.fMjd'], format='mjd', scale='utc')
                 pedestal_obs_day = np.round(pedestal_obs_day.unix)
                 pedestal_obs_day = np.array([Decimal(str(x)) for x in pedestal_obs_day])
@@ -1538,23 +1555,24 @@ class MarsCalibratedRun:
                     pedestal_sample_time, format='unix', scale='utc'
                 )
 
-                # Set the mean and RMS of pedestal charges:
-                calib_data['monitoring_data']['pedestal_fundamental'] = {
-                    'mean': np.array(pedestal_info[f'MPedPhotFundamental.fArray.fMean'].tolist())[:, :self.n_cam_pixels],
-                    'rms': np.array(pedestal_info[f'MPedPhotFundamental.fArray.fRms'].tolist())[:, :self.n_cam_pixels],
-                }
-                calib_data['monitoring_data']['pedestal_from_extractor'] = {
-                    'mean': np.array(pedestal_info[f'MPedPhotFromExtractor.fArray.fMean'].tolist())[:, :self.n_cam_pixels],
-                    'rms': np.array(pedestal_info[f'MPedPhotFromExtractor.fArray.fRms'].tolist())[:, :self.n_cam_pixels],
-                }
-                calib_data['monitoring_data']['pedestal_from_extractor_rndm'] = {
-                    'mean': np.array(pedestal_info[f'MPedPhotFromExtractorRndm.fArray.fMean'].tolist())[:, :self.n_cam_pixels],
-                    'rms': np.array(pedestal_info[f'MPedPhotFromExtractorRndm.fArray.fRms'].tolist())[:, :self.n_cam_pixels],
-                }
+            # Set the mean and RMS of pedestal charges:
+            calib_data['monitoring_data']['pedestal_fundamental'] = {
+                'mean': np.array(pedestal_info[f'MPedPhotFundamental.fArray.fMean'].tolist())[:, :self.n_cam_pixels],
+                'rms': np.array(pedestal_info[f'MPedPhotFundamental.fArray.fRms'].tolist())[:, :self.n_cam_pixels],
+            }
+            calib_data['monitoring_data']['pedestal_from_extractor'] = {
+                'mean': np.array(pedestal_info[f'MPedPhotFromExtractor.fArray.fMean'].tolist())[:, :self.n_cam_pixels],
+                'rms': np.array(pedestal_info[f'MPedPhotFromExtractor.fArray.fRms'].tolist())[:, :self.n_cam_pixels],
+            }
+            calib_data['monitoring_data']['pedestal_from_extractor_rndm'] = {
+                'mean': np.array(pedestal_info[f'MPedPhotFromExtractorRndm.fArray.fMean'].tolist())[:, :self.n_cam_pixels],
+                'rms': np.array(pedestal_info[f'MPedPhotFromExtractorRndm.fArray.fRms'].tolist())[:, :self.n_cam_pixels],
+            }
 
-            except KeyError:
-                logger.warning('The Pedestals tree is not present in the input file. Cleaning algorithm may fail.')
+        except KeyError:
+            logger.warning('The Pedestals tree is not present in the input file. Cleaning algorithm may fail.')
 
+        if not self.is_mc:
             if self.is_stereo:
                 # Check for bit flips in the stereo event IDs:
                 uplim_total_jumps = 100
