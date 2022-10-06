@@ -42,7 +42,7 @@ from .version import __version__
 
 from .constants import (
     DATA_MONO_TRIGGER_PATTERN,
-    MC_STEREO_TRIGGER_PATTERN,
+    MC_STEREO_AND_MONO_TRIGGER_PATTERN,
     MC_SUMT_TRIGGER_PATTERN,
     DATA_MONO_SUMT_TRIGGER_PATTERN,
     PEDESTAL_TRIGGER_PATTERN,
@@ -67,7 +67,7 @@ mc_data_type = 256
 
 MAGIC_TO_CTA_EVENT_TYPE = {
     DATA_MONO_TRIGGER_PATTERN: EventType.SUBARRAY,
-    MC_STEREO_TRIGGER_PATTERN: EventType.SUBARRAY,
+    MC_STEREO_AND_MONO_TRIGGER_PATTERN: EventType.SUBARRAY,
     MC_SUMT_TRIGGER_PATTERN: EventType.SUBARRAY,
     DATA_STEREO_TRIGGER_PATTERN: EventType.SUBARRAY,
     DATA_MONO_SUMT_TRIGGER_PATTERN: EventType.SUBARRAY,
@@ -1383,17 +1383,14 @@ class MarsCalibratedRun:
         events_cut = dict()
 
         if self.is_mc:
-            mc_trigger_pattern = MC_STEREO_TRIGGER_PATTERN
+            mc_trigger_pattern = MC_STEREO_AND_MONO_TRIGGER_PATTERN
             if self.use_sumt_events:
                 mc_trigger_pattern = MC_SUMT_TRIGGER_PATTERN
-            if self.is_stereo:
-                if self.use_mc_mono_events:
-                    events_cut['cosmic_events'] = f'(MTriggerPattern.fPrescaled == {mc_trigger_pattern})'
-                else:
-                    events_cut['cosmic_events'] = f'(MTriggerPattern.fPrescaled == {mc_trigger_pattern})' \
-                                              ' & (MRawEvtHeader.fStereoEvtNumber != 0)'
-            else:
+            if self.use_mc_mono_events or not self.is_stereo:
                 events_cut['cosmic_events'] = f'(MTriggerPattern.fPrescaled == {mc_trigger_pattern})'
+            else:
+                events_cut['cosmic_events'] = f'(MTriggerPattern.fPrescaled == {mc_trigger_pattern})' \
+                                                          ' & (MRawEvtHeader.fStereoEvtNumber != 0)'
         else:
             data_trigger_pattern = DATA_STEREO_TRIGGER_PATTERN
             if not self.is_stereo:
@@ -1433,18 +1430,11 @@ class MarsCalibratedRun:
             # attaching the DAQ event id padded with 0 (to have 5 digits for the DAQ event id).
             # Like this we obtain an event id which is unique within a data run (like fStereoEvtNumber).
 
-            if self.is_mc:
-                if self.use_mc_mono_events or not self.is_stereo:
-                    subrun_id = self.uproot_file["RunHeaders"]['MRawRunHeader.fSubRunIndex'].array(library="np")[0]
-                    calib_data[event_type]['event_number'] = np.array([f"{subrun_id}{daq_id:05}" for daq_id in common_info['MRawEvtHeader.fDAQEvtNumber']], dtype=int)
-                else:
-                    calib_data[event_type]['event_number'] = np.array(common_info['MRawEvtHeader.fStereoEvtNumber'], dtype=int)
+            if (self.is_mc and self.use_mc_mono_events) or not self.is_stereo:
+                subrun_id = self.uproot_file["RunHeaders"]['MRawRunHeader.fSubRunIndex'].array(library="np")[0]
+                calib_data[event_type]['event_number'] = np.array([f"{subrun_id}{daq_id:05}" for daq_id in common_info['MRawEvtHeader.fDAQEvtNumber']], dtype=int)
             else:
-                if self.is_stereo:
-                    calib_data[event_type]['event_number'] = np.array(common_info['MRawEvtHeader.fStereoEvtNumber'], dtype=int)
-                else:
-                    subrun_id = self.uproot_file["RunHeaders"]['MRawRunHeader.fSubRunIndex'].array(library="np")[0]
-                    calib_data[event_type]['event_number'] = np.array([f"{subrun_id}{daq_id:05}" for daq_id in common_info['MRawEvtHeader.fDAQEvtNumber']], dtype=int)
+                calib_data[event_type]['event_number'] = np.array(common_info['MRawEvtHeader.fStereoEvtNumber'], dtype=int)
 
             # Set pixel-wise charge and peak time information.
             # The length of the pixel array is 1183, but here only the first part of the pixel
