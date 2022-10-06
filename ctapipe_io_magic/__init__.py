@@ -218,6 +218,10 @@ class MAGICEventSource(EventSource):
             logger.warning("Processing mono simulation data with" \
                 " use_mc_mono_events=True. use_mc_mono_events will be ignored.")
 
+        if not self.is_simulation and self.use_mc_mono_events:
+            logger.warning("Processing real data with" \
+                " use_mc_mono_events=True. use_mc_mono_events will be ignored.")
+
         # # Setting up the current run with the first run present in the data
         # self.current_run = self._set_active_run(run_number=0)
         self.current_run = None
