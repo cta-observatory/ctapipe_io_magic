@@ -1229,6 +1229,7 @@ class MAGICEventSource(EventSource):
                     event.simulation.shower.energy = event_data['mc_energy'][i_event].to(u.TeV)
                     event.simulation.shower.shower_primary_id = 1 - event_data['mc_shower_primary_id'][i_event]
                     event.simulation.shower.h_first_int = event_data['mc_h_first_int'][i_event].to(u.m)
+                    event.simulation.shower.x_max = event_data['mc_x_max'][i_event].to('g cm-2')
 
                     # Convert the corsika coordinate (x-axis: magnetic north) to the geographical one.
                     # Rotate the corsika coordinate by the magnetic declination (= 7 deg):
@@ -1331,6 +1332,7 @@ class MarsCalibratedRun:
             'MMcEvt.fPhi',
             'MMcEvt.fPartId',
             'MMcEvt.fZFirstInteraction',
+            'MMcEvt.fLongitmax',
             'MMcEvt.fCoreX',
             'MMcEvt.fCoreY',
         ]
@@ -1442,6 +1444,7 @@ class MarsCalibratedRun:
                 calib_data[event_type]['mc_phi'] = u.Quantity(mc_info['MMcEvt.fPhi'], u.rad)
                 calib_data[event_type]['mc_shower_primary_id'] = np.array(mc_info['MMcEvt.fPartId'], dtype=int)
                 calib_data[event_type]['mc_h_first_int'] = u.Quantity(mc_info['MMcEvt.fZFirstInteraction'], u.cm)
+                calib_data[event_type]['mc_x_max'] = u.Quantity(mc_info['MMcEvt.fLongitmax'], u.Unit('g cm-2'))
                 calib_data[event_type]['mc_core_x'] = u.Quantity(mc_info['MMcEvt.fCoreX'], u.cm)
                 calib_data[event_type]['mc_core_y'] = u.Quantity(mc_info['MMcEvt.fCoreY'], u.cm)
 
