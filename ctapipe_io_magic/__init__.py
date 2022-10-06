@@ -377,8 +377,9 @@ class MAGICEventSource(EventSource):
             is_mc = True
         else:
             raise IndexError(
-                'Can not identify the run number and type (data/MC) of the file'
-                '{:s}'.format(file_name))
+                f"Can not identify the run number and type (data/MC) "
+                f"of the file {file_name}."
+                )
 
         return run_number, is_mc, telescope, datalevel
 
