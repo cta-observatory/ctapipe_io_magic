@@ -40,12 +40,9 @@ with MAGICEventSource(input_url=file_name) as event_source:
 
 With more recent versions of *ctapipe*, only one file at a time can be read. However, by default if a subrun of calibrated data is given as input, `MAGICEventSource` will read the events from all the subruns from the run to which the data file belongs. To suppress this behavior, set `process_run=False` No matching of the events is performed at this level (if stereo data).
 
-By default, assuming a calibrated file as input, the event generator will generate:
--   if real data taken in stereo mode, cosmic events (trigger pattern = 128) from the corresponding telescope
--   if real data taken in mono mode (either as a single telescope or with both telescopes independently), cosmic events (trigger pattern = 1) from the corresponding telescope
--   if simulated data in stereo mode, cosmic events (trigger pattern = 1 and stereo trigger number different from 0) from the corresponding telescope
+Starting from v0.4.7, `MAGICEventSource` will automatically recognize the type of data contained in the calibrated ROOT files (stereo or mono; std trigger or SumT). For MC data, in the case stereo MC data are to be used for mono analysis, one can set to True the `use_mc_mono_events` option of the `MAGICEventSource` to use also mono triggered events.
 
-Pedestal events (trigger pattern = 8) and simulated events triggered by only one telescope (trigger pattern = 1 and stereo trigger number = 0) can be generated as well.
+Pedestal events (trigger pattern = 8) can be generated as well.
 
 The reader is able to handle real data or Monte Carlo files, which are automatically recognized. Note that the names of input files have to follow the convention:
 -   `*_M[1-2]_RUNNUMBER.SUBRUNNR_Y_*.root` for real data
@@ -120,3 +117,4 @@ Some general information about the simulated data, useful for IRF calculation, a
 -   v0.4.4: changed units of peak_time from time slices (as stored in MARS) to nanoseconds
 -   v0.4.5: fixed automatic tests, add possibility to choose between effective and nominal focal length
 -   v0.4.6: add support to read in data taken in mono mode (full for real data, partial for MCs). Fixed bug in recognition of mono/stereo or standard trigger/SumT data (added also for MC)
+-   v0.4.7: add full support to read in real and MC data taken in mono mode, and with SumT. Added treatment of unsuitable pixels for MC data. Added readout of true XMax value from MC data (usually not available, filled with 0 otherwise)
