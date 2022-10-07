@@ -42,8 +42,9 @@ from .version import __version__
 
 from .constants import (
     DATA_MONO_TRIGGER_PATTERN,
-    MC_STEREO_TRIGGER_PATTERN,
+    MC_STEREO_AND_MONO_TRIGGER_PATTERN,
     MC_SUMT_TRIGGER_PATTERN,
+    DATA_MONO_SUMT_TRIGGER_PATTERN,
     PEDESTAL_TRIGGER_PATTERN,
     DATA_STEREO_TRIGGER_PATTERN,
 )
@@ -66,9 +67,10 @@ mc_data_type = 256
 
 MAGIC_TO_CTA_EVENT_TYPE = {
     DATA_MONO_TRIGGER_PATTERN: EventType.SUBARRAY,
-    MC_STEREO_TRIGGER_PATTERN: EventType.SUBARRAY,
+    MC_STEREO_AND_MONO_TRIGGER_PATTERN: EventType.SUBARRAY,
     MC_SUMT_TRIGGER_PATTERN: EventType.SUBARRAY,
     DATA_STEREO_TRIGGER_PATTERN: EventType.SUBARRAY,
+    DATA_MONO_SUMT_TRIGGER_PATTERN: EventType.SUBARRAY,
     PEDESTAL_TRIGGER_PATTERN: EventType.SKY_PEDESTAL,
 }
 
@@ -128,6 +130,11 @@ class MAGICEventSource(EventSource):
     use_pedestals = Bool(
         default_value=False,
         help='Extract pedestal events instead of cosmic events.'
+    ).tag(config=True)
+
+    use_mc_mono_events = Bool(
+        default_value=False,
+        help='Use mono events in MC stereo data (needed for mono analysis).'
     ).tag(config=True)
 
     focal_length_choice = CaselessStrEnum(
@@ -206,6 +213,14 @@ class MAGICEventSource(EventSource):
             self.simulation_config = self.parse_simulation_header()
 
         self.is_stereo, self.is_sumt = self.parse_data_info()
+
+        if self.is_simulation and self.use_mc_mono_events and not self.is_stereo:
+            logger.warning("Processing mono simulation data with" \
+                " use_mc_mono_events=True. use_mc_mono_events will be ignored.")
+
+        if not self.is_simulation and self.use_mc_mono_events:
+            logger.warning("Processing real data with" \
+                " use_mc_mono_events=True. use_mc_mono_events will be ignored.")
 
         # # Setting up the current run with the first run present in the data
         # self.current_run = self._set_active_run(run_number=0)
@@ -362,8 +377,9 @@ class MAGICEventSource(EventSource):
             is_mc = True
         else:
             raise IndexError(
-                'Can not identify the run number and type (data/MC) of the file'
-                '{:s}'.format(file_name))
+                f"Can not identify the run number and type (data/MC) "
+                f"of the file {file_name}."
+                )
 
         return run_number, is_mc, telescope, datalevel
 
@@ -1072,6 +1088,8 @@ class MAGICEventSource(EventSource):
                 uproot_file,
                 self.is_simulation,
                 self.is_stereo,
+                self.use_mc_mono_events,
+                self.is_sumt,
             )
 
         return run
@@ -1264,7 +1282,7 @@ class MarsCalibratedRun:
     and monitoring data from a MAGIC calibrated subrun file.
     """
 
-    def __init__(self, uproot_file, is_mc, is_stereo, n_cam_pixels=1039):
+    def __init__(self, uproot_file, is_mc, is_stereo, use_mc_mono_events, use_sumt_events, n_cam_pixels=1039):
         """
         Constructor of the class. Loads an input uproot file
         and store the informaiton to constructor variables.
@@ -1284,6 +1302,8 @@ class MarsCalibratedRun:
         self.uproot_file = uproot_file
         self.is_mc = is_mc
         self.is_stereo = is_stereo
+        self.use_mc_mono_events = use_mc_mono_events
+        self.use_sumt_events = use_sumt_events
         self.n_cam_pixels = n_cam_pixels
 
         # Load the input data:
@@ -1314,21 +1334,13 @@ class MarsCalibratedRun:
         """
 
         # Branches applicable for cosmic and pedestal events:
-        if self.is_stereo:
-            common_branches = [
-                'MRawEvtHeader.fStereoEvtNumber',
-                'MTriggerPattern.fPrescaled',
-                'MCerPhotEvt.fPixels.fPhot',
-                'MArrivalTime.fData',
-            ]
-        else:
-            common_branches = [
-                'MRawEvtHeader.fStereoEvtNumber',
-                'MRawEvtHeader.fDAQEvtNumber',
-                'MTriggerPattern.fPrescaled',
-                'MCerPhotEvt.fPixels.fPhot',
-                'MArrivalTime.fData',
-            ]
+        common_branches = [
+            'MRawEvtHeader.fStereoEvtNumber',
+            'MRawEvtHeader.fDAQEvtNumber',
+            'MTriggerPattern.fPrescaled',
+            'MCerPhotEvt.fPixels.fPhot',
+            'MArrivalTime.fData',
+        ]
 
         # Branches applicable for MC events:
         mc_branches = [
@@ -1386,15 +1398,26 @@ class MarsCalibratedRun:
         events_cut = dict()
 
         if self.is_mc:
-            # Only for cosmic events because MC data do not have pedestal events:
-            events_cut['cosmic_events'] = f'(MTriggerPattern.fPrescaled == {MC_STEREO_TRIGGER_PATTERN})' \
-                                          ' & (MRawEvtHeader.fStereoEvtNumber != 0)'
-        else:
-            if self.is_stereo:
-                events_cut['cosmic_events'] = f'(MTriggerPattern.fPrescaled == {DATA_STEREO_TRIGGER_PATTERN})'
+            mc_trigger_pattern = MC_STEREO_AND_MONO_TRIGGER_PATTERN
+            if self.use_sumt_events:
+                mc_trigger_pattern = MC_SUMT_TRIGGER_PATTERN
+            if self.use_mc_mono_events or not self.is_stereo:
+                events_cut['cosmic_events'] = f'(MTriggerPattern.fPrescaled == {mc_trigger_pattern})'
             else:
-                events_cut['cosmic_events'] = f'(MTriggerPattern.fPrescaled == {DATA_MONO_TRIGGER_PATTERN})'
+                events_cut['cosmic_events'] = f'(MTriggerPattern.fPrescaled == {mc_trigger_pattern})' \
+                                                          ' & (MRawEvtHeader.fStereoEvtNumber != 0)'
+        else:
+            data_trigger_pattern = DATA_STEREO_TRIGGER_PATTERN
+            if not self.is_stereo:
+                if self.use_sumt_events:
+                    mc_trigger_pattern = DATA_MONO_SUMT_TRIGGER_PATTERN
+                else:
+                    mc_trigger_pattern = DATA_MONO_TRIGGER_PATTERN
+            events_cut['cosmic_events'] = f'(MTriggerPattern.fPrescaled == {data_trigger_pattern})'
+            # Only for cosmic events because MC data do not have pedestal events:
             events_cut['pedestal_events'] = f'(MTriggerPattern.fPrescaled == {PEDESTAL_TRIGGER_PATTERN})'
+
+        logger.info(f"Cosmic events selection: {events_cut['cosmic_events']}")
 
         # read common information from RunHeaders
         sampling_speed = self.uproot_file['RunHeaders']['MRawRunHeader.fSamplingFrequency'].array(library='np')[0]/1000. # GHz
@@ -1411,6 +1434,9 @@ class MarsCalibratedRun:
                 library='np',
             )
 
+            if common_info['MTriggerPattern.fPrescaled'].size == 0:
+                raise IndexError(f"No events survived after selection (cut: {events_cut[event_type]})")
+
             calib_data[event_type]['trigger_pattern'] = np.array(common_info['MTriggerPattern.fPrescaled'], dtype=int)
 
             # For stereo data, the event ID is simply given by MRawEvtHeader.fStereoEvtNumber
@@ -1420,11 +1446,14 @@ class MarsCalibratedRun:
             # (set in the DAQ code), we create an artificial event ID by using the subrun number and
             # attaching the DAQ event id padded with 0 (to have 5 digits for the DAQ event id).
             # Like this we obtain an event id which is unique within a data run (like fStereoEvtNumber).
-            if self.is_stereo:
-                calib_data[event_type]['event_number'] = np.array(common_info['MRawEvtHeader.fStereoEvtNumber'], dtype=int)
-            else:
+
+            if (self.is_mc and self.use_mc_mono_events) or not self.is_stereo:
                 subrun_id = self.uproot_file["RunHeaders"]['MRawRunHeader.fSubRunIndex'].array(library="np")[0]
                 calib_data[event_type]['event_number'] = np.array([f"{subrun_id}{daq_id:05}" for daq_id in common_info['MRawEvtHeader.fDAQEvtNumber']], dtype=int)
+                logger.info("Using fDAQEvtNumber to generate event IDs.")
+            else:
+                calib_data[event_type]['event_number'] = np.array(common_info['MRawEvtHeader.fStereoEvtNumber'], dtype=int)
+                logger.info("Using fStereoEvtNumber to generate event IDs.")
 
             # Set pixel-wise charge and peak time information.
             # The length of the pixel array is 1183, but here only the first part of the pixel
