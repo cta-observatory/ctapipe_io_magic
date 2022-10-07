@@ -1130,7 +1130,10 @@ class MAGICEventSource(EventSource):
             monitoring_data = self.current_run['data'].monitoring_data
 
             # Set the pedestal information:
-            event.mon.tel[tel_id].pedestal.n_events = 500   # hardcoded number of pedestal events averaged over
+            # hardcoded number of pedestal events averaged over:
+            # 500 for pedestal_from_extractor{_rndm}
+            # 100 for pedestal_fundamental
+            event.mon.tel[tel_id].pedestal.n_events = 500
             event.mon.tel[tel_id].pedestal.sample_time = monitoring_data['pedestal_sample_time']
 
             event.mon.tel[tel_id].pedestal.charge_mean = [
