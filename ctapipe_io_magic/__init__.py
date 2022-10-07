@@ -1407,6 +1407,8 @@ class MarsCalibratedRun:
             # Only for cosmic events because MC data do not have pedestal events:
             events_cut['pedestal_events'] = f'(MTriggerPattern.fPrescaled == {PEDESTAL_TRIGGER_PATTERN})'
 
+        logger.info(f"Cosmic events selection: {events_cut['cosmic_events']}")
+
         # read common information from RunHeaders
         sampling_speed = self.uproot_file['RunHeaders']['MRawRunHeader.fSamplingFrequency'].array(library='np')[0]/1000. # GHz
 
@@ -1438,8 +1440,10 @@ class MarsCalibratedRun:
             if (self.is_mc and self.use_mc_mono_events) or not self.is_stereo:
                 subrun_id = self.uproot_file["RunHeaders"]['MRawRunHeader.fSubRunIndex'].array(library="np")[0]
                 calib_data[event_type]['event_number'] = np.array([f"{subrun_id}{daq_id:05}" for daq_id in common_info['MRawEvtHeader.fDAQEvtNumber']], dtype=int)
+                logger.info("Using fDAQEvtNumber to generate event IDs.")
             else:
                 calib_data[event_type]['event_number'] = np.array(common_info['MRawEvtHeader.fStereoEvtNumber'], dtype=int)
+                logger.info("Using fStereoEvtNumber to generate event IDs.")
 
             # Set pixel-wise charge and peak time information.
             # The length of the pixel array is 1183, but here only the first part of the pixel
