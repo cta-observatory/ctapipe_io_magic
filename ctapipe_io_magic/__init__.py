@@ -1410,9 +1410,9 @@ class MarsCalibratedRun:
             data_trigger_pattern = DATA_STEREO_TRIGGER_PATTERN
             if not self.is_stereo:
                 if self.use_sumt_events:
-                    mc_trigger_pattern = DATA_MONO_SUMT_TRIGGER_PATTERN
+                    data_trigger_pattern = DATA_MONO_SUMT_TRIGGER_PATTERN
                 else:
-                    mc_trigger_pattern = DATA_MONO_TRIGGER_PATTERN
+                    data_trigger_pattern = DATA_MONO_TRIGGER_PATTERN
             events_cut['cosmic_events'] = f'(MTriggerPattern.fPrescaled == {data_trigger_pattern})'
             # Only for cosmic events because MC data do not have pedestal events:
             events_cut['pedestal_events'] = f'(MTriggerPattern.fPrescaled == {PEDESTAL_TRIGGER_PATTERN})'
