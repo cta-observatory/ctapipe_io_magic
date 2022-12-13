@@ -16,7 +16,6 @@ setup(
     use_scm_version={"write_to": os.path.join("ctapipe_io_magic", "_version.py")},
     packages=find_packages(),
     install_requires=[
-        'python>=3.8',
         'ctapipe~=0.17',
         'astropy~=5.0',
         'uproot~=4.2',
