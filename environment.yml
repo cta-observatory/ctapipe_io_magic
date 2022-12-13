@@ -3,16 +3,15 @@ channels:
   - conda-forge
   - default
 dependencies:
-  - astropy~=5.0
-  - python=3.9
+  - astropy=5
+  - python=3.10
   - ctapipe=0.17
-  - eventio>=1.9.1
+  - eventio
   - corsikaio
-  - traitlets~=5.0,>=5.0.5
   - zeromq
   - ipython
   - numba
-  - numpy>=1.18
+  - numpy=1.22
   - numpydoc
   - pytest
   - pyyaml

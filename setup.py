@@ -15,16 +15,12 @@ docs_require = [
 setup(
     use_scm_version={"write_to": os.path.join("ctapipe_io_magic", "_version.py")},
     packages=find_packages(),
+    python_requires = >=3.8
     install_requires=[
         'ctapipe~=0.17',
         'astropy~=5.0',
-        'bokeh~=2.0',
-        'eventio>=1.9.1',
         'uproot~=4.2',
-        'traitlets~=5.0,>=5.0.5',
-        'tables~=3.4',
-        'numpy>=1.17',
-        'scipy'
+        'numpy>=1.20',
     ],
     package_data={
         'ctapipe_io_magic': ['resources/*'],
