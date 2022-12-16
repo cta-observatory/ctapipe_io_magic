@@ -38,6 +38,8 @@ from ctapipe.instrument import (
     CameraDescription,
     CameraGeometry,
     CameraReadout,
+    SizeType,
+    ReflectorShape,
 )
 
 from .mars_datalevels import MARSDataLevel
@@ -50,6 +52,8 @@ from .constants import (
     DATA_MONO_SUMT_TRIGGER_PATTERN,
     PEDESTAL_TRIGGER_PATTERN,
     DATA_STEREO_TRIGGER_PATTERN,
+    N_PIXELS,
+    N_SAMPLES,
 )
 
 __all__ = [
@@ -81,7 +85,7 @@ MAGIC_TO_CTA_EVENT_TYPE = {
 def load_camera_geometry():
     ''' Load camera geometry from bundled resources of this repo '''
     f = resource_filename(
-        'ctapipe_io_magic', 'resources/MAGICCam.camgeom.fits.gz'
+        'ctapipe_io_magic', 'resources/MAGICCam.camgeom1.fits.gz'
     )
     Provenance().add_input_file(f, role="CameraGeometry")
     return CameraGeometry.from_table(f)
@@ -202,7 +206,7 @@ class MAGICEventSource(EventSource):
         self.files_ = [uproot.open(rootf) for rootf in self.file_list]
         run_info = self.parse_run_info()
 
-        self.run_id = run_info[0][0]
+        self.run_id = run_info[0]
         self.is_mc = run_info[1][0]
         self.telescope = run_info[2][0]
         self.mars_datalevel = run_info[3][0]
@@ -240,17 +244,17 @@ class MAGICEventSource(EventSource):
         pointing_mode = PointingMode.TRACK
 
         self._scheduling_blocks = {
-            self.run_id: SchedulingBlockContainer(
-                sb_id=np.uint64(self.run_id),
+            self.run_id[0]: SchedulingBlockContainer(
+                sb_id=np.uint64(self.run_id[0]),
                 producer_id=f"MAGIC-{self.telescope}",
                 pointing_mode=pointing_mode,
             )
         }
 
         self._observation_blocks = {
-            self.run_id: ObservationBlockContainer(
-                obs_id=np.uint64(self.run_id),
-                sb_id=np.uint64(self.run_id),
+            self.run_id[0]: ObservationBlockContainer(
+                obs_id=np.uint64(self.run_id[0]),
+                sb_id=np.uint64(self.run_id[0]),
                 producer_id=f"MAGIC-{self.telescope}",
             )
         }
@@ -648,11 +652,14 @@ class MAGICEventSource(EventSource):
             focal_length = u.Quantity(17, u.m)
 
         OPTICS = OpticsDescription(
-            'MAGIC',
-            num_mirrors=1,
-            equivalent_focal_length=focal_length,
+            name='MAGIC',
+            size_type=SizeType.LST,
+            n_mirrors=1,
+            n_mirror_tiles=964,
+            reflector_shape=ReflectorShape.PARABOLIC,
+            equivalent_focal_length=u.Quantity(17, u.m),
+            effective_focal_length=u.Quantity(17*1.0713, u.m),
             mirror_area=u.Quantity(239.0, u.m**2),
-            num_mirror_tiles=964,
         )
 
         # camera info from MAGICCam.camgeom.fits.gz file
@@ -666,10 +673,13 @@ class MAGICEventSource(EventSource):
             u.GHz
         )
         camera_readout = CameraReadout(
-            camera_name='MAGICCam',
+            name='MAGICCam',
             sampling_rate=sampling_speed,
             reference_pulse_shape=pulse_shape,
-            reference_pulse_sample_width=u.Quantity(0.5, u.ns)
+            reference_pulse_sample_width=u.Quantity(0.5, u.ns),
+            n_channels=1,
+            n_pixels=N_PIXELS,
+            n_samples=N_SAMPLES,
         )
 
         camera = CameraDescription('MAGICCam', camera_geom, camera_readout)
@@ -677,7 +687,7 @@ class MAGICEventSource(EventSource):
         camera.geometry.frame = CameraFrame(focal_length=OPTICS.equivalent_focal_length)
 
         MAGIC_TEL_DESCRIPTION = TelescopeDescription(
-            name='MAGIC', tel_type='MAGIC', optics=OPTICS, camera=camera
+            name='MAGIC', optics=OPTICS, camera=camera
         )
 
         MAGIC_TEL_DESCRIPTIONS = {1: MAGIC_TEL_DESCRIPTION, 2: MAGIC_TEL_DESCRIPTION}
@@ -875,7 +885,7 @@ class MAGICEventSource(EventSource):
                 energy_range_max=u.Quantity(e_high, u.GeV).to(u.TeV),
                 prod_site_alt=u.Quantity(site_height, u.cm).to(u.m),
                 spectral_index=spectral_index,
-                num_showers=n_showers,
+                n_showers=n_showers,
                 shower_reuse=1,
                 # shower_reuse not written in the magic root file, but since the
                 # sim_events already include shower reuse we artificially set it
