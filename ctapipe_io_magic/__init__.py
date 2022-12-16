@@ -26,6 +26,9 @@ from ctapipe.containers import (
     ArrayEventContainer,
     SimulationConfigContainer,
     SimulatedEventContainer,
+    SchedulingBlockContainer,
+    ObservationBlockContainer,
+    PointingMode,
 )
 
 from ctapipe.instrument import (
@@ -112,7 +115,7 @@ class MAGICEventSource(EventSource):
         Data level according to MARS convention
     metadata : dict
         Dictionary containing metadata
-    run_numbers : int
+    run_id : int
         Run number of the file
     simulation_config : SimulationConfigContainer
         Container filled with the information about the simulation
@@ -199,7 +202,7 @@ class MAGICEventSource(EventSource):
         self.files_ = [uproot.open(rootf) for rootf in self.file_list]
         run_info = self.parse_run_info()
 
-        self.run_numbers = run_info[0]
+        self.run_id = run_info[0][0]
         self.is_mc = run_info[1][0]
         self.telescope = run_info[2][0]
         self.mars_datalevel = run_info[3][0]
@@ -210,7 +213,7 @@ class MAGICEventSource(EventSource):
         self.datalevel = DataLevel.DL0
 
         if self.is_simulation:
-            self.simulation_config = self.parse_simulation_header()
+            self._simulation_config = self.parse_simulation_header()
 
         self.is_stereo, self.is_sumt = self.parse_data_info()
 
@@ -233,6 +236,24 @@ class MAGICEventSource(EventSource):
 
             # Get the arrival time differences
             self.event_time_diffs = self.get_event_time_difference()
+
+        pointing_mode = PointingMode.TRACK
+
+        self._scheduling_blocks = {
+            self.run_id: SchedulingBlockContainer(
+                sb_id=np.uint64(self.run_id),
+                producer_id=f"MAGIC-{self.telescope}",
+                pointing_mode=pointing_mode,
+            )
+        }
+
+        self._observation_blocks = {
+            self.run_id: ObservationBlockContainer(
+                obs_id=np.uint64(self.run_id),
+                sb_id=np.uint64(self.run_id),
+                producer_id=f"MAGIC-{self.telescope}",
+            )
+        }
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         """
@@ -731,7 +752,7 @@ class MAGICEventSource(EventSource):
 
         metadata = dict()
         metadata["file_list"] = self.file_list
-        metadata['run_numbers'] = self.run_numbers
+        metadata['run_numbers'] = self.run_id
         metadata['is_simulation'] = self.is_simulation
         metadata['telescope'] = self.telescope
         metadata['subrun_number'] = []
@@ -818,7 +839,7 @@ class MAGICEventSource(EventSource):
 
         simulation_config = dict()
 
-        for run_number, rootf in zip(self.run_numbers, self.files_):
+        for run_number, rootf in zip(self.run_id, self.files_):
 
             run_header_tree = rootf['RunHeaders']
             spectral_index = run_header_tree['MMcCorsikaRunHeader.fSlopeSpec'].array(library="np")[0]
@@ -969,13 +990,25 @@ class MAGICEventSource(EventSource):
         return self.is_mc
 
     @property
+    def observation_blocks(self):
+        return self._observation_blocks
+
+    @property
+    def scheduling_blocks(self):
+        return self._scheduling_blocks
+
+    @property
+    def simulation_config(self):
+        return self._simulation_config
+
+    @property
     def datalevels(self):
         return (self.datalevel, )
 
     @property
     def obs_ids(self):
         # ToCheck: will this be compatible in the future, e.g. with merged MC files
-        return self.run_numbers
+        return list(self.observation_blocks)
 
     def _get_badrmspixel_mask(self, event):
         """
