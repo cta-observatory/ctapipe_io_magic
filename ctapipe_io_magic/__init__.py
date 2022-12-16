@@ -144,12 +144,6 @@ class MAGICEventSource(EventSource):
         help='Use mono events in MC stereo data (needed for mono analysis).'
     ).tag(config=True)
 
-    focal_length_choice = CaselessStrEnum(
-        ['nominal', 'effective'],
-        default_value='effective',
-        help='Which focal length to use when constructing the SubarrayDescription.',
-    ).tag(config=True)
-
     def __init__(self, input_url=None, config=None, parent=None, **kwargs):
         """
         Constructor
@@ -644,12 +638,6 @@ class MAGICEventSource(EventSource):
             1: [34.99, -24.02, 0.00] * u.m,
             2: [-34.99, 24.02, 0.00] * u.m
         }
-
-        if self.focal_length_choice == 'effective':
-            # Use the effective focal length that the coma aberration is corrected
-            focal_length = u.Quantity(17*1.0713, u.m)
-        else:
-            focal_length = u.Quantity(17, u.m)
 
         OPTICS = OpticsDescription(
             name='MAGIC',
