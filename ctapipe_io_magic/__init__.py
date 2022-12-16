@@ -85,7 +85,7 @@ MAGIC_TO_CTA_EVENT_TYPE = {
 def load_camera_geometry():
     ''' Load camera geometry from bundled resources of this repo '''
     f = resource_filename(
-        'ctapipe_io_magic', 'resources/MAGICCam.camgeom1.fits.gz'
+        'ctapipe_io_magic', 'resources/MAGICCam.camgeom.fits.gz'
     )
     Provenance().add_input_file(f, role="CameraGeometry")
     return CameraGeometry.from_table(f)
