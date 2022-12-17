@@ -200,7 +200,7 @@ class MAGICEventSource(EventSource):
         self.files_ = [uproot.open(rootf) for rootf in self.file_list]
         run_info = self.parse_run_info()
 
-        self.run_id = run_info[0]
+        self.run_id = run_info[0][0]
         self.is_mc = run_info[1][0]
         self.telescope = run_info[2][0]
         self.mars_datalevel = run_info[3][0]
@@ -238,17 +238,17 @@ class MAGICEventSource(EventSource):
         pointing_mode = PointingMode.TRACK
 
         self._scheduling_blocks = {
-            self.run_id[0]: SchedulingBlockContainer(
-                sb_id=np.uint64(self.run_id[0]),
+            self.run_id: SchedulingBlockContainer(
+                sb_id=np.uint64(self.run_id),
                 producer_id=f"MAGIC-{self.telescope}",
                 pointing_mode=pointing_mode,
             )
         }
 
         self._observation_blocks = {
-            self.run_id[0]: ObservationBlockContainer(
-                obs_id=np.uint64(self.run_id[0]),
-                sb_id=np.uint64(self.run_id[0]),
+            self.run_id: ObservationBlockContainer(
+                obs_id=np.uint64(self.run_id),
+                sb_id=np.uint64(self.run_id),
                 producer_id=f"MAGIC-{self.telescope}",
             )
         }
@@ -837,7 +837,7 @@ class MAGICEventSource(EventSource):
 
         simulation_config = dict()
 
-        for run_number, rootf in zip(self.run_id, self.files_):
+        for rootf in self.files_:
 
             run_header_tree = rootf['RunHeaders']
             spectral_index = run_header_tree['MMcCorsikaRunHeader.fSlopeSpec'].array(library="np")[0]
@@ -867,7 +867,7 @@ class MAGICEventSource(EventSource):
                 max_wavelength = run_header_tree['MMcRunHeader_1.fCWaveUpper'].array(library="np")[0]
                 min_wavelength = run_header_tree['MMcRunHeader_1.fCWaveLower'].array(library="np")[0]
 
-            simulation_config[run_number] = SimulationConfigContainer(
+            simulation_config[self.run_id] = SimulationConfigContainer(
                 corsika_version=corsika_version,
                 energy_range_min=u.Quantity(e_low, u.GeV).to(u.TeV),
                 energy_range_max=u.Quantity(e_high, u.GeV).to(u.TeV),
