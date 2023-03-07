@@ -331,6 +331,8 @@ def test_run_info(dataset):
         assert is_mc == source.is_simulation
         assert telescope == source.telescopes
         assert datalevel == source.mars_datalevel
+        assert source.is_stereo == True
+        assert source.is_sumt == False
 
 
 def test_multiple_runs_real():
