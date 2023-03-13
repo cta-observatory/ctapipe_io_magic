@@ -65,11 +65,7 @@ from .constants import (
     DATA_STEREO_TRIGGER_PATTERN,
 )
 
-__all__ = [
-    'MAGICEventSource',
-    'MARSDataLevel',
-    '__version__'
-]
+__all__ = ["MAGICEventSource", "MARSDataLevel", "__version__"]
 
 logger = logging.getLogger(__name__)
 
@@ -95,9 +91,7 @@ MAGIC_TO_CTA_EVENT_TYPE = {
 
 def load_camera_geometry():
     """Load camera geometry from bundled resources of this repo"""
-    f = resource_filename(
-        "ctapipe_io_magic", "resources/MAGICCam.camgeom.fits.gz"
-    )
+    f = resource_filename("ctapipe_io_magic", "resources/MAGICCam.camgeom.fits.gz")
     Provenance().add_input_file(f, role="CameraGeometry")
     return CameraGeometry.from_table(f)
 
@@ -151,7 +145,7 @@ class MAGICEventSource(EventSource):
 
     use_mc_mono_events = Bool(
         default_value=False,
-        help='Use mono events in MC stereo data (needed for mono analysis).'
+        help="Use mono events in MC stereo data (needed for mono analysis).",
     ).tag(config=True)
 
     focal_length_choice = CaselessStrEnum(
@@ -180,9 +174,7 @@ class MAGICEventSource(EventSource):
             the 'input_url' parameter.
         """
 
-        super().__init__(
-            input_url=input_url, config=config, parent=parent, **kwargs
-        )
+        super().__init__(input_url=input_url, config=config, parent=parent, **kwargs)
 
         path, name = os.path.split(os.path.abspath(self.input_url))
         info_tuple = self.get_run_info_from_name(name)
@@ -245,12 +237,16 @@ class MAGICEventSource(EventSource):
         self.is_stereo, self.is_sumt = self.parse_data_info()
 
         if self.is_simulation and self.use_mc_mono_events and not self.is_stereo:
-            logger.warning("Processing mono simulation data with" \
-                " use_mc_mono_events=True. use_mc_mono_events will be ignored.")
+            logger.warning(
+                "Processing mono simulation data with"
+                " use_mc_mono_events=True. use_mc_mono_events will be ignored."
+            )
 
         if not self.is_simulation and self.use_mc_mono_events:
-            logger.warning("Processing real data with" \
-                " use_mc_mono_events=True. use_mc_mono_events will be ignored.")
+            logger.warning(
+                "Processing real data with"
+                " use_mc_mono_events=True. use_mc_mono_events will be ignored."
+            )
 
         # # Setting up the current run with the first run present in the data
         # self.current_run = self._set_active_run(run_number=0)
@@ -312,9 +308,7 @@ class MAGICEventSource(EventSource):
         try:
             with uproot.open(file_path) as input_data:
                 mandatory_trees = ["Events", "RunHeaders", "RunTails"]
-                trees_in_file = [
-                    tree in input_data for tree in mandatory_trees
-                ]
+                trees_in_file = [tree in input_data for tree in mandatory_trees]
                 if not all(trees_in_file):
                     is_magic_root_file = False
         except ValueError:
@@ -412,7 +406,7 @@ class MAGICEventSource(EventSource):
             raise IndexError(
                 f"Can not identify the run number and type (data/MC) "
                 f"of the file {file_name}."
-                )
+            )
 
         return run_number, is_mc, telescope, datalevel
 
@@ -473,9 +467,7 @@ class MAGICEventSource(EventSource):
                 datalevel = MARSDataLevel.MELIBEA
 
             if datalevel <= MARSDataLevel.STAR:
-                run_info = rootf["RunHeaders"].arrays(
-                    runinfo_array_list, library="np"
-                )
+                run_info = rootf["RunHeaders"].arrays(runinfo_array_list, library="np")
 
                 run_number = int(run_info["MRawRunHeader.fRunNumber"][0])
                 run_type = int(run_info["MRawRunHeader.fRunType"][0])
@@ -575,9 +567,13 @@ class MAGICEventSource(EventSource):
                     # here we take the 2nd element (if possible) because sometimes
                     # the first trigger report has still the old prescaler values from a previous run
                     try:
-                        prescaler_array = trigger_tree["MTriggerPrescFact.fPrescFact"].array(library="np")
+                        prescaler_array = trigger_tree[
+                            "MTriggerPrescFact.fPrescFact"
+                        ].array(library="np")
                     except AssertionError:
-                        logger.warning("No prescaler info found. Will assume standard stereo data.")
+                        logger.warning(
+                            "No prescaler info found. Will assume standard stereo data."
+                        )
                         stereo = True
                         sumt = False
                         return stereo, sumt
@@ -588,7 +584,10 @@ class MAGICEventSource(EventSource):
                     else:
                         prescaler = list(prescaler_array[0])
 
-                    if prescaler == prescaler_mono_nosumt or prescaler == prescaler_mono_sumt:
+                    if (
+                        prescaler == prescaler_mono_nosumt
+                        or prescaler == prescaler_mono_sumt
+                    ):
                         stereo = False
                     elif prescaler == prescaler_stereo:
                         stereo = True
@@ -600,7 +599,9 @@ class MAGICEventSource(EventSource):
                         # here we take the 2nd element for the same reason as above
                         # L3Table is empty for mono data i.e. taken with one telescope only
                         # if both telescopes take data with no L3, L3Table is filled anyway
-                        L3Table_array = L3T_tree["MReportL3T.fTablename"].array(library="np")
+                        L3Table_array = L3T_tree["MReportL3T.fTablename"].array(
+                            library="np"
+                        )
                         L3Table_size = L3Table_array.size
                         if L3Table_size > 1:
                             L3Table = L3Table_array[1]
@@ -624,7 +625,9 @@ class MAGICEventSource(EventSource):
 
                     stereo = True
 
-                    L3Table_array = L3T_tree["MReportL3T.fTablename"].array(library="np")
+                    L3Table_array = L3T_tree["MReportL3T.fTablename"].array(
+                        library="np"
+                    )
                     L3Table_size = L3Table_array.size
                     if L3Table_size > 1:
                         L3Table = L3Table_array[1]
@@ -645,9 +648,17 @@ class MAGICEventSource(EventSource):
                 # looking into MC data, when SumT is simulated, trigger pattern of all events is set
                 # to 32 (bit 5), except the first (set to 0)
                 if self.mars_datalevel <= MARSDataLevel.STAR:
-                    trigger_pattern_array_unique = np.unique(rootf["Events"]["MTriggerPattern.fPrescaled"].array(library="np")[1:])
+                    trigger_pattern_array_unique = np.unique(
+                        rootf["Events"]["MTriggerPattern.fPrescaled"].array(
+                            library="np"
+                        )[1:]
+                    )
                 else:
-                    trigger_pattern_array_unique = np.unique(rootf["Events"]["MTriggerPattern_1.fPrescaled"].array(library="np")[1:])
+                    trigger_pattern_array_unique = np.unique(
+                        rootf["Events"]["MTriggerPattern_1.fPrescaled"].array(
+                            library="np"
+                        )[1:]
+                    )
                 if len(trigger_pattern_array_unique) == 1:
                     if trigger_pattern_array_unique[0] == MC_SUMT_TRIGGER_PATTERN:
                         sumt = True
@@ -657,7 +668,9 @@ class MAGICEventSource(EventSource):
                     sumt = False
 
                 # looking into MC data, MMcCorsikaRunHeader.fNumCT is set to 1 if mono, 2 if stereo
-                num_telescopes = rootf["RunHeaders"]["MMcCorsikaRunHeader.fNumCT"].array(library="np")[0]
+                num_telescopes = rootf["RunHeaders"][
+                    "MMcCorsikaRunHeader.fNumCT"
+                ].array(library="np")[0]
                 if num_telescopes == 1:
                     stereo = False
                 else:
@@ -716,7 +729,7 @@ class MAGICEventSource(EventSource):
             "MAGIC",
             num_mirrors=1,
             equivalent_focal_length=focal_length,
-            mirror_area=u.Quantity(239.0, u.m ** 2),
+            mirror_area=u.Quantity(239.0, u.m**2),
             num_mirror_tiles=964,
         )
 
@@ -728,9 +741,9 @@ class MAGICEventSource(EventSource):
         pulse_shape = np.vstack((pulse_shape_lo_gain, pulse_shape_hi_gain))
         if self.mars_datalevel <= MARSDataLevel.STAR:
             sampling_speed = u.Quantity(
-                self.files_[0]["RunHeaders"][
-                    "MRawRunHeader.fSamplingFrequency"
-                ].array(library="np")[0]
+                self.files_[0]["RunHeaders"]["MRawRunHeader.fSamplingFrequency"].array(
+                    library="np"
+                )[0]
                 / 1000,
                 u.GHz,
             )
@@ -751,9 +764,7 @@ class MAGICEventSource(EventSource):
 
         camera = CameraDescription("MAGICCam", camera_geom, camera_readout)
 
-        camera.geometry.frame = CameraFrame(
-            focal_length=OPTICS.equivalent_focal_length
-        )
+        camera.geometry.frame = CameraFrame(focal_length=OPTICS.equivalent_focal_length)
 
         MAGIC_TEL_DESCRIPTION = TelescopeDescription(
             name="MAGIC", tel_type="MAGIC", optics=OPTICS, camera=camera
@@ -892,25 +903,19 @@ class MAGICEventSource(EventSource):
                     f"MRawRunHeader{suffix}.fSourceName[80]"
                 ][0]
                 metadata["source_name"].append(
-                    "".join(
-                        [chr(item) for item in src_name_array if item != 0]
-                    )
+                    "".join([chr(item) for item in src_name_array if item != 0])
                 )
                 obs_mode_array = meta_info_runh[
                     f"MRawRunHeader{suffix}.fObservationMode[60]"
                 ][0]
                 metadata["observation_mode"].append(
-                    "".join(
-                        [chr(item) for item in obs_mode_array if item != 0]
-                    )
+                    "".join([chr(item) for item in obs_mode_array if item != 0])
                 )
                 project_name_array = meta_info_runh[
                     f"MRawRunHeader{suffix}.fProjectName[100]"
                 ][0]
                 metadata["project_name"].append(
-                    "".join(
-                        [chr(item) for item in project_name_array if item != 0]
-                    )
+                    "".join([chr(item) for item in project_name_array if item != 0])
                 )
 
             meta_info_runt = rootf["RunTails"].arrays(
@@ -933,14 +938,10 @@ class MAGICEventSource(EventSource):
                 )
             elif self.mars_datalevel == MARSDataLevel.SUPERSTAR:
                 mars_version_encoded = int(
-                    meta_info_runt["MMarsVersion_superstar.fMARSVersionCode"][
-                        0
-                    ]
+                    meta_info_runt["MMarsVersion_superstar.fMARSVersionCode"][0]
                 )
                 root_version_encoded = int(
-                    meta_info_runt["MMarsVersion_superstar.fROOTVersionCode"][
-                        0
-                    ]
+                    meta_info_runt["MMarsVersion_superstar.fROOTVersionCode"][0]
                 )
             elif self.mars_datalevel == MARSDataLevel.MELIBEA:
                 mars_version_encoded = int(
@@ -994,35 +995,33 @@ class MAGICEventSource(EventSource):
         # MAGIC_Binc is the magnetic field inclination
         MAGIC_Bx = u.Quantity(29.5, u.uT)
         MAGIC_Bz = u.Quantity(23.0, u.uT)
-        MAGIC_Btot = np.sqrt(MAGIC_Bx ** 2 + MAGIC_Bz ** 2)
+        MAGIC_Btot = np.sqrt(MAGIC_Bx**2 + MAGIC_Bz**2)
         MAGIC_Bdec = u.Quantity(-7.0, u.deg).to(u.rad)
-        MAGIC_Binc = u.Quantity(
-            np.arctan2(-MAGIC_Bz.value, MAGIC_Bx.value), u.rad
-        )
+        MAGIC_Binc = u.Quantity(np.arctan2(-MAGIC_Bz.value, MAGIC_Bx.value), u.rad)
 
         simulation_config = dict()
 
         for run_number, rootf in zip(self.run_numbers, self.files_):
 
             run_header_tree = rootf["RunHeaders"]
-            spectral_index = run_header_tree[
-                "MMcCorsikaRunHeader.fSlopeSpec"
-            ].array(library="np")[0]
-            e_low = run_header_tree["MMcCorsikaRunHeader.fELowLim"].array(
+            spectral_index = run_header_tree["MMcCorsikaRunHeader.fSlopeSpec"].array(
                 library="np"
             )[0]
+            e_low = run_header_tree["MMcCorsikaRunHeader.fELowLim"].array(library="np")[
+                0
+            ]
             e_high = run_header_tree["MMcCorsikaRunHeader.fEUppLim"].array(
                 library="np"
             )[0]
             corsika_version = run_header_tree[
                 "MMcCorsikaRunHeader.fCorsikaVersion"
             ].array(library="np")[0]
-            site_height = run_header_tree[
-                "MMcCorsikaRunHeader.fHeightLev[10]"
-            ].array(library="np")[0][0]
-            atm_model = run_header_tree[
-                "MMcCorsikaRunHeader.fAtmosphericModel"
-            ].array(library="np")[0]
+            site_height = run_header_tree["MMcCorsikaRunHeader.fHeightLev[10]"].array(
+                library="np"
+            )[0][0]
+            atm_model = run_header_tree["MMcCorsikaRunHeader.fAtmosphericModel"].array(
+                library="np"
+            )[0]
             if self.mars_datalevel in [
                 MARSDataLevel.CALIBRATED,
                 MARSDataLevel.STAR,
@@ -1050,12 +1049,12 @@ class MAGICEventSource(EventSource):
                 min_az = run_header_tree["MMcRunHeader.fShowerPhiMin"].array(
                     library="np"
                 )[0]
-                max_wavelength = run_header_tree[
-                    "MMcRunHeader.fCWaveUpper"
-                ].array(library="np")[0]
-                min_wavelength = run_header_tree[
-                    "MMcRunHeader.fCWaveLower"
-                ].array(library="np")[0]
+                max_wavelength = run_header_tree["MMcRunHeader.fCWaveUpper"].array(
+                    library="np"
+                )[0]
+                min_wavelength = run_header_tree["MMcRunHeader.fCWaveLower"].array(
+                    library="np"
+                )[0]
             elif self.mars_datalevel in [
                 MARSDataLevel.SUPERSTAR,
                 MARSDataLevel.MELIBEA,
@@ -1063,32 +1062,32 @@ class MAGICEventSource(EventSource):
                 view_cone = run_header_tree[
                     "MMcRunHeader_1.fRandomPointingConeSemiAngle"
                 ].array(library="np")[0]
-                max_impact = run_header_tree[
-                    "MMcRunHeader_1.fImpactMax"
-                ].array(library="np")[0]
+                max_impact = run_header_tree["MMcRunHeader_1.fImpactMax"].array(
+                    library="np"
+                )[0]
                 n_showers = np.sum(
-                    run_header_tree[
-                        "MMcRunHeader_1.fNumSimulatedShowers"
-                    ].array(library="np")
+                    run_header_tree["MMcRunHeader_1.fNumSimulatedShowers"].array(
+                        library="np"
+                    )
                 )
-                max_zd = run_header_tree[
-                    "MMcRunHeader_1.fShowerThetaMax"
-                ].array(library="np")[0]
-                min_zd = run_header_tree[
-                    "MMcRunHeader_1.fShowerThetaMin"
-                ].array(library="np")[0]
+                max_zd = run_header_tree["MMcRunHeader_1.fShowerThetaMax"].array(
+                    library="np"
+                )[0]
+                min_zd = run_header_tree["MMcRunHeader_1.fShowerThetaMin"].array(
+                    library="np"
+                )[0]
                 max_az = run_header_tree["MMcRunHeader_1.fShowerPhiMax"].array(
                     library="np"
                 )[0]
                 min_az = run_header_tree["MMcRunHeader_1.fShowerPhiMin"].array(
                     library="np"
                 )[0]
-                max_wavelength = run_header_tree[
-                    "MMcRunHeader_1.fCWaveUpper"
-                ].array(library="np")[0]
-                min_wavelength = run_header_tree[
-                    "MMcRunHeader_1.fCWaveLower"
-                ].array(library="np")[0]
+                max_wavelength = run_header_tree["MMcRunHeader_1.fCWaveUpper"].array(
+                    library="np"
+                )[0]
+                min_wavelength = run_header_tree["MMcRunHeader_1.fCWaveLower"].array(
+                    library="np"
+                )[0]
 
             simulation_config[run_number] = SimulationConfigContainer(
                 corsika_version=corsika_version,
@@ -1274,9 +1273,7 @@ class MAGICEventSource(EventSource):
 
         for i_ped_type in range(n_ped_types):
 
-            charge_std = event.mon.tel[tel_id].pedestal.charge_std[i_ped_type][
-                index
-            ]
+            charge_std = event.mon.tel[tel_id].pedestal.charge_std[i_ped_type][index]
 
             pix_step1 = np.logical_and(
                 charge_std > 0,
@@ -1305,10 +1302,10 @@ class MAGICEventSource(EventSource):
             lolim_step1 = mean_step2 / pedestal_level
             uplim_step1 = mean_step2 * pedestal_level
             lolim_step2 = mean_step2 - pedestal_level_variance * np.sqrt(
-                var_step2 - mean_step2 ** 2
+                var_step2 - mean_step2**2
             )
             uplim_step2 = mean_step2 + pedestal_level_variance * np.sqrt(
-                var_step2 - mean_step2 ** 2
+                var_step2 - mean_step2**2
             )
 
             badrmspix_step1 = np.logical_or(
@@ -1321,9 +1318,7 @@ class MAGICEventSource(EventSource):
                 charge_std > uplim_step2,
             )
 
-            badrmspixel_mask.append(
-                np.logical_or(badrmspix_step1, badrmspix_step2)
-            )
+            badrmspixel_mask.append(np.logical_or(badrmspix_step1, badrmspix_step2))
 
         return badrmspixel_mask
 
@@ -1352,6 +1347,9 @@ class MAGICEventSource(EventSource):
                 uproot_file,
                 self.is_simulation,
                 self.telescopes[0],
+                self.is_stereo,
+                self.use_mc_mono_events,
+                self.is_sumt,
             )
         if self.mars_datalevel == MARSDataLevel.SUPERSTAR:
             run["data"] = MarsSuperstarRun(
@@ -1362,9 +1360,6 @@ class MAGICEventSource(EventSource):
             run["data"] = MarsMelibeaRun(
                 uproot_file,
                 self.is_simulation,
-                self.is_stereo,
-                self.use_mc_mono_events,
-                self.is_sumt,
             )
 
         return run
@@ -1422,53 +1417,42 @@ class MAGICEventSource(EventSource):
 
                 if self.mars_datalevel == MARSDataLevel.CALIBRATED:
 
-                    monitoring_data = self.current_run[
-                        "data"
-                    ].monitoring_data
+                    monitoring_data = self.current_run["data"].monitoring_data
 
                     # Set the pedestal information:
                     event.mon.tel[
                         tel_id
-                    ].pedestal.n_events = 500  # hardcoded number of pedestal events averaged over
-                    event.mon.tel[
+                    ].pedestal.n_events = (
+                        500  # hardcoded number of pedestal events averaged over
+                    )
+                    event.mon.tel[tel_id].pedestal.sample_time = monitoring_data[
                         tel_id
-                    ].pedestal.sample_time = monitoring_data[tel_id][
-                        "pedestal_sample_time"
-                    ]
+                    ]["pedestal_sample_time"]
 
                     event.mon.tel[tel_id].pedestal.charge_mean = [
-                        monitoring_data[tel_id]["pedestal_fundamental"][
-                            "mean"
-                        ],
-                        monitoring_data[tel_id]["pedestal_from_extractor"][
-                            "mean"
-                        ],
-                        monitoring_data[tel_id][
-                            "pedestal_from_extractor_rndm"
-                        ]["mean"],
+                        monitoring_data[tel_id]["pedestal_fundamental"]["mean"],
+                        monitoring_data[tel_id]["pedestal_from_extractor"]["mean"],
+                        monitoring_data[tel_id]["pedestal_from_extractor_rndm"]["mean"],
                     ]
 
                     event.mon.tel[tel_id].pedestal.charge_std = [
-                        monitoring_data[tel_id]["pedestal_fundamental"][
-                            "rms"
-                        ],
-                        monitoring_data[tel_id]["pedestal_from_extractor"][
-                            "rms"
-                        ],
-                        monitoring_data[tel_id][
-                            "pedestal_from_extractor_rndm"
-                        ]["rms"],
+                        monitoring_data[tel_id]["pedestal_fundamental"]["rms"],
+                        monitoring_data[tel_id]["pedestal_from_extractor"]["rms"],
+                        monitoring_data[tel_id]["pedestal_from_extractor_rndm"]["rms"],
                     ]
 
                     # Set the bad pixel information:
-                    event.mon.tel[tel_id].pixel_status.hardware_failing_pixels = np.reshape(
-                        monitoring_data['bad_pixel'], (1, len(monitoring_data['bad_pixel']))
+                    event.mon.tel[
+                        tel_id
+                    ].pixel_status.hardware_failing_pixels = np.reshape(
+                        monitoring_data[tel_id]["bad_pixel"],
+                        (1, len(monitoring_data[tel_id]["bad_pixel"])),
                     )
 
                     if not self.is_simulation:
                         # Interpolate drive information:
                         drive_data = self.drive_information
-                        n_drive_reports = len(drive_data['mjd'])
+                        n_drive_reports = len(drive_data["mjd"])
 
                         # Interpolate drive information:
                         drive_data = self.drive_information
@@ -1495,52 +1479,36 @@ class MAGICEventSource(EventSource):
                         )
 
                         # Create azimuth and zenith angles interpolators:
-                        drive_az_pointing_interpolator = (
-                            scipy.interpolate.interp1d(
-                                drive_data["mjd"],
-                                drive_data["az"],
-                                fill_value="extrapolate",
-                            )
+                        drive_az_pointing_interpolator = scipy.interpolate.interp1d(
+                            drive_data["mjd"],
+                            drive_data["az"],
+                            fill_value="extrapolate",
                         )
-                        drive_zd_pointing_interpolator = (
-                            scipy.interpolate.interp1d(
-                                drive_data["mjd"],
-                                drive_data["zd"],
-                                fill_value="extrapolate",
-                            )
+                        drive_zd_pointing_interpolator = scipy.interpolate.interp1d(
+                            drive_data["mjd"],
+                            drive_data["zd"],
+                            fill_value="extrapolate",
                         )
 
                         # Create RA and Dec interpolators:
-                        drive_ra_pointing_interpolator = (
-                            scipy.interpolate.interp1d(
-                                drive_data["mjd"],
-                                drive_data["ra"],
-                                fill_value="extrapolate",
-                            )
+                        drive_ra_pointing_interpolator = scipy.interpolate.interp1d(
+                            drive_data["mjd"],
+                            drive_data["ra"],
+                            fill_value="extrapolate",
                         )
-                        drive_dec_pointing_interpolator = (
-                            scipy.interpolate.interp1d(
-                                drive_data["mjd"],
-                                drive_data["dec"],
-                                fill_value="extrapolate",
-                            )
+                        drive_dec_pointing_interpolator = scipy.interpolate.interp1d(
+                            drive_data["mjd"],
+                            drive_data["dec"],
+                            fill_value="extrapolate",
                         )
 
                         # Interpolate the drive pointing to the event timestamps:
                         event_times = event_data[tel_id]["time"].mjd
 
-                        pointing_az = drive_az_pointing_interpolator(
-                            event_times
-                        )
-                        pointing_zd = drive_zd_pointing_interpolator(
-                            event_times
-                        )
-                        pointing_ra = drive_ra_pointing_interpolator(
-                            event_times
-                        )
-                        pointing_dec = drive_dec_pointing_interpolator(
-                            event_times
-                        )
+                        pointing_az = drive_az_pointing_interpolator(event_times)
+                        pointing_zd = drive_zd_pointing_interpolator(event_times)
+                        pointing_ra = drive_ra_pointing_interpolator(event_times)
+                        pointing_dec = drive_dec_pointing_interpolator(event_times)
 
                         event_data[tel_id]["pointing_az"] = u.Quantity(
                             pointing_az, u.deg
@@ -1560,46 +1528,40 @@ class MAGICEventSource(EventSource):
 
                 for tel_id in self.telescopes:
                     event.count = counter
-                    event.index.event_id = event_data['event_number'][i_event]
+                    event.index.event_id = event_data[tel_id]["event_number"][i_event]
 
                     event.trigger.event_type = MAGIC_TO_CTA_EVENT_TYPE.get(
                         event_data[tel_id]["trigger_pattern"][i_event]
                     )
 
                     if not self.is_simulation:
-                        event.trigger.time = event_data[tel_id]["time"][
+                        event.trigger.time = event_data[tel_id]["time"][i_event]
+                        event.trigger.tel[tel_id].time = event_data[tel_id]["time"][
                             i_event
                         ]
-                        event.trigger.tel[tel_id].time = event_data[tel_id][
-                            "time"
-                        ][i_event]
 
                         if (
                             not self.use_pedestals
                             and self.mars_datalevel == MARSDataLevel.CALIBRATED
                         ):
-                            badrmspixel_mask = self.get_badrmspixel_mask(
-                                event, tel_id
-                            )
+                            badrmspixel_mask = self.get_badrmspixel_mask(event, tel_id)
                             event.mon.tel[
                                 tel_id
-                            ].pixel_status.pedestal_failing_pixels = (
-                                badrmspixel_mask
-                            )
+                            ].pixel_status.pedestal_failing_pixels = badrmspixel_mask
 
                     # Set the telescope pointing container:
-                    event.pointing.array_azimuth = event_data[tel_id][
-                        "pointing_az"
-                    ][i_event].to(u.rad)
-                    event.pointing.array_altitude = event_data[tel_id][
-                        "pointing_alt"
-                    ][i_event].to(u.rad)
-                    event.pointing.array_ra = event_data[tel_id][
-                        "pointing_ra"
-                    ][i_event].to(u.rad)
-                    event.pointing.array_dec = event_data[tel_id][
-                        "pointing_dec"
-                    ][i_event].to(u.rad)
+                    event.pointing.array_azimuth = event_data[tel_id]["pointing_az"][
+                        i_event
+                    ].to(u.rad)
+                    event.pointing.array_altitude = event_data[tel_id]["pointing_alt"][
+                        i_event
+                    ].to(u.rad)
+                    event.pointing.array_ra = event_data[tel_id]["pointing_ra"][
+                        i_event
+                    ].to(u.rad)
+                    event.pointing.array_dec = event_data[tel_id]["pointing_dec"][
+                        i_event
+                    ].to(u.rad)
 
                     event.pointing.tel[tel_id].azimuth = event_data[tel_id][
                         "pointing_az"
@@ -1610,17 +1572,15 @@ class MAGICEventSource(EventSource):
 
                     if self.mars_datalevel == MARSDataLevel.CALIBRATED:
                         # Set event charge and peak positions per pixel:
-                        event.dl1.tel[tel_id].image = event_data[tel_id][
-                            "image"
-                        ][i_event]
+                        event.dl1.tel[tel_id].image = event_data[tel_id]["image"][
+                            i_event
+                        ]
                         event.dl1.tel[tel_id].peak_time = event_data[tel_id][
                             "peak_time"
                         ][i_event]
 
                     if self.mars_datalevel >= MARSDataLevel.SUPERSTAR:
-                        event.dl1.tel[
-                            tel_id
-                        ].parameters = ImageParametersContainer()
+                        event.dl1.tel[tel_id].parameters = ImageParametersContainer()
                         event.dl1.tel[
                             tel_id
                         ].parameters.hillas = CameraHillasParametersContainer(
@@ -1649,27 +1609,21 @@ class MAGICEventSource(EventSource):
                         )
 
                         # not fully filled
-                        event.dl1.tel[
-                            tel_id
-                        ].parameters.leakage = LeakageContainer(
-                            intensity_width_1=event_data[tel_id][
-                                "intensity_width_1"
-                            ][i_event],
-                            intensity_width_2=event_data[tel_id][
-                                "intensity_width_2"
-                            ][i_event],
+                        event.dl1.tel[tel_id].parameters.leakage = LeakageContainer(
+                            intensity_width_1=event_data[tel_id]["intensity_width_1"][
+                                i_event
+                            ],
+                            intensity_width_2=event_data[tel_id]["intensity_width_2"][
+                                i_event
+                            ],
                         )
 
                         # not fully filled
                         event.dl1.tel[
                             tel_id
                         ].parameters.morphology = MorphologyContainer(
-                            num_pixels=event_data[tel_id]["num_pixels"][
-                                i_event
-                            ],
-                            num_islands=event_data[tel_id]["num_islands"][
-                                i_event
-                            ],
+                            num_pixels=event_data[tel_id]["num_pixels"][i_event],
+                            num_islands=event_data[tel_id]["num_islands"][i_event],
                         )
 
                         event.dl2.stereo.geometry[
@@ -1693,12 +1647,10 @@ class MAGICEventSource(EventSource):
 
                     if self.mars_datalevel >= MARSDataLevel.MELIBEA:
                         event.dl2.stereo.energy = ReconstructedEnergyContainer(
-                            energy=event_data["reconstructed"]["energy"][
+                            energy=event_data["reconstructed"]["energy"][i_event],
+                            energy_uncert=event_data["reconstructed"]["energy_uncert"][
                                 i_event
                             ],
-                            energy_uncert=event_data["reconstructed"][
-                                "energy_uncert"
-                            ][i_event],
                             is_valid=True
                             if event_data["stereo"]["is_valid"][i_event] == 1
                             else False,
@@ -1707,12 +1659,11 @@ class MAGICEventSource(EventSource):
 
                         event.dl2.stereo.classification = (
                             ParticleClassificationContainer(
-                                prediction=event_data["reconstructed"][
-                                    "gammanness"
-                                ][i_event],
+                                prediction=event_data["reconstructed"]["gammanness"][
+                                    i_event
+                                ],
                                 is_valid=True
-                                if event_data["stereo"]["is_valid"][i_event]
-                                == 1
+                                if event_data["stereo"]["is_valid"][i_event] == 1
                                 else False,
                                 tel_ids=[1, 2],
                             )
@@ -1727,16 +1678,15 @@ class MAGICEventSource(EventSource):
                             "mc_energy"
                         ][i_event].to(u.TeV)
                         event.simulation.shower.shower_primary_id = (
-                            1
-                            - event_data[tel_id]["mc_shower_primary_id"][
-                                i_event
-                            ]
+                            1 - event_data[tel_id]["mc_shower_primary_id"][i_event]
                         )
-                        event.simulation.shower.h_first_int = event_data[
-                            tel_id
-                        ]["mc_h_first_int"][i_event].to(u.m)
+                        event.simulation.shower.h_first_int = event_data[tel_id][
+                            "mc_h_first_int"
+                        ][i_event].to(u.m)
 
-                        event.simulation.shower.x_max = event_data[tel_id]['mc_x_max'][i_event].to('g cm-2')
+                        event.simulation.shower.x_max = event_data[tel_id]["mc_x_max"][
+                            i_event
+                        ].to("g cm-2")
 
                         # Convert the corsika coordinate (x-axis: magnetic north) to the geographical one.
                         # Rotate the corsika coordinate by the magnetic declination (= 7 deg):
@@ -1754,15 +1704,11 @@ class MAGICEventSource(EventSource):
                         )
 
                         if event.simulation.shower.az > u.Quantity(180, u.deg):
-                            event.simulation.shower.az -= u.Quantity(
-                                360, u.deg
-                            )
+                            event.simulation.shower.az -= u.Quantity(360, u.deg)
 
                         event.simulation.shower.core_x = event_data[tel_id][
                             "mc_core_x"
-                        ][i_event].to(u.m) * np.cos(mfield_dec) + event_data[
-                            tel_id
-                        ][
+                        ][i_event].to(u.m) * np.cos(mfield_dec) + event_data[tel_id][
                             "mc_core_y"
                         ][
                             i_event
@@ -1774,9 +1720,7 @@ class MAGICEventSource(EventSource):
 
                         event.simulation.shower.core_y = event_data[tel_id][
                             "mc_core_y"
-                        ][i_event].to(u.m) * np.cos(mfield_dec) - event_data[
-                            tel_id
-                        ][
+                        ][i_event].to(u.m) * np.cos(mfield_dec) - event_data[tel_id][
                             "mc_core_x"
                         ][
                             i_event
@@ -1798,7 +1742,16 @@ class MarsCalibratedRun:
     and monitoring data from a MAGIC calibrated subrun file.
     """
 
-    def __init__(self, uproot_file, is_mc, tel_id, is_stereo, use_mc_mono_events, use_sumt_events, n_cam_pixels=1039):
+    def __init__(
+        self,
+        uproot_file,
+        is_mc,
+        tel_id,
+        is_stereo,
+        use_mc_mono_events,
+        use_sumt_events,
+        n_cam_pixels=1039,
+    ):
         """
         Constructor of the class. Loads an input uproot file
         and store the informaiton to constructor variables.
@@ -1838,9 +1791,7 @@ class MarsCalibratedRun:
 
     @property
     def n_pedestal_events(self):
-        return len(
-            self.pedestal_events[self.tel_id].get("trigger_pattern", [])
-        )
+        return len(self.pedestal_events[self.tel_id].get("trigger_pattern", []))
 
     def _load_data(self):
         """
@@ -1856,23 +1807,23 @@ class MarsCalibratedRun:
 
         # Branches applicable for cosmic and pedestal events:
         common_branches = [
-            'MRawEvtHeader.fStereoEvtNumber',
-            'MRawEvtHeader.fDAQEvtNumber',
-            'MTriggerPattern.fPrescaled',
-            'MCerPhotEvt.fPixels.fPhot',
-            'MArrivalTime.fData',
+            "MRawEvtHeader.fStereoEvtNumber",
+            "MRawEvtHeader.fDAQEvtNumber",
+            "MTriggerPattern.fPrescaled",
+            "MCerPhotEvt.fPixels.fPhot",
+            "MArrivalTime.fData",
         ]
 
         # Branches applicable for MC events:
         mc_branches = [
-            'MMcEvt.fEnergy',
-            'MMcEvt.fTheta',
-            'MMcEvt.fPhi',
-            'MMcEvt.fPartId',
-            'MMcEvt.fZFirstInteraction',
-            'MMcEvt.fLongitmax',
-            'MMcEvt.fCoreX',
-            'MMcEvt.fCoreY',
+            "MMcEvt.fEnergy",
+            "MMcEvt.fTheta",
+            "MMcEvt.fPhi",
+            "MMcEvt.fPartId",
+            "MMcEvt.fZFirstInteraction",
+            "MMcEvt.fLongitmax",
+            "MMcEvt.fCoreX",
+            "MMcEvt.fCoreY",
         ]
 
         pointing_branches = [
@@ -1894,18 +1845,18 @@ class MarsCalibratedRun:
         ]
 
         pedestal_time_branches = [
-            'MTimePedestals.fMjd',
-            'MTimePedestals.fTime.fMilliSec',
-            'MTimePedestals.fNanoSec',
+            "MTimePedestals.fMjd",
+            "MTimePedestals.fTime.fMilliSec",
+            "MTimePedestals.fNanoSec",
         ]
 
         pedestal_branches = [
-            'MPedPhotFundamental.fArray.fMean',
-            'MPedPhotFundamental.fArray.fRms',
-            'MPedPhotFromExtractor.fArray.fMean',
-            'MPedPhotFromExtractor.fArray.fRms',
-            'MPedPhotFromExtractorRndm.fArray.fMean',
-            'MPedPhotFromExtractorRndm.fArray.fRms',
+            "MPedPhotFundamental.fArray.fMean",
+            "MPedPhotFundamental.fArray.fRms",
+            "MPedPhotFromExtractor.fArray.fMean",
+            "MPedPhotFromExtractor.fArray.fRms",
+            "MPedPhotFromExtractorRndm.fArray.fMean",
+            "MPedPhotFromExtractorRndm.fArray.fRms",
         ]
 
         # Initialize the data container:
@@ -1923,10 +1874,14 @@ class MarsCalibratedRun:
             if self.use_sumt_events:
                 mc_trigger_pattern = MC_SUMT_TRIGGER_PATTERN
             if self.use_mc_mono_events or not self.is_stereo:
-                events_cut['cosmic_events'] = f'(MTriggerPattern.fPrescaled == {mc_trigger_pattern})'
+                events_cut[
+                    "cosmic_events"
+                ] = f"(MTriggerPattern.fPrescaled == {mc_trigger_pattern})"
             else:
-                events_cut['cosmic_events'] = f'(MTriggerPattern.fPrescaled == {mc_trigger_pattern})' \
-                                                          ' & (MRawEvtHeader.fStereoEvtNumber != 0)'
+                events_cut["cosmic_events"] = (
+                    f"(MTriggerPattern.fPrescaled == {mc_trigger_pattern})"
+                    " & (MRawEvtHeader.fStereoEvtNumber != 0)"
+                )
         else:
             data_trigger_pattern = DATA_STEREO_TRIGGER_PATTERN
             if not self.is_stereo:
@@ -1934,17 +1889,21 @@ class MarsCalibratedRun:
                     data_trigger_pattern = DATA_MONO_SUMT_TRIGGER_PATTERN
                 else:
                     data_trigger_pattern = DATA_MONO_TRIGGER_PATTERN
-            events_cut['cosmic_events'] = f'(MTriggerPattern.fPrescaled == {data_trigger_pattern})'
+            events_cut[
+                "cosmic_events"
+            ] = f"(MTriggerPattern.fPrescaled == {data_trigger_pattern})"
             # Only for cosmic events because MC data do not have pedestal events:
-            events_cut['pedestal_events'] = f'(MTriggerPattern.fPrescaled == {PEDESTAL_TRIGGER_PATTERN})'
+            events_cut[
+                "pedestal_events"
+            ] = f"(MTriggerPattern.fPrescaled == {PEDESTAL_TRIGGER_PATTERN})"
 
         logger.info(f"Cosmic events selection: {events_cut['cosmic_events']}")
 
         # read common information from RunHeaders
         sampling_speed = (
-            self.uproot_file["RunHeaders"][
-                "MRawRunHeader.fSamplingFrequency"
-            ].array(library="np")[0]
+            self.uproot_file["RunHeaders"]["MRawRunHeader.fSamplingFrequency"].array(
+                library="np"
+            )[0]
             / 1000.0
         )  # GHz
 
@@ -1960,10 +1919,14 @@ class MarsCalibratedRun:
                 library="np",
             )
 
-            if common_info['MTriggerPattern.fPrescaled'].size == 0:
-                raise IndexError(f"No events survived after selection (cut: {events_cut[event_type]})")
+            if common_info["MTriggerPattern.fPrescaled"].size == 0:
+                raise IndexError(
+                    f"No events survived after selection (cut: {events_cut[event_type]})"
+                )
 
-            calib_data[event_type][self.tel_id]['trigger_pattern'] = np.array(common_info['MTriggerPattern.fPrescaled'], dtype=int)
+            calib_data[event_type][self.tel_id]["trigger_pattern"] = np.array(
+                common_info["MTriggerPattern.fPrescaled"], dtype=int
+            )
 
             # For stereo data, the event ID is simply given by MRawEvtHeader.fStereoEvtNumber
             # For data taken in mono however (i.e. only with one telescope in SA), fStereoEvtNumber
@@ -1974,11 +1937,21 @@ class MarsCalibratedRun:
             # Like this we obtain an event id which is unique within a data run (like fStereoEvtNumber).
 
             if (self.is_mc and self.use_mc_mono_events) or not self.is_stereo:
-                subrun_id = self.uproot_file["RunHeaders"]['MRawRunHeader.fSubRunIndex'].array(library="np")[0]
-                calib_data[event_type][self.tel_id]['event_number'] = np.array([f"{subrun_id}{daq_id:05}" for daq_id in common_info['MRawEvtHeader.fDAQEvtNumber']], dtype=int)
+                subrun_id = self.uproot_file["RunHeaders"][
+                    "MRawRunHeader.fSubRunIndex"
+                ].array(library="np")[0]
+                calib_data[event_type][self.tel_id]["event_number"] = np.array(
+                    [
+                        f"{subrun_id}{daq_id:05}"
+                        for daq_id in common_info["MRawEvtHeader.fDAQEvtNumber"]
+                    ],
+                    dtype=int,
+                )
                 logger.info("Using fDAQEvtNumber to generate event IDs.")
             else:
-                calib_data[event_type][self.tel_id]['event_number'] = np.array(common_info['MRawEvtHeader.fStereoEvtNumber'], dtype=int)
+                calib_data[event_type][self.tel_id]["event_number"] = np.array(
+                    common_info["MRawEvtHeader.fStereoEvtNumber"], dtype=int
+                )
                 logger.info("Using fStereoEvtNumber to generate event IDs.")
 
             # Set pixel-wise charge and peak time information.
@@ -1991,9 +1964,7 @@ class MarsCalibratedRun:
             calib_data[event_type][self.tel_id]["peak_time"] = np.array(
                 common_info["MArrivalTime.fData"].tolist()
             )[:, : self.n_cam_pixels]
-            calib_data[event_type][self.tel_id][
-                "peak_time"
-            ] /= sampling_speed  # [ns]
+            calib_data[event_type][self.tel_id]["peak_time"] /= sampling_speed  # [ns]
 
             if self.is_mc:
 
@@ -2017,13 +1988,15 @@ class MarsCalibratedRun:
                 calib_data[event_type][self.tel_id]["mc_phi"] = u.Quantity(
                     mc_info["MMcEvt.fPhi"], u.rad
                 )
-                calib_data[event_type][self.tel_id][
-                    "mc_shower_primary_id"
-                ] = np.array(mc_info["MMcEvt.fPartId"], dtype=int)
-                calib_data[event_type][self.tel_id][
-                    "mc_h_first_int"
-                ] = u.Quantity(mc_info["MMcEvt.fZFirstInteraction"], u.cm)
-                calib_data[event_type][self.tel_id]['mc_x_max'] = u.Quantity(mc_info['MMcEvt.fLongitmax'], u.Unit('g cm-2'))
+                calib_data[event_type][self.tel_id]["mc_shower_primary_id"] = np.array(
+                    mc_info["MMcEvt.fPartId"], dtype=int
+                )
+                calib_data[event_type][self.tel_id]["mc_h_first_int"] = u.Quantity(
+                    mc_info["MMcEvt.fZFirstInteraction"], u.cm
+                )
+                calib_data[event_type][self.tel_id]["mc_x_max"] = u.Quantity(
+                    mc_info["MMcEvt.fLongitmax"], u.Unit("g cm-2")
+                )
                 calib_data[event_type][self.tel_id]["mc_core_x"] = u.Quantity(
                     mc_info["MMcEvt.fCoreX"], u.cm
                 )
@@ -2032,10 +2005,10 @@ class MarsCalibratedRun:
                 )
 
                 # Reading the telescope pointing information:
-                pointing = self.uproot_file['Events'].arrays(
+                pointing = self.uproot_file["Events"].arrays(
                     expressions=pointing_branches,
                     cut=events_cut[event_type],
-                    library='np',
+                    library="np",
                 )
 
                 # Reading the telescope pointing information:
@@ -2046,36 +2019,32 @@ class MarsCalibratedRun:
                 )
 
                 pointing_az = (
-                    pointing["MPointingPos.fAz"]
-                    - pointing["MPointingPos.fDevAz"]
+                    pointing["MPointingPos.fAz"] - pointing["MPointingPos.fDevAz"]
                 )
                 pointing_zd = (
-                    pointing["MPointingPos.fZd"]
-                    - pointing["MPointingPos.fDevZd"]
+                    pointing["MPointingPos.fZd"] - pointing["MPointingPos.fDevZd"]
                 )
 
                 # N.B. the positive sign here, as HA = local sidereal time - ra:
                 pointing_ra = (
-                    pointing["MPointingPos.fRa"]
-                    + pointing["MPointingPos.fDevHa"]
+                    pointing["MPointingPos.fRa"] + pointing["MPointingPos.fDevHa"]
                 ) * degrees_per_hour
                 pointing_dec = (
-                    pointing["MPointingPos.fDec"]
-                    - pointing["MPointingPos.fDevDec"]
+                    pointing["MPointingPos.fDec"] - pointing["MPointingPos.fDevDec"]
                 )
 
-                calib_data[event_type][self.tel_id][
-                    "pointing_az"
-                ] = u.Quantity(pointing_az, u.deg)
-                calib_data[event_type][self.tel_id][
-                    "pointing_alt"
-                ] = u.Quantity(90 - pointing_zd, u.deg)
-                calib_data[event_type][self.tel_id][
-                    "pointing_ra"
-                ] = u.Quantity(pointing_ra, u.deg)
-                calib_data[event_type][self.tel_id][
-                    "pointing_dec"
-                ] = u.Quantity(pointing_dec, u.deg)
+                calib_data[event_type][self.tel_id]["pointing_az"] = u.Quantity(
+                    pointing_az, u.deg
+                )
+                calib_data[event_type][self.tel_id]["pointing_alt"] = u.Quantity(
+                    90 - pointing_zd, u.deg
+                )
+                calib_data[event_type][self.tel_id]["pointing_ra"] = u.Quantity(
+                    pointing_ra, u.deg
+                )
+                calib_data[event_type][self.tel_id]["pointing_dec"] = u.Quantity(
+                    pointing_dec, u.deg
+                )
 
             else:
                 # Reading the event timing information:
@@ -2092,23 +2061,15 @@ class MarsCalibratedRun:
                     timing_info["MTime.fMjd"], format="mjd", scale="utc"
                 )
                 event_obs_day = np.round(event_obs_day.unix)
-                event_obs_day = np.array(
-                    [Decimal(str(x)) for x in event_obs_day]
-                )
+                event_obs_day = np.array([Decimal(str(x)) for x in event_obs_day])
 
                 event_millisec = np.round(
                     timing_info["MTime.fTime.fMilliSec"] * msec2sec, 3
                 )
-                event_millisec = np.array(
-                    [Decimal(str(x)) for x in event_millisec]
-                )
+                event_millisec = np.array([Decimal(str(x)) for x in event_millisec])
 
-                event_nanosec = np.round(
-                    timing_info["MTime.fNanoSec"] * nsec2sec, 7
-                )
-                event_nanosec = np.array(
-                    [Decimal(str(x)) for x in event_nanosec]
-                )
+                event_nanosec = np.round(timing_info["MTime.fNanoSec"] * nsec2sec, 7)
+                event_nanosec = np.array([Decimal(str(x)) for x in event_nanosec])
 
                 event_time = event_obs_day + event_millisec + event_nanosec
                 calib_data[event_type][self.tel_id]["time"] = Time(
@@ -2119,11 +2080,13 @@ class MarsCalibratedRun:
         # In MAGIC simulations, pixel 0 is always set as bad
 
         # Reading the bad pixel information:
-        as_dtype = uproot.interpretation.numerical.AsDtype(np.dtype('>i4'))
+        as_dtype = uproot.interpretation.numerical.AsDtype(np.dtype(">i4"))
         as_jagged = uproot.interpretation.jagged.AsJagged(as_dtype)
 
-        badpixel_info = self.uproot_file['RunHeaders']['MBadPixelsCam.fArray.fInfo'].array(as_jagged, library='np')[0]
-        badpixel_info = badpixel_info.reshape((4, 1183), order='F')
+        badpixel_info = self.uproot_file["RunHeaders"][
+            "MBadPixelsCam.fArray.fInfo"
+        ].array(as_jagged, library="np")[0]
+        badpixel_info = badpixel_info.reshape((4, 1183), order="F")
 
         # now we have 4 axes:
         # 0st axis: empty (?)
@@ -2141,36 +2104,35 @@ class MarsCalibratedRun:
                 "{:08b}".format(unsuitable_pixels_bit[i_pix])[-2]
             )
 
-        calib_data["monitoring_data"][self.tel_id][
-            "bad_pixel"
-        ] = unsuitable_pixels
-
+        calib_data["monitoring_data"][self.tel_id]["bad_pixel"] = unsuitable_pixels
 
         # Try to read the Pedestals tree (soft fail if not present):
         try:
             if self.is_mc:
                 pedestal_branch_list = pedestal_branches
-                pedestal_info = self.uproot_file['Events'].arrays(
+                pedestal_info = self.uproot_file["Events"].arrays(
                     expressions=pedestal_branch_list,
-                    library='np',
+                    library="np",
                 )
             else:
                 pedestal_branch_list = pedestal_time_branches + pedestal_branches
 
-                pedestal_info = self.uproot_file['Pedestals'].arrays(
+                pedestal_info = self.uproot_file["Pedestals"].arrays(
                     expressions=pedestal_branch_list,
-                    library='np',
+                    library="np",
                 )
 
             # Set sample times of pedestal events:
             if self.is_mc:
-                calib_data['monitoring_data'][self.tel_id]['pedestal_sample_time'] = np.array([])
+                calib_data["monitoring_data"][self.tel_id][
+                    "pedestal_sample_time"
+                ] = np.array([])
             else:
-                pedestal_obs_day = Time(pedestal_info['MTimePedestals.fMjd'], format='mjd', scale='utc')
-                pedestal_obs_day = np.round(pedestal_obs_day.unix)
-                pedestal_obs_day = np.array(
-                    [Decimal(str(x)) for x in pedestal_obs_day]
+                pedestal_obs_day = Time(
+                    pedestal_info["MTimePedestals.fMjd"], format="mjd", scale="utc"
                 )
+                pedestal_obs_day = np.round(pedestal_obs_day.unix)
+                pedestal_obs_day = np.array([Decimal(str(x)) for x in pedestal_obs_day])
 
                 pedestal_millisec = np.round(
                     pedestal_info["MTimePedestals.fTime.fMilliSec"] * msec2sec,
@@ -2183,9 +2145,7 @@ class MarsCalibratedRun:
                 pedestal_nanosec = np.round(
                     pedestal_info["MTimePedestals.fNanoSec"] * nsec2sec, 7
                 )
-                pedestal_nanosec = np.array(
-                    [Decimal(str(x)) for x in pedestal_nanosec]
-                )
+                pedestal_nanosec = np.array([Decimal(str(x)) for x in pedestal_nanosec])
 
                 pedestal_sample_time = (
                     pedestal_obs_day + pedestal_millisec + pedestal_nanosec
@@ -2195,49 +2155,35 @@ class MarsCalibratedRun:
                     "pedestal_sample_time"
                 ] = Time(pedestal_sample_time, format="unix", scale="utc")
 
-                # Set the mean and RMS of pedestal charges:
-                calib_data["monitoring_data"][self.tel_id][
-                    "pedestal_fundamental"
-                ] = {
-                    "mean": np.array(
-                        pedestal_info[
-                            "MPedPhotFundamental.fArray.fMean"
-                        ].tolist()
-                    )[:, : self.n_cam_pixels],
-                    "rms": np.array(
-                        pedestal_info[
-                            "MPedPhotFundamental.fArray.fRms"
-                        ].tolist()
-                    )[:, : self.n_cam_pixels],
-                }
-                calib_data["monitoring_data"][self.tel_id][
-                    "pedestal_from_extractor"
-                ] = {
-                    "mean": np.array(
-                        pedestal_info[
-                            "MPedPhotFromExtractor.fArray.fMean"
-                        ].tolist()
-                    )[:, : self.n_cam_pixels],
-                    "rms": np.array(
-                        pedestal_info[
-                            "MPedPhotFromExtractor.fArray.fRms"
-                        ].tolist()
-                    )[:, : self.n_cam_pixels],
-                }
-                calib_data["monitoring_data"][self.tel_id][
-                    "pedestal_from_extractor_rndm"
-                ] = {
-                    "mean": np.array(
-                        pedestal_info[
-                            "MPedPhotFromExtractorRndm.fArray.fMean"
-                        ].tolist()
-                    )[:, : self.n_cam_pixels],
-                    "rms": np.array(
-                        pedestal_info[
-                            "MPedPhotFromExtractorRndm.fArray.fRms"
-                        ].tolist()
-                    )[:, : self.n_cam_pixels],
-                }
+            # Set the mean and RMS of pedestal charges:
+            calib_data["monitoring_data"][self.tel_id]["pedestal_fundamental"] = {
+                "mean": np.array(
+                    pedestal_info["MPedPhotFundamental.fArray.fMean"].tolist()
+                )[:, : self.n_cam_pixels],
+                "rms": np.array(
+                    pedestal_info["MPedPhotFundamental.fArray.fRms"].tolist()
+                )[:, : self.n_cam_pixels],
+            }
+            calib_data["monitoring_data"][self.tel_id][
+                "pedestal_from_extractor"
+            ] = {
+                "mean": np.array(
+                    pedestal_info["MPedPhotFromExtractor.fArray.fMean"].tolist()
+                )[:, : self.n_cam_pixels],
+                "rms": np.array(
+                    pedestal_info["MPedPhotFromExtractor.fArray.fRms"].tolist()
+                )[:, : self.n_cam_pixels],
+            }
+            calib_data["monitoring_data"][self.tel_id][
+                "pedestal_from_extractor_rndm"
+            ] = {
+                "mean": np.array(
+                    pedestal_info["MPedPhotFromExtractorRndm.fArray.fMean"].tolist()
+                )[:, : self.n_cam_pixels],
+                "rms": np.array(
+                    pedestal_info["MPedPhotFromExtractorRndm.fArray.fRms"].tolist()
+                )[:, : self.n_cam_pixels],
+            }
 
         except KeyError:
             logger.warning(
@@ -2250,7 +2196,7 @@ class MarsCalibratedRun:
                 uplim_total_jumps = 100
 
                 stereo_event_number = calib_data["cosmic_events"][self.tel_id][
-                    "stereo_event_number"
+                    "event_number"
                 ].astype(int)
                 number_difference = np.diff(stereo_event_number)
 
@@ -2259,7 +2205,9 @@ class MarsCalibratedRun:
 
                 if n_flips > 0:
 
-                    logger.warning(f'Warning: detected {n_flips} bit flips in the input file')
+                    logger.warning(
+                        f"Warning: detected {n_flips} bit flips in the input file"
+                    )
                     total_jumped_number = 0
 
                     for i in indices_flip:
@@ -2398,6 +2346,7 @@ class MarsSuperstarRun:
                 f"MMcEvt_{tel_id}.fZFirstInteraction",
                 f"MMcEvt_{tel_id}.fCoreX",
                 f"MMcEvt_{tel_id}.fCoreY",
+                f"MMcEvt_{tel_id}.fLongitmax",
             ]
 
         stereo_branches = [
@@ -2455,7 +2404,7 @@ class MarsSuperstarRun:
             event_data[tel_id]["trigger_pattern"] = np.array(
                 common_info[f"MTriggerPattern_{tel_id}.fPrescaled"], dtype=int
             )
-            event_data[tel_id]["stereo_event_number"] = np.array(
+            event_data[tel_id]["event_number"] = np.array(
                 common_info[f"MRawEvtHeader_{tel_id}.fStereoEvtNumber"],
                 dtype=int,
             )
@@ -2494,6 +2443,9 @@ class MarsSuperstarRun:
                 event_data[tel_id]["mc_core_y"] = u.Quantity(
                     mc_info[f"MMcEvt_{tel_id}.fCoreY"], u.cm
                 )
+                event_data[tel_id]["mc_x_max"] = u.Quantity(
+                    mc_info[f"MMcEvt_{tel_id}.fLongitmax"], u.Unit("g cm-2")
+                )
 
             else:
                 # Reading the event timing information:
@@ -2512,24 +2464,18 @@ class MarsSuperstarRun:
                     scale="utc",
                 )
                 event_obs_day = np.round(event_obs_day.unix)
-                event_obs_day = np.array(
-                    [Decimal(str(x)) for x in event_obs_day]
-                )
+                event_obs_day = np.array([Decimal(str(x)) for x in event_obs_day])
 
                 event_millisec = np.round(
                     timing_info[f"MTime_{tel_id}.fTime.fMilliSec"] * msec2sec,
                     3,
                 )
-                event_millisec = np.array(
-                    [Decimal(str(x)) for x in event_millisec]
-                )
+                event_millisec = np.array([Decimal(str(x)) for x in event_millisec])
 
                 event_nanosec = np.round(
                     timing_info[f"MTime_{tel_id}.fNanoSec"] * nsec2sec, 7
                 )
-                event_nanosec = np.array(
-                    [Decimal(str(x)) for x in event_nanosec]
-                )
+                event_nanosec = np.array([Decimal(str(x)) for x in event_nanosec])
 
                 event_time = event_obs_day + event_millisec + event_nanosec
                 event_data[tel_id]["time"] = Time(
@@ -2563,13 +2509,9 @@ class MarsSuperstarRun:
             )
 
             event_data[tel_id]["pointing_az"] = u.Quantity(pointing_az, u.deg)
-            event_data[tel_id]["pointing_alt"] = u.Quantity(
-                90 - pointing_zd, u.deg
-            )
+            event_data[tel_id]["pointing_alt"] = u.Quantity(90 - pointing_zd, u.deg)
             event_data[tel_id]["pointing_ra"] = u.Quantity(pointing_ra, u.deg)
-            event_data[tel_id]["pointing_dec"] = u.Quantity(
-                pointing_dec, u.deg
-            )
+            event_data[tel_id]["pointing_dec"] = u.Quantity(pointing_dec, u.deg)
 
             hillas = self.uproot_file["Events"].arrays(
                 expressions=hillas_branches[tel_id],
@@ -2800,6 +2742,7 @@ class MarsMelibeaRun:
                 f"MMcEvt_{tel_id}.fZFirstInteraction",
                 f"MMcEvt_{tel_id}.fCoreX",
                 f"MMcEvt_{tel_id}.fCoreY",
+                f"MMcEvt_{tel_id}.fLongitmax",
             ]
 
             imagepar_disp_branches[tel_id] = [
@@ -2889,7 +2832,7 @@ class MarsMelibeaRun:
             event_data[tel_id]["trigger_pattern"] = np.array(
                 common_info[f"MTriggerPattern_{tel_id}.fPrescaled"], dtype=int
             )
-            event_data[tel_id]["stereo_event_number"] = np.array(
+            event_data[tel_id]["event_number"] = np.array(
                 common_info[f"MRawEvtHeader_{tel_id}.fStereoEvtNumber"],
                 dtype=int,
             )
@@ -2928,6 +2871,9 @@ class MarsMelibeaRun:
                 event_data[tel_id]["mc_core_y"] = u.Quantity(
                     mc_info[f"MMcEvt_{tel_id}.fCoreY"], u.cm
                 )
+                event_data[tel_id]["mc_x_max"] = u.Quantity(
+                    mc_info[f"MMcEvt_{tel_id}.fLongitmax"], u.Unit("g cm-2")
+                )
 
             else:
                 # Reading the event timing information:
@@ -2946,24 +2892,18 @@ class MarsMelibeaRun:
                     scale="utc",
                 )
                 event_obs_day = np.round(event_obs_day.unix)
-                event_obs_day = np.array(
-                    [Decimal(str(x)) for x in event_obs_day]
-                )
+                event_obs_day = np.array([Decimal(str(x)) for x in event_obs_day])
 
                 event_millisec = np.round(
                     timing_info[f"MTime_{tel_id}.fTime.fMilliSec"] * msec2sec,
                     3,
                 )
-                event_millisec = np.array(
-                    [Decimal(str(x)) for x in event_millisec]
-                )
+                event_millisec = np.array([Decimal(str(x)) for x in event_millisec])
 
                 event_nanosec = np.round(
                     timing_info[f"MTime_{tel_id}.fNanoSec"] * nsec2sec, 7
                 )
-                event_nanosec = np.array(
-                    [Decimal(str(x)) for x in event_nanosec]
-                )
+                event_nanosec = np.array([Decimal(str(x)) for x in event_nanosec])
 
                 event_time = event_obs_day + event_millisec + event_nanosec
                 event_data[tel_id]["time"] = Time(
@@ -2997,13 +2937,9 @@ class MarsMelibeaRun:
             )
 
             event_data[tel_id]["pointing_az"] = u.Quantity(pointing_az, u.deg)
-            event_data[tel_id]["pointing_alt"] = u.Quantity(
-                90 - pointing_zd, u.deg
-            )
+            event_data[tel_id]["pointing_alt"] = u.Quantity(90 - pointing_zd, u.deg)
             event_data[tel_id]["pointing_ra"] = u.Quantity(pointing_ra, u.deg)
-            event_data[tel_id]["pointing_dec"] = u.Quantity(
-                pointing_dec, u.deg
-            )
+            event_data[tel_id]["pointing_dec"] = u.Quantity(pointing_dec, u.deg)
 
             hillas = self.uproot_file["Events"].arrays(
                 expressions=hillas_branches[tel_id],
