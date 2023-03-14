@@ -209,6 +209,23 @@ def test_event_source_for_magic_file(dataset):
 @pytest.mark.parametrize(
     "dataset", test_calibrated_all + test_superstar_all + test_melibea_all
 )
+def test_datalevel(dataset):
+    from ctapipe_io_magic import MAGICEventSource, MARSDataLevel
+
+    with MAGICEventSource(input_url=dataset, process_run=False) as source:
+        if "_Y_" in dataset.name:
+            assert source.mars_datalevel == MARSDataLevel.CALIBRATED
+        elif "_I_" in dataset.name:
+            assert source.mars_datalevel == MARSDataLevel.STAR
+        elif "_S_" in dataset.name:
+            assert source.mars_datalevel == MARSDataLevel.SUPERSTAR
+        elif "_Q_" in dataset.name:
+            assert source.mars_datalevel == MARSDataLevel.MELIBEA
+
+
+@pytest.mark.parametrize(
+    "dataset", test_calibrated_all + test_superstar_all + test_melibea_all
+)
 def test_compatible(dataset):
     from ctapipe_io_magic import MAGICEventSource
 
