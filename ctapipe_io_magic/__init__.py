@@ -229,7 +229,14 @@ class MAGICEventSource(EventSource):
         self.metadata = self.parse_metadata_info()
 
         # Retrieving the data level (so far HARDCODED Sorcerer)
-        self.datalevel = DataLevel.DL0
+        if self.mars_datalevel == MARSDataLevel.CALIBRATED:
+            self.datalevel = DataLevel.DL0
+        elif self.mars_datalevel == MARSDataLevel.STAR:
+            self.datalevel = DataLevel.DL1_PARAMETERS
+        elif self.mars_datalevel == MARSDataLevel.SUPERSTAR:
+            self.datalevel = DataLevel.DL1_PARAMETERS
+        elif self.mars_datalevel == MARSDataLevel.MELIBEA:
+            self.datalevel = DataLevel.DL2
 
         if self.is_simulation:
             self.simulation_config = self.parse_simulation_header()
