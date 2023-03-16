@@ -1362,11 +1362,13 @@ class MAGICEventSource(EventSource):
             run["data"] = MarsSuperstarRun(
                 uproot_file,
                 self.is_simulation,
+                self.is_sumt,
             )
         if self.mars_datalevel == MARSDataLevel.MELIBEA:
             run["data"] = MarsMelibeaRun(
                 uproot_file,
                 self.is_simulation,
+                self.is_sumt,
             )
 
         return run
@@ -1611,7 +1613,7 @@ class MAGICEventSource(EventSource):
                         ].parameters.timing = TimingParametersContainer(
                             slope=event_data[tel_id]["slope"][i_event].value
                             * (1.0 / m2deg)
-                            * u.deg,
+                            / u.deg,
                             intercept=event_data[tel_id]["intercept"][i_event],
                         )
 
@@ -1773,6 +1775,10 @@ class MarsCalibratedRun:
             Telescope number (1 for M1, 2 for M2)
         is_stereo: bool
             Flag for mono/stereo data
+        use_mc_mono_events: bool
+            Flag telling if data are mono
+        use_sumt_events: bool
+            Flag telling if data are taken with SumTrigger
         n_cam_pixels: int
             The number of pixels of the MAGIC camera
         """
@@ -2237,7 +2243,7 @@ class MarsSuperstarRun:
     This class implements reading of cosmic events from a MAGIC superstar run file.
     """
 
-    def __init__(self, uproot_file, is_mc, n_cam_pixels=1039):
+    def __init__(self, uproot_file, is_mc, use_sumt_events, n_cam_pixels=1039):
         """
         Constructor of the class. Loads an input uproot file
         and store the informaiton to constructor variables.
@@ -2248,12 +2254,15 @@ class MarsSuperstarRun:
             A superstar file opened by uproot via uproot.open(file_path)
         is_mc: bool
             Flag to MC data
+        use_sumt_events: bool
+            Flag telling if data are taken with SumTrigger
         n_cam_pixels: int
             The number of pixels of the MAGIC camera
         """
 
         self.uproot_file = uproot_file
         self.is_mc = is_mc
+        self.use_sumt_events = use_sumt_events
         self.n_cam_pixels = n_cam_pixels
 
         # Load the input data:
@@ -2386,8 +2395,11 @@ class MarsSuperstarRun:
 
             if self.is_mc:
                 # Only for cosmic events because MC data do not have pedestal events:
+                mc_trigger_pattern = MC_STEREO_AND_MONO_TRIGGER_PATTERN
+                if self.use_sumt_events:
+                    mc_trigger_pattern = MC_SUMT_TRIGGER_PATTERN
                 events_cut = (
-                    f"(MTriggerPattern_{tel_id}.fPrescaled == {MC_STEREO_AND_MONO_TRIGGER_PATTERN})"
+                    f"(MTriggerPattern_{tel_id}.fPrescaled == {mc_trigger_pattern})"
                     f" & (MRawEvtHeader_{tel_id}.fStereoEvtNumber != 0)"
                 )
             else:
@@ -2632,7 +2644,7 @@ class MarsMelibeaRun:
     This class implements reading of cosmic events from a MAGIC melibea run file.
     """
 
-    def __init__(self, uproot_file, is_mc, n_cam_pixels=1039):
+    def __init__(self, uproot_file, is_mc, use_sumt_events, n_cam_pixels=1039):
         """
         Constructor of the class. Loads an input uproot file
         and store the informaiton to constructor variables.
@@ -2643,12 +2655,15 @@ class MarsMelibeaRun:
             A melibea file opened by uproot via uproot.open(file_path)
         is_mc: bool
             Flag to MC data
+        use_sumt_events: bool
+            Flag telling if data are taken with SumTrigger
         n_cam_pixels: int
             The number of pixels of the MAGIC camera
         """
 
         self.uproot_file = uproot_file
         self.is_mc = is_mc
+        self.use_sumt_events = use_sumt_events
         self.n_cam_pixels = n_cam_pixels
 
         # Load the input data:
@@ -2812,10 +2827,14 @@ class MarsMelibeaRun:
 
             event_data[tel_id] = dict()
 
+            # for the moment, we do not care about mono melibea files
             if self.is_mc:
                 # Only for cosmic events because MC data do not have pedestal events:
+                mc_trigger_pattern = MC_STEREO_AND_MONO_TRIGGER_PATTERN
+                if self.use_sumt_events:
+                    mc_trigger_pattern = MC_SUMT_TRIGGER_PATTERN
                 events_cut = (
-                    f"(MTriggerPattern_{tel_id}.fPrescaled == {MC_STEREO_AND_MONO_TRIGGER_PATTERN})"
+                    f"(MTriggerPattern_{tel_id}.fPrescaled == {mc_trigger_pattern})"
                     f" & (MRawEvtHeader_{tel_id}.fStereoEvtNumber != 0)"
                 )
             else:
