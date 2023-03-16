@@ -1,0 +1,11 @@
+---
+engines:
+  pylint:
+    enabled: true
+    python_version: 3
+  pyflakes:
+    disable:
+    - F999
+
+exclude_paths:
+  - "ctapipe_io_magic/tests/**"
