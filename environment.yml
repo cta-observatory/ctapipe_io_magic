@@ -2,9 +2,9 @@ name: magicio
 channels:
   - default
 dependencies:
-  - astropy>=4.0.5,<5
-  - python=3.7
-  - conda-forge::ctapipe=0.12
+  - astropy>=4.0.5
+  - python=3.8
+  - conda-forge::ctapipe
   - conda-forge::eventio
   - conda-forge::corsikaio
   - traitlets
