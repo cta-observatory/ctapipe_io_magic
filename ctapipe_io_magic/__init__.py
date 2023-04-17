@@ -18,7 +18,7 @@ from pkg_resources import resource_filename
 
 from ctapipe.io import EventSource, DataLevel
 from ctapipe.core import Provenance
-from ctapipe.core.traits import Bool, CaselessStrEnum
+from ctapipe.core.traits import Bool, UseEnum
 from ctapipe.coordinates import CameraFrame
 
 from ctapipe.containers import (
@@ -40,6 +40,7 @@ from ctapipe.instrument import (
     CameraReadout,
     SizeType,
     ReflectorShape,
+    FocalLengthKind,
 )
 
 from .mars_datalevels import MARSDataLevel
@@ -142,6 +143,12 @@ class MAGICEventSource(EventSource):
     use_mc_mono_events = Bool(
         default_value=False,
         help='Use mono events in MC stereo data (needed for mono analysis).'
+    ).tag(config=True)
+
+    focal_length_choice = UseEnum(
+        FocalLengthKind,
+        default_value=FocalLengthKind.EFFECTIVE,
+        help='Which focal length to use when constructing the SubarrayDescription.',
     ).tag(config=True)
 
     def __init__(self, input_url=None, config=None, parent=None, **kwargs):
@@ -639,16 +646,29 @@ class MAGICEventSource(EventSource):
             2: [-34.99, 24.02, 0.00] * u.m
         }
 
+        equivalent_focal_length = u.Quantity(16.97, u.m)
+        effective_focal_length = u.Quantity(17*1.0713, u.m)
+
         OPTICS = OpticsDescription(
             name='MAGIC',
             size_type=SizeType.LST,
             n_mirrors=1,
             n_mirror_tiles=964,
             reflector_shape=ReflectorShape.PARABOLIC,
-            equivalent_focal_length=u.Quantity(17, u.m),
-            effective_focal_length=u.Quantity(17*1.0713, u.m),
+            equivalent_focal_length=equivalent_focal_length,
+            effective_focal_length=effective_focal_length,
             mirror_area=u.Quantity(239.0, u.m**2),
         )
+
+        if self.focal_length_choice is FocalLengthKind.EFFECTIVE:
+            focal_length = effective_focal_length
+        elif self.focal_length_choice is FocalLengthKind.EQUIVALENT:
+            focal_length = equivalent_focal_length
+        else:
+            raise ValueError(
+                f"Invalid focal length choice: {self.focal_length_choice}"
+            )
+
 
         # camera info from MAGICCam.camgeom.fits.gz file
         camera_geom = load_camera_geometry()
@@ -672,7 +692,7 @@ class MAGICEventSource(EventSource):
 
         camera = CameraDescription('MAGICCam', camera_geom, camera_readout)
 
-        camera.geometry.frame = CameraFrame(focal_length=OPTICS.equivalent_focal_length)
+        camera.geometry.frame = CameraFrame(focal_length=focal_length)
 
         MAGIC_TEL_DESCRIPTION = TelescopeDescription(
             name='MAGIC', optics=OPTICS, camera=camera
