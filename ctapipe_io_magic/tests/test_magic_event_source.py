@@ -234,6 +234,25 @@ def test_geom(dataset):
         assert source.subarray.tels[1].camera.geometry.pix_x.size == 1039
         assert source.subarray.tels[2].camera.geometry.pix_x.size == 1039
 
+
+@pytest.mark.parametrize('dataset', test_calibrated_all)
+def test_focal_length_choice(dataset):
+    from astropy import units as u
+    from ctapipe_io_magic import MAGICEventSource
+    from ctapipe.instrument import FocalLengthKind
+
+    with MAGICEventSource(input_url=dataset, process_run=False, focal_length_choice=FocalLengthKind.EQUIVALENT) as source:
+        assert source.subarray.tel[1].optics.equivalent_focal_length == u.Quantity(16.97, u.m)
+        assert source.subarray.tel[2].optics.equivalent_focal_length == u.Quantity(16.97, u.m)
+        assert source.subarray.tel[1].camera.geometry.frame.focal_length == u.Quantity(16.97, u.m)
+        assert source.subarray.tel[2].camera.geometry.frame.focal_length == u.Quantity(16.97, u.m)
+
+    with MAGICEventSource(input_url=dataset, process_run=False, focal_length_choice=FocalLengthKind.EFFECTIVE) as source:
+        assert source.subarray.tel[1].optics.effective_focal_length == u.Quantity(17*1.0713, u.m)
+        assert source.subarray.tel[2].optics.effective_focal_length == u.Quantity(17*1.0713, u.m)
+        assert source.subarray.tel[1].camera.geometry.frame.focal_length == u.Quantity(17*1.0713, u.m)
+        assert source.subarray.tel[2].camera.geometry.frame.focal_length == u.Quantity(17*1.0713, u.m)
+
 # def test_eventseeker():
 #    dataset = get_dataset_path("20131004_M1_05029747.003_Y_MagicCrab-W0.40+035.root")
 #
