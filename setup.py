@@ -18,7 +18,7 @@ setup(
     install_requires=[
         'ctapipe~=0.17',
         'astropy~=5.0',
-        'uproot~=4.2',
+        'uproot~=5.0',
         'numpy>=1.20',
     ],
     package_data={

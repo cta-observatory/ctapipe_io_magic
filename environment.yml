@@ -21,4 +21,4 @@ dependencies:
   - h5py
   - pip:
       - pytest_runner
-      - uproot~=4.2
+      - uproot~=5.0
