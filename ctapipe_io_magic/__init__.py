@@ -53,7 +53,6 @@ from .constants import (
     DATA_MONO_SUMT_TRIGGER_PATTERN,
     PEDESTAL_TRIGGER_PATTERN,
     DATA_STEREO_TRIGGER_PATTERN,
-    N_PIXELS,
     N_SAMPLES,
 )
 
@@ -673,6 +672,8 @@ class MAGICEventSource(EventSource):
         # camera info from MAGICCam.camgeom.fits.gz file
         camera_geom = load_camera_geometry()
 
+        n_pixels = camera_geom.n_pixels
+
         pulse_shape_lo_gain = np.array([0., 1., 2., 1., 0.])
         pulse_shape_hi_gain = np.array([1., 2., 3., 2., 1.])
         pulse_shape = np.vstack((pulse_shape_lo_gain, pulse_shape_hi_gain))
@@ -686,7 +687,7 @@ class MAGICEventSource(EventSource):
             reference_pulse_shape=pulse_shape,
             reference_pulse_sample_width=u.Quantity(0.5, u.ns),
             n_channels=1,
-            n_pixels=N_PIXELS,
+            n_pixels=n_pixels,
             n_samples=N_SAMPLES,
         )
 
