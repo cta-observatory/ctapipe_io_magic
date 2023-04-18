@@ -1,6 +1,6 @@
 ## *ctapipe* MAGIC event source
 
-EventSource plugin for *ctapipe*, needed to read the calibrated data of the MAGIC telescope system. It requires the [*ctapipe*](https://github.com/cta-observatory/ctapipe) (v0.12.0) and [*uproot*](https://github.com/scikit-hep/uproot4) (>=4.1) packages to run.
+EventSource plugin for *ctapipe*, needed to read the calibrated data of the MAGIC telescope system. It requires the [*ctapipe*](https://github.com/cta-observatory/ctapipe) (v0.17.0) and [*uproot*](https://github.com/scikit-hep/uproot4) (>=5) packages to run.
 
 #### Installation
 
