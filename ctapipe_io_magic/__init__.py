@@ -53,7 +53,6 @@ from .constants import (
     DATA_MONO_SUMT_TRIGGER_PATTERN,
     PEDESTAL_TRIGGER_PATTERN,
     DATA_STEREO_TRIGGER_PATTERN,
-    N_SAMPLES,
 )
 
 __all__ = [
@@ -668,11 +667,27 @@ class MAGICEventSource(EventSource):
                 f"Invalid focal length choice: {self.focal_length_choice}"
             )
 
-
         # camera info from MAGICCam.camgeom.fits.gz file
         camera_geom = load_camera_geometry()
 
         n_pixels = camera_geom.n_pixels
+
+        n_samples_array_list = ["MRawRunHeader.fNumSamplesHiGain"]
+        n_samples_list = []
+
+        for rootf in self.files_:
+            nsample_info = rootf['RunHeaders'].arrays(n_samples_array_list, library="np")
+            n_samples_file = int(nsample_info['MRawRunHeader.fNumSamplesHiGain'][0])
+            n_samples_list.append(n_samples_file)
+
+        n_samples_list = np.unique(n_samples_list).tolist()
+
+        if len(n_samples_list) > 1:
+            raise ValueError(
+                "Loaded files contain different number of readout samples. \
+                 Please load files with the same readout configuration.")
+
+        n_samples = n_samples_list[0]
 
         pulse_shape_lo_gain = np.array([0., 1., 2., 1., 0.])
         pulse_shape_hi_gain = np.array([1., 2., 3., 2., 1.])
@@ -688,7 +703,7 @@ class MAGICEventSource(EventSource):
             reference_pulse_sample_width=u.Quantity(0.5, u.ns),
             n_channels=1,
             n_pixels=n_pixels,
-            n_samples=N_SAMPLES,
+            n_samples=n_samples,
         )
 
         camera = CameraDescription('MAGICCam', camera_geom, camera_readout)
