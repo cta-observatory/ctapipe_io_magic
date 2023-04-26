@@ -18,7 +18,7 @@ from pkg_resources import resource_filename
 
 from ctapipe.io import EventSource, DataLevel
 from ctapipe.core import Provenance
-from ctapipe.core.traits import Bool, CaselessStrEnum
+from ctapipe.core.traits import Bool, UseEnum
 from ctapipe.coordinates import CameraFrame
 
 from ctapipe.containers import (
@@ -26,6 +26,9 @@ from ctapipe.containers import (
     ArrayEventContainer,
     SimulationConfigContainer,
     SimulatedEventContainer,
+    SchedulingBlockContainer,
+    ObservationBlockContainer,
+    PointingMode,
 )
 
 from ctapipe.instrument import (
@@ -35,6 +38,9 @@ from ctapipe.instrument import (
     CameraDescription,
     CameraGeometry,
     CameraReadout,
+    SizeType,
+    ReflectorShape,
+    FocalLengthKind,
 )
 
 from .mars_datalevels import MARSDataLevel
@@ -112,7 +118,7 @@ class MAGICEventSource(EventSource):
         Data level according to MARS convention
     metadata : dict
         Dictionary containing metadata
-    run_numbers : int
+    run_id : int
         Run number of the file
     simulation_config : SimulationConfigContainer
         Container filled with the information about the simulation
@@ -137,9 +143,9 @@ class MAGICEventSource(EventSource):
         help='Use mono events in MC stereo data (needed for mono analysis).'
     ).tag(config=True)
 
-    focal_length_choice = CaselessStrEnum(
-        ['nominal', 'effective'],
-        default_value='effective',
+    focal_length_choice = UseEnum(
+        FocalLengthKind,
+        default_value=FocalLengthKind.EFFECTIVE,
         help='Which focal length to use when constructing the SubarrayDescription.',
     ).tag(config=True)
 
@@ -199,7 +205,7 @@ class MAGICEventSource(EventSource):
         self.files_ = [uproot.open(rootf) for rootf in self.file_list]
         run_info = self.parse_run_info()
 
-        self.run_numbers = run_info[0]
+        self.run_id = run_info[0][0]
         self.is_mc = run_info[1][0]
         self.telescope = run_info[2][0]
         self.mars_datalevel = run_info[3][0]
@@ -210,7 +216,7 @@ class MAGICEventSource(EventSource):
         self.datalevel = DataLevel.DL0
 
         if self.is_simulation:
-            self.simulation_config = self.parse_simulation_header()
+            self._simulation_config = self.parse_simulation_header()
 
         self.is_stereo, self.is_sumt = self.parse_data_info()
 
@@ -233,6 +239,24 @@ class MAGICEventSource(EventSource):
 
             # Get the arrival time differences
             self.event_time_diffs = self.get_event_time_difference()
+
+        pointing_mode = PointingMode.TRACK
+
+        self._scheduling_blocks = {
+            self.run_id: SchedulingBlockContainer(
+                sb_id=np.uint64(self.run_id),
+                producer_id=f"MAGIC-{self.telescope}",
+                pointing_mode=pointing_mode,
+            )
+        }
+
+        self._observation_blocks = {
+            self.run_id: ObservationBlockContainer(
+                obs_id=np.uint64(self.run_id),
+                sb_id=np.uint64(self.run_id),
+                producer_id=f"MAGIC-{self.telescope}",
+            )
+        }
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         """
@@ -620,22 +644,50 @@ class MAGICEventSource(EventSource):
             2: [-34.99, 24.02, 0.00] * u.m
         }
 
-        if self.focal_length_choice == 'effective':
-            # Use the effective focal length that the coma aberration is corrected
-            focal_length = u.Quantity(17*1.0713, u.m)
-        else:
-            focal_length = u.Quantity(17, u.m)
+        equivalent_focal_length = u.Quantity(16.97, u.m)
+        effective_focal_length = u.Quantity(17*1.0713, u.m)
 
         OPTICS = OpticsDescription(
-            'MAGIC',
-            num_mirrors=1,
-            equivalent_focal_length=focal_length,
+            name='MAGIC',
+            size_type=SizeType.LST,
+            n_mirrors=1,
+            n_mirror_tiles=964,
+            reflector_shape=ReflectorShape.PARABOLIC,
+            equivalent_focal_length=equivalent_focal_length,
+            effective_focal_length=effective_focal_length,
             mirror_area=u.Quantity(239.0, u.m**2),
-            num_mirror_tiles=964,
         )
+
+        if self.focal_length_choice is FocalLengthKind.EFFECTIVE:
+            focal_length = effective_focal_length
+        elif self.focal_length_choice is FocalLengthKind.EQUIVALENT:
+            focal_length = equivalent_focal_length
+        else:
+            raise ValueError(
+                f"Invalid focal length choice: {self.focal_length_choice}"
+            )
 
         # camera info from MAGICCam.camgeom.fits.gz file
         camera_geom = load_camera_geometry()
+
+        n_pixels = camera_geom.n_pixels
+
+        n_samples_array_list = ["MRawRunHeader.fNumSamplesHiGain"]
+        n_samples_list = []
+
+        for rootf in self.files_:
+            nsample_info = rootf['RunHeaders'].arrays(n_samples_array_list, library="np")
+            n_samples_file = int(nsample_info['MRawRunHeader.fNumSamplesHiGain'][0])
+            n_samples_list.append(n_samples_file)
+
+        n_samples_list = np.unique(n_samples_list).tolist()
+
+        if len(n_samples_list) > 1:
+            raise ValueError(
+                "Loaded files contain different number of readout samples. \
+                 Please load files with the same readout configuration.")
+
+        n_samples = n_samples_list[0]
 
         pulse_shape_lo_gain = np.array([0., 1., 2., 1., 0.])
         pulse_shape_hi_gain = np.array([1., 2., 3., 2., 1.])
@@ -645,18 +697,21 @@ class MAGICEventSource(EventSource):
             u.GHz
         )
         camera_readout = CameraReadout(
-            camera_name='MAGICCam',
+            name='MAGICCam',
             sampling_rate=sampling_speed,
             reference_pulse_shape=pulse_shape,
-            reference_pulse_sample_width=u.Quantity(0.5, u.ns)
+            reference_pulse_sample_width=u.Quantity(0.5, u.ns),
+            n_channels=1,
+            n_pixels=n_pixels,
+            n_samples=n_samples,
         )
 
         camera = CameraDescription('MAGICCam', camera_geom, camera_readout)
 
-        camera.geometry.frame = CameraFrame(focal_length=OPTICS.equivalent_focal_length)
+        camera.geometry.frame = CameraFrame(focal_length=focal_length)
 
         MAGIC_TEL_DESCRIPTION = TelescopeDescription(
-            name='MAGIC', tel_type='MAGIC', optics=OPTICS, camera=camera
+            name='MAGIC', optics=OPTICS, camera=camera
         )
 
         MAGIC_TEL_DESCRIPTIONS = {1: MAGIC_TEL_DESCRIPTION, 2: MAGIC_TEL_DESCRIPTION}
@@ -731,7 +786,7 @@ class MAGICEventSource(EventSource):
 
         metadata = dict()
         metadata["file_list"] = self.file_list
-        metadata['run_numbers'] = self.run_numbers
+        metadata['run_numbers'] = self.run_id
         metadata['is_simulation'] = self.is_simulation
         metadata['telescope'] = self.telescope
         metadata['subrun_number'] = []
@@ -818,7 +873,7 @@ class MAGICEventSource(EventSource):
 
         simulation_config = dict()
 
-        for run_number, rootf in zip(self.run_numbers, self.files_):
+        for rootf in self.files_:
 
             run_header_tree = rootf['RunHeaders']
             spectral_index = run_header_tree['MMcCorsikaRunHeader.fSlopeSpec'].array(library="np")[0]
@@ -848,13 +903,13 @@ class MAGICEventSource(EventSource):
                 max_wavelength = run_header_tree['MMcRunHeader_1.fCWaveUpper'].array(library="np")[0]
                 min_wavelength = run_header_tree['MMcRunHeader_1.fCWaveLower'].array(library="np")[0]
 
-            simulation_config[run_number] = SimulationConfigContainer(
+            simulation_config[self.run_id] = SimulationConfigContainer(
                 corsika_version=corsika_version,
                 energy_range_min=u.Quantity(e_low, u.GeV).to(u.TeV),
                 energy_range_max=u.Quantity(e_high, u.GeV).to(u.TeV),
                 prod_site_alt=u.Quantity(site_height, u.cm).to(u.m),
                 spectral_index=spectral_index,
-                num_showers=n_showers,
+                n_showers=n_showers,
                 shower_reuse=1,
                 # shower_reuse not written in the magic root file, but since the
                 # sim_events already include shower reuse we artificially set it
@@ -969,13 +1024,25 @@ class MAGICEventSource(EventSource):
         return self.is_mc
 
     @property
+    def observation_blocks(self):
+        return self._observation_blocks
+
+    @property
+    def scheduling_blocks(self):
+        return self._scheduling_blocks
+
+    @property
+    def simulation_config(self):
+        return self._simulation_config
+
+    @property
     def datalevels(self):
         return (self.datalevel, )
 
     @property
     def obs_ids(self):
         # ToCheck: will this be compatible in the future, e.g. with merged MC files
-        return self.run_numbers
+        return list(self.observation_blocks)
 
     def _get_badrmspixel_mask(self, event):
         """

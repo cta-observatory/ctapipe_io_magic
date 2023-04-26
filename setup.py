@@ -16,11 +16,10 @@ setup(
     use_scm_version={"write_to": os.path.join("ctapipe_io_magic", "_version.py")},
     packages=find_packages(),
     install_requires=[
-        'ctapipe~=0.12.0',
-        'astropy>=4.0.5,<5',
-        'uproot~=4.1',
-        'numpy',
-        'scipy'
+        'ctapipe~=0.17',
+        'astropy~=5.0',
+        'uproot~=5.0',
+        'numpy>=1.20',
     ],
     package_data={
         'ctapipe_io_magic': ['resources/*'],

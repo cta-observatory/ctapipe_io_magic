@@ -13,14 +13,12 @@ echo "https://webdav-magic.pic.es:8451/Users/ctapipe_io_magic/test_data/simulate
 echo "https://webdav-magic.pic.es:8451/Users/ctapipe_io_magic/test_data/simulated/calibrated/GA_M2_za35to50_8_824319_Y_w0.root" >> test_data_simulated.txt
 
 if [ -z "$TEST_DATA_USER" ]; then
-    echo -n "Username: "
-    read TEST_DATA_USER
+    read -p "Username: " TEST_DATA_USER
     echo
 fi
 
 if [ -z "$TEST_DATA_PASSWORD" ]; then
-    echo -n "Password: "
-    read -s TEST_DATA_PASSWORD
+    read -sr -p "Password: " TEST_DATA_PASSWORD
     echo
 fi
 
@@ -32,7 +30,7 @@ if ! wget \
     --no-verbose \
     --timestamping \
     --directory-prefix=test_data/real/calibrated; then
-    echo "Problem in downloading the test data set for real data."
+    echo "Problem in downloading the test data set (calibrated) for real data."
 fi
 
 if ! wget \
@@ -43,7 +41,7 @@ if ! wget \
     --no-verbose \
     --timestamping \
     --directory-prefix=test_data/simulated/calibrated; then
-    echo "Problem in downloading the test data set for simulated data."
+    echo "Problem in downloading the test data set (calibrated) for simulated data."
 fi
 
 rm -f test_data_real.txt test_data_simulated.txt

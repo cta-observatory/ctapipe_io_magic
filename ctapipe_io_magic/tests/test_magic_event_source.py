@@ -171,7 +171,7 @@ def test_run_info(dataset):
         is_mc = [i[1] for i in run_info][0]
         telescope = [i[2] for i in run_info][0]
         datalevel = [i[3] for i in run_info][0]
-        assert run_numbers == source.run_numbers
+        assert run_numbers == [source.run_id]
         assert is_mc == source.is_simulation
         assert telescope == source.telescope
         assert datalevel == source.mars_datalevel
@@ -239,16 +239,17 @@ def test_geom(dataset):
 def test_focal_length_choice(dataset):
     from astropy import units as u
     from ctapipe_io_magic import MAGICEventSource
+    from ctapipe.instrument import FocalLengthKind
 
-    with MAGICEventSource(input_url=dataset, process_run=False, focal_length_choice='nominal') as source:
-        assert source.subarray.tel[1].optics.equivalent_focal_length == u.Quantity(17, u.m)
-        assert source.subarray.tel[2].optics.equivalent_focal_length == u.Quantity(17, u.m)
-        assert source.subarray.tel[1].camera.geometry.frame.focal_length == u.Quantity(17, u.m)
-        assert source.subarray.tel[2].camera.geometry.frame.focal_length == u.Quantity(17, u.m)
+    with MAGICEventSource(input_url=dataset, process_run=False, focal_length_choice=FocalLengthKind.EQUIVALENT) as source:
+        assert source.subarray.tel[1].optics.equivalent_focal_length == u.Quantity(16.97, u.m)
+        assert source.subarray.tel[2].optics.equivalent_focal_length == u.Quantity(16.97, u.m)
+        assert source.subarray.tel[1].camera.geometry.frame.focal_length == u.Quantity(16.97, u.m)
+        assert source.subarray.tel[2].camera.geometry.frame.focal_length == u.Quantity(16.97, u.m)
 
-    with MAGICEventSource(input_url=dataset, process_run=False, focal_length_choice='effective') as source:
-        assert source.subarray.tel[1].optics.equivalent_focal_length == u.Quantity(17*1.0713, u.m)
-        assert source.subarray.tel[2].optics.equivalent_focal_length == u.Quantity(17*1.0713, u.m)
+    with MAGICEventSource(input_url=dataset, process_run=False, focal_length_choice=FocalLengthKind.EFFECTIVE) as source:
+        assert source.subarray.tel[1].optics.effective_focal_length == u.Quantity(17*1.0713, u.m)
+        assert source.subarray.tel[2].optics.effective_focal_length == u.Quantity(17*1.0713, u.m)
         assert source.subarray.tel[1].camera.geometry.frame.focal_length == u.Quantity(17*1.0713, u.m)
         assert source.subarray.tel[2].camera.geometry.frame.focal_length == u.Quantity(17*1.0713, u.m)
 
