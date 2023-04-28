@@ -232,7 +232,7 @@ class MAGICEventSource(EventSource):
             self.drive_information = self.prepare_drive_information()
 
             # Get the arrival time differences
-            self.event_time_diffs = self.get_event_time_difference()        
+            self.event_time_diffs = self.get_event_time_difference()
 
         pointing_mode = PointingMode.TRACK
 
