@@ -1,10 +1,10 @@
 ## *ctapipe* MAGIC event source
 
-EventSource plugin for *ctapipe*, needed to read the calibrated data of the MAGIC telescope system. It requires the [*ctapipe*](https://github.com/cta-observatory/ctapipe) (v0.12.0) and [*uproot*](https://github.com/scikit-hep/uproot4) (>=4.1) packages to run.
+EventSource plugin for *ctapipe*, needed to read the calibrated data of the MAGIC telescope system. It requires the [*ctapipe*](https://github.com/cta-observatory/ctapipe) (v0.17.0) and [*uproot*](https://github.com/scikit-hep/uproot4) (>=5) packages to run.
 
 #### Installation
 
-Provided that *ctapipe* is already installed, the installation can be done via *pip* (the module is available in PyPI):
+If *ctapipe* is already installed, the installation can be done via *pip* (the module is available in PyPI):
 
 ```bash
 pip install ctapipe_io_magic
@@ -14,18 +14,11 @@ Alternatively, you can always clone the repository and install like in the follo
 
 ```bash
 git clone https://github.com/cta-observatory/ctapipe_io_magic.git
-pip install ./ctapipe_io_magic/
-```
-
-This installation via *pip* (provided, *pip* is installed) has the advantage to be nicely controlled for belonging to a given conda environment (and to be uninstalled). Alternatively, do
-
-```bash
-git clone https://github.com/cta-observatory/ctapipe_io_magic.git
 cd ctapipe_io_magic
-python setup.py install --user
+conda env create -n ctapipe-io_magic -f environment.yml
+conda activate ctapipe-io_magic
+pip install .
 ```
-
-In all cases, using *pip* will check if the version of *ctapipe* and *uproot* is compatible with the requested version of *ctapipe_io_magic*.
 
 #### Usage
 
@@ -118,3 +111,4 @@ Some general information about the simulated data, useful for IRF calculation, a
 -   v0.4.5: fixed automatic tests, add possibility to choose between effective and nominal focal length
 -   v0.4.6: add support to read in data taken in mono mode (full for real data, partial for MCs). Fixed bug in recognition of mono/stereo or standard trigger/SumT data (added also for MC)
 -   v0.4.7: add full support to read in real and MC data taken in mono mode, and with SumT. Added treatment of unsuitable pixels for MC data. Added readout of true XMax value from MC data (usually not available, filled with 0 otherwise)
+-   v0.5.0: release compatible with ctapipe 0.17. Also, the equivalent focal length is set to the correct value used in MAGIC simulations (i.e. 16.97 meters)
