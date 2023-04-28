@@ -52,7 +52,7 @@ from .constants import (
     MC_SUMT_TRIGGER_PATTERN,
     DATA_MONO_SUMT_TRIGGER_PATTERN,
     PEDESTAL_TRIGGER_PATTERN,
-    DATA_STEREO_TRIGGER_PATTERN,  
+    DATA_STEREO_TRIGGER_PATTERN,
 )
 
 __all__ = ["MAGICEventSource", "MARSDataLevel", "__version__"]
@@ -138,7 +138,7 @@ class MAGICEventSource(EventSource):
     focal_length_choice = UseEnum(
         FocalLengthKind,
         default_value=FocalLengthKind.EFFECTIVE,
-        help='Which focal length to use when constructing the SubarrayDescription.',
+        help="Which focal length to use when constructing the SubarrayDescription.",
     ).tag(config=True)
 
     def __init__(self, input_url=None, config=None, parent=None, **kwargs):
@@ -674,10 +674,10 @@ class MAGICEventSource(EventSource):
         }
 
         equivalent_focal_length = u.Quantity(16.97, u.m)
-        effective_focal_length = u.Quantity(17*1.0713, u.m)
+        effective_focal_length = u.Quantity(17 * 1.0713, u.m)
 
         OPTICS = OpticsDescription(
-            name='MAGIC',
+            name="MAGIC",
             size_type=SizeType.LST,
             n_mirrors=1,
             n_mirror_tiles=964,
@@ -692,13 +692,10 @@ class MAGICEventSource(EventSource):
         elif self.focal_length_choice is FocalLengthKind.EQUIVALENT:
             focal_length = equivalent_focal_length
         else:
-            raise ValueError(
-                f"Invalid focal length choice: {self.focal_length_choice}"
-            )
+            raise ValueError(f"Invalid focal length choice: {self.focal_length_choice}")
 
         # camera info from MAGICCam.camgeom.fits.gz file
         camera_geom = load_camera_geometry()
-
 
         n_pixels = camera_geom.n_pixels
 
@@ -706,8 +703,10 @@ class MAGICEventSource(EventSource):
         n_samples_list = []
 
         for rootf in self.files_:
-            nsample_info = rootf['RunHeaders'].arrays(n_samples_array_list, library="np")
-            n_samples_file = int(nsample_info['MRawRunHeader.fNumSamplesHiGain'][0])
+            nsample_info = rootf["RunHeaders"].arrays(
+                n_samples_array_list, library="np"
+            )
+            n_samples_file = int(nsample_info["MRawRunHeader.fNumSamplesHiGain"][0])
             n_samples_list.append(n_samples_file)
 
         n_samples_list = np.unique(n_samples_list).tolist()
@@ -715,12 +714,13 @@ class MAGICEventSource(EventSource):
         if len(n_samples_list) > 1:
             raise ValueError(
                 "Loaded files contain different number of readout samples. \
-                 Please load files with the same readout configuration.")
+                 Please load files with the same readout configuration."
+            )
 
         n_samples = n_samples_list[0]
 
-        pulse_shape_lo_gain = np.array([0., 1., 2., 1., 0.])
-        pulse_shape_hi_gain = np.array([1., 2., 3., 2., 1.])
+        pulse_shape_lo_gain = np.array([0.0, 1.0, 2.0, 1.0, 0.0])
+        pulse_shape_hi_gain = np.array([1.0, 2.0, 3.0, 2.0, 1.0])
 
         pulse_shape = np.vstack((pulse_shape_lo_gain, pulse_shape_hi_gain))
         sampling_speed = u.Quantity(
@@ -731,7 +731,7 @@ class MAGICEventSource(EventSource):
             u.GHz,
         )
         camera_readout = CameraReadout(
-            name='MAGICCam',
+            name="MAGICCam",
             sampling_rate=sampling_speed,
             reference_pulse_shape=pulse_shape,
             reference_pulse_sample_width=u.Quantity(0.5, u.ns),
@@ -745,7 +745,7 @@ class MAGICEventSource(EventSource):
         camera.geometry.frame = CameraFrame(focal_length=focal_length)
 
         MAGIC_TEL_DESCRIPTION = TelescopeDescription(
-            name='MAGIC', optics=OPTICS, camera=camera
+            name="MAGIC", optics=OPTICS, camera=camera
         )
 
         MAGIC_TEL_DESCRIPTIONS = {1: MAGIC_TEL_DESCRIPTION, 2: MAGIC_TEL_DESCRIPTION}
@@ -820,17 +820,17 @@ class MAGICEventSource(EventSource):
 
         metadata = dict()
         metadata["file_list"] = self.file_list
-        metadata['run_numbers'] = self.run_id
-        metadata['is_simulation'] = self.is_simulation
-        metadata['telescope'] = self.telescope
-        metadata['subrun_number'] = []
-        metadata['source_ra'] = []
-        metadata['source_dec'] = []
-        metadata['source_name'] = []
-        metadata['observation_mode'] = []
-        metadata['project_name'] = []
-        metadata['mars_version_sorcerer'] = []
-        metadata['root_version_sorcerer'] = []
+        metadata["run_numbers"] = self.run_id
+        metadata["is_simulation"] = self.is_simulation
+        metadata["telescope"] = self.telescope
+        metadata["subrun_number"] = []
+        metadata["source_ra"] = []
+        metadata["source_dec"] = []
+        metadata["source_name"] = []
+        metadata["observation_mode"] = []
+        metadata["project_name"] = []
+        metadata["mars_version_sorcerer"] = []
+        metadata["root_version_sorcerer"] = []
 
         for rootf in self.files_:
             meta_info_runh = rootf["RunHeaders"].arrays(
@@ -927,14 +927,25 @@ class MAGICEventSource(EventSource):
         simulation_config = dict()
 
         for rootf in self.files_:
-
-            run_header_tree = rootf['RunHeaders']
-            spectral_index = run_header_tree['MMcCorsikaRunHeader.fSlopeSpec'].array(library="np")[0]
-            e_low = run_header_tree['MMcCorsikaRunHeader.fELowLim'].array(library="np")[0]
-            e_high = run_header_tree['MMcCorsikaRunHeader.fEUppLim'].array(library="np")[0]
-            corsika_version = run_header_tree['MMcCorsikaRunHeader.fCorsikaVersion'].array(library="np")[0]
-            site_height = run_header_tree['MMcCorsikaRunHeader.fHeightLev[10]'].array(library="np")[0][0]
-            atm_model = run_header_tree['MMcCorsikaRunHeader.fAtmosphericModel'].array(library="np")[0]
+            run_header_tree = rootf["RunHeaders"]
+            spectral_index = run_header_tree["MMcCorsikaRunHeader.fSlopeSpec"].array(
+                library="np"
+            )[0]
+            e_low = run_header_tree["MMcCorsikaRunHeader.fELowLim"].array(library="np")[
+                0
+            ]
+            e_high = run_header_tree["MMcCorsikaRunHeader.fEUppLim"].array(
+                library="np"
+            )[0]
+            corsika_version = run_header_tree[
+                "MMcCorsikaRunHeader.fCorsikaVersion"
+            ].array(library="np")[0]
+            site_height = run_header_tree["MMcCorsikaRunHeader.fHeightLev[10]"].array(
+                library="np"
+            )[0][0]
+            atm_model = run_header_tree["MMcCorsikaRunHeader.fAtmosphericModel"].array(
+                library="np"
+            )[0]
             if self.mars_datalevel in [MARSDataLevel.CALIBRATED, MARSDataLevel.STAR]:
                 view_cone = run_header_tree[
                     "MMcRunHeader.fRandomPointingConeSemiAngle"
