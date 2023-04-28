@@ -1142,7 +1142,7 @@ class MAGICEventSource(EventSource):
     @property
     def obs_ids(self):
         # ToCheck: will this be compatible in the future, e.g. with merged MC files
-        return list(self.observation_blocks)
+        return run_id
 
     def _get_badrmspixel_mask(self, event):
         """
