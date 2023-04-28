@@ -232,24 +232,7 @@ class MAGICEventSource(EventSource):
             self.drive_information = self.prepare_drive_information()
 
             # Get the arrival time differences
-            self.event_time_diffs = self.get_event_time_difference()
-        pointing_mode = PointingMode.TRACK
-
-        self._scheduling_blocks = {
-            self.run_id: SchedulingBlockContainer(
-                sb_id=np.uint64(self.run_id),
-                producer_id=f"MAGIC-{self.telescope}",
-                pointing_mode=pointing_mode,
-            )
-        }
-
-        self._observation_blocks = {
-            self.run_id: ObservationBlockContainer(
-                obs_id=np.uint64(self.run_id),
-                sb_id=np.uint64(self.run_id),
-                producer_id=f"MAGIC-{self.telescope}",
-            )
-        }
+            self.event_time_diffs = self.get_event_time_difference()        
 
         pointing_mode = PointingMode.TRACK
 
