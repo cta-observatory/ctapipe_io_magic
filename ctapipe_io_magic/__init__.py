@@ -1274,7 +1274,7 @@ class MAGICEventSource(EventSource):
 
         event.meta["origin"] = "MAGIC"
         event.meta["max_events"] = self.max_events
-        event.index.obs_id = self.obs_ids
+        event.index.obs_id = self.obs_ids[0]
 
         tel_id = self.telescope
         event.trigger.tels_with_trigger = np.array([tel_id])
