@@ -30,4 +30,6 @@ setup(
         "docs": docs_require,
     },
     setup_requires=["pytest_runner"],
+    entry_points={'ctapipe_io':['MAGICEventSource = ctapipe_io_magic:MAGICEventSource ']}   
 )
+
