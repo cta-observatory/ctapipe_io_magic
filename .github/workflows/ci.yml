@@ -48,9 +48,8 @@ jobs:
           CTAPIPE_VERSION: ${{ matrix.ctapipe-version }}
         run: |
           pip install -e .
-          # we install ctapipe using pip to be able to select any commit, e.g. the current master
           pip install pytest-cov "ctapipe==$CTAPIPE_VERSION"
-          ctapipe-info --version | grep "$CTAPIPE_VERSION"
+          # ctapipe-info --version | grep "$CTAPIPE_VERSION"
           git describe --tags
 
       - name: Test Plugin
