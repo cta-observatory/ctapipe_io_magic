@@ -1389,7 +1389,10 @@ class MAGICEventSource(EventSource):
             for i_event in range(n_events):
                 event.count = counter
 
-                if event_data["trigger_pattern"][i_event] == DATA_STEREO_TRIGGER_PATTERN:
+                if (
+                    event_data["trigger_pattern"][i_event]
+                    == DATA_STEREO_TRIGGER_PATTERN
+                ):
                     event.trigger.tels_with_trigger = np.array([1, 2])
                 elif event_data["trigger_pattern"][i_event] == DATA_TOPOLOGICAL_TRIGGER:
                     event.trigger.tels_with_trigger = np.array([tel_id, 3])
@@ -1646,9 +1649,7 @@ class MarsCalibratedRun:
                 else:
                     data_trigger_pattern = DATA_MONO_TRIGGER_PATTERN
             if self.use_hst_events:
-                events_cut[
-                    "cosmic_events"
-                ] = (
+                events_cut["cosmic_events"] = (
                     f"(MTriggerPattern.fPrescaled == {data_trigger_pattern})"
                     f" | (MTriggerPattern.fPrescaled == {DATA_TOPOLOGICAL_TRIGGER})"
                     f" | (MTriggerPattern.fPrescaled == {DATA_MAGIC_LST_TRIGGER})"
@@ -1719,10 +1720,17 @@ class MarsCalibratedRun:
                     ].array(library="np")[0]
                     stereo_ids = common_info["MRawEvtHeader.fStereoEvtNumber"]
                     daq_ids = common_info["MRawEvtHeader.fDAQEvtNumber"]
-                    calib_data[event_type]["event_number"] = np.array([
-                        f"{subrun_id}{daq_ids[event_idx]:07}" if common_info["MTriggerPattern.fPrescaled"][event_idx] == DATA_TOPOLOGICAL_TRIGGER
-                        else stereo_ids[event_idx] for event_idx in range(common_info["MTriggerPattern.fPrescaled"].size)]
-                        , dtype=int
+                    calib_data[event_type]["event_number"] = np.array(
+                        [
+                            f"{subrun_id}{daq_ids[event_idx]:07}"
+                            if common_info["MTriggerPattern.fPrescaled"][event_idx]
+                            == DATA_TOPOLOGICAL_TRIGGER
+                            else stereo_ids[event_idx]
+                            for event_idx in range(
+                                common_info["MTriggerPattern.fPrescaled"].size
+                            )
+                        ],
+                        dtype=int,
                     )
                 else:
                     calib_data[event_type]["event_number"] = np.array(
@@ -1950,9 +1958,10 @@ class MarsCalibratedRun:
                 # Check for bit flips in the stereo event IDs:
                 uplim_total_jumps = 100
 
-                stereo_event_number = calib_data["cosmic_events"][
-                    "event_number"
-                ][calib_data["cosmic_events"]["trigger_pattern"] == DATA_STEREO_TRIGGER_PATTERN].astype(int)
+                stereo_event_number = calib_data["cosmic_events"]["event_number"][
+                    calib_data["cosmic_events"]["trigger_pattern"]
+                    == DATA_STEREO_TRIGGER_PATTERN
+                ].astype(int)
                 number_difference = np.diff(stereo_event_number)
 
                 indices_flip = np.where(number_difference < 0)[0]
