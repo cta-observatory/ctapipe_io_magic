@@ -158,9 +158,9 @@ def test_loop(dataset):
         for i, event in enumerate(source):
             assert event.count == i
             if "_M1_" in dataset.name:
-                assert event.trigger.tels_with_trigger == [1]
+                assert 1 in event.trigger.tels_with_trigger
             if "_M2_" in dataset.name:
-                assert event.trigger.tels_with_trigger == [2]
+                assert 2 in event.trigger.tels_with_trigger
 
         assert (i + 1) == n_events
 
@@ -241,7 +241,7 @@ def test_multiple_runs_real():
         for i, event in enumerate(source):
             assert event.trigger.event_type == EventType.SUBARRAY
             assert event.count == i
-            assert event.trigger.tels_with_trigger == [source.telescope]
+            assert source.telescope in event.trigger.tels_with_trigger
 
         assert (i + 1) == n_events
 

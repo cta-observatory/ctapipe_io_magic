@@ -1389,15 +1389,18 @@ class MAGICEventSource(EventSource):
             for i_event in range(n_events):
                 event.count = counter
 
-                if (
-                    event_data["trigger_pattern"][i_event]
-                    == DATA_STEREO_TRIGGER_PATTERN
-                ):
+                if not self.is_simulation:
+                    if (
+                        event_data["trigger_pattern"][i_event]
+                        == DATA_STEREO_TRIGGER_PATTERN
+                    ):
+                        event.trigger.tels_with_trigger = np.array([1, 2])
+                    elif event_data["trigger_pattern"][i_event] == DATA_TOPOLOGICAL_TRIGGER:
+                        event.trigger.tels_with_trigger = np.array([tel_id, 3])
+                    elif event_data["trigger_pattern"][i_event] == DATA_MAGIC_LST_TRIGGER:
+                        event.trigger.tels_with_trigger = np.array([1, 2, 3])
+                else:
                     event.trigger.tels_with_trigger = np.array([1, 2])
-                elif event_data["trigger_pattern"][i_event] == DATA_TOPOLOGICAL_TRIGGER:
-                    event.trigger.tels_with_trigger = np.array([tel_id, 3])
-                elif event_data["trigger_pattern"][i_event] == DATA_MAGIC_LST_TRIGGER:
-                    event.trigger.tels_with_trigger = np.array([1, 2, 3])
 
                 event.index.event_id = event_data["event_number"][i_event]
 
