@@ -1,6 +1,12 @@
 name: CI
 
-on: [push, pull_request]
+on:
+  push:
+    branches:
+      - master
+    tags:
+      - '**'
+  pull_request:
 
 env:
   NUMBA_NUM_THREADS: 1
@@ -17,7 +23,7 @@ jobs:
 
     defaults:
       run:
-        shell: bash -exl {0}
+        shell: bash -leo pipefail {0}
 
     steps:
       - uses: actions/checkout@v3
@@ -31,11 +37,10 @@ jobs:
           sed -i -e "s/- python=.*/- python=$PYTHON_VERSION/g" environment.yml
 
       - name: Create and activate env
-        uses: conda-incubator/setup-miniconda@v2
+        uses: mamba-org/provision-with-micromamba@v14
         with:
-          mamba-version: "*"
-          use-mamba: true
-          activate-environment: ci
+          cache-downloads: true
+          environment-name: magicio
           environment-file: environment.yml
 
       - name: install
@@ -44,8 +49,14 @@ jobs:
         run: |
           pip install -e .
           # we install ctapipe using pip to be able to select any commit, e.g. the current master
-          pip install pytest-cov "git+https://github.com/cta-observatory/ctapipe@$CTAPIPE_VERSION"
+          pip install pytest-cov "ctapipe==$CTAPIPE_VERSION"
+          ctapipe-info --version | grep "$CTAPIPE_VERSION"
           git describe --tags
+
+      - name: Test Plugin
+        run: |
+          # check the MAGICEventSource is available
+          python eventsource_subclasses.py | grep MAGICEventSource
 
       - name: Download test data
         env:
@@ -57,9 +68,6 @@ jobs:
 
       - name: Tests
         run: |
-          # github actions starts a new shell for each "step", so we need to
-          # activate our env again
-          python eventsource_subclasses.py | grep MAGICEventSource
           pytest --cov=ctapipe_io_magic --cov-report=xml
 
       - uses: codecov/codecov-action@v1
