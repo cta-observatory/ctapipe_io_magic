@@ -1107,10 +1107,19 @@ class MAGICEventSource(EventSource):
 
         time_diffs = np.array([])
 
+        if self.is_hast:
+            event_cut = f"(MTriggerPattern.fPrescaled == {DATA_STEREO_TRIGGER_PATTERN})"
+            f" | (MTriggerPattern.fPrescaled == {DATA_TOPOLOGICAL_TRIGGER})"
+            f" | (MTriggerPattern.fPrescaled == {DATA_MAGIC_LST_TRIGGER})"
+        else:
+            event_cut = (
+                f"(MTriggerPattern.fPrescaled == {DATA_STEREO_TRIGGER_PATTERN})",
+            )
+
         for uproot_file in self.files_:
             event_info = uproot_file["Events"].arrays(
                 expressions=["MRawEvtHeader.fTimeDiff"],
-                cut=f"(MTriggerPattern.fPrescaled == {DATA_STEREO_TRIGGER_PATTERN})",
+                cut=event_cut,
                 library="np",
             )
 
