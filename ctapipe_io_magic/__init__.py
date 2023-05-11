@@ -1108,9 +1108,11 @@ class MAGICEventSource(EventSource):
         time_diffs = np.array([])
 
         if self.is_hast:
-            event_cut = f"(MTriggerPattern.fPrescaled == {DATA_STEREO_TRIGGER_PATTERN})"
+            event_cut = (
+                f"(MTriggerPattern.fPrescaled == {DATA_STEREO_TRIGGER_PATTERN})"
             f" | (MTriggerPattern.fPrescaled == {DATA_TOPOLOGICAL_TRIGGER})"
             f" | (MTriggerPattern.fPrescaled == {DATA_MAGIC_LST_TRIGGER})"
+            )
         else:
             event_cut = (
                 f"(MTriggerPattern.fPrescaled == {DATA_STEREO_TRIGGER_PATTERN})",
