@@ -145,10 +145,6 @@ class MAGICEventSource(EventSource):
         help="Which focal length to use when constructing the SubarrayDescription.",
     ).tag(config=True)
 
-    use_hst = Bool(
-        default_value=False, help="Extract events with hardware stereo trigger."
-    ).tag(config=True)
-
     def __init__(self, input_url=None, config=None, parent=None, **kwargs):
         """
         Constructor
@@ -216,7 +212,7 @@ class MAGICEventSource(EventSource):
         if self.is_simulation:
             self._simulation_config = self.parse_simulation_header()
 
-        self.is_stereo, self.is_sumt = self.parse_data_info()
+        self.is_stereo, self.is_sumt, self.is_hast = self.parse_data_info()
 
         if self.is_simulation and self.use_mc_mono_events and not self.is_stereo:
             logger.warning(
@@ -523,11 +519,13 @@ class MAGICEventSource(EventSource):
 
         is_stereo = []
         is_sumt = []
+        is_hast = []
 
         if not self.is_simulation:
             prescaler_mono_nosumt = [1, 1, 0, 1, 0, 0, 0, 0]
             prescaler_mono_sumt = [0, 1, 0, 1, 0, 1, 0, 0]
             prescaler_stereo = [0, 1, 0, 1, 0, 0, 0, 1]
+            prescaler_hast = [0, 1, 1, 1, 0, 0, 0, 1]
 
             # L1_table_mono = "L1_4NN"
             # L1_table_stereo = "L1_3NN"
@@ -551,7 +549,8 @@ class MAGICEventSource(EventSource):
                     )
                     stereo = True
                     sumt = False
-                    return stereo, sumt
+                    hast = False
+                    return stereo, sumt, hast
 
                 prescaler_size = prescaler_array.size
                 if prescaler_size > 1:
@@ -564,10 +563,16 @@ class MAGICEventSource(EventSource):
                     or prescaler == prescaler_mono_sumt
                 ):
                     stereo = False
+                    hast = False
                 elif prescaler == prescaler_stereo:
                     stereo = True
+                    hast = False
+                elif prescaler == prescaler_hast:
+                    stereo = True
+                    hast = True
                 else:
                     stereo = True
+                    hast = False
 
                 sumt = False
                 if stereo:
@@ -595,6 +600,7 @@ class MAGICEventSource(EventSource):
 
                 is_stereo.append(stereo)
                 is_sumt.append(sumt)
+                is_hast.append(hast)
 
         else:
             for rootf in self.files_:
@@ -626,6 +632,7 @@ class MAGICEventSource(EventSource):
 
         is_stereo = np.unique(is_stereo).tolist()
         is_sumt = np.unique(is_sumt).tolist()
+        is_hast = np.unique(is_hast).tolist()
 
         if len(is_stereo) > 1:
             raise ValueError(
@@ -639,7 +646,13 @@ class MAGICEventSource(EventSource):
                 not an issue, check that this is what you really want to do."
             )
 
-        return is_stereo[0], is_sumt[0]
+        if len(is_hast) > 1:
+            logger.warning(
+                "Found data with both stereo and hardware stereo trigger. While this is \
+                not an issue, check that this is what you really want to do."
+            )
+
+        return is_stereo[0], is_sumt[0], is_hast[0]
 
     def prepare_subarray_info(self):
         """
@@ -1247,9 +1260,9 @@ class MAGICEventSource(EventSource):
                 uproot_file,
                 self.is_simulation,
                 self.is_stereo,
+                self.is_hast,
                 self.use_mc_mono_events,
                 self.is_sumt,
-                self.use_hst,
             )
 
         return run
@@ -1395,9 +1408,14 @@ class MAGICEventSource(EventSource):
                         == DATA_STEREO_TRIGGER_PATTERN
                     ):
                         event.trigger.tels_with_trigger = np.array([1, 2])
-                    elif event_data["trigger_pattern"][i_event] == DATA_TOPOLOGICAL_TRIGGER:
+                    elif (
+                        event_data["trigger_pattern"][i_event]
+                        == DATA_TOPOLOGICAL_TRIGGER
+                    ):
                         event.trigger.tels_with_trigger = np.array([tel_id, 3])
-                    elif event_data["trigger_pattern"][i_event] == DATA_MAGIC_LST_TRIGGER:
+                    elif (
+                        event_data["trigger_pattern"][i_event] == DATA_MAGIC_LST_TRIGGER
+                    ):
                         event.trigger.tels_with_trigger = np.array([1, 2, 3])
                 else:
                     event.trigger.tels_with_trigger = np.array([1, 2])
@@ -1511,9 +1529,9 @@ class MarsCalibratedRun:
         uproot_file,
         is_mc,
         is_stereo,
+        is_hast,
         use_mc_mono_events,
         use_sumt_events,
-        use_hst_events,
         n_cam_pixels=1039,
     ):
         """
@@ -1538,7 +1556,7 @@ class MarsCalibratedRun:
         self.use_mc_mono_events = use_mc_mono_events
         self.use_sumt_events = use_sumt_events
         self.n_cam_pixels = n_cam_pixels
-        self.use_hst_events = use_hst_events
+        self.is_hast = is_hast
 
         # Load the input data:
         calib_data = self._load_data()
@@ -1651,7 +1669,7 @@ class MarsCalibratedRun:
                     data_trigger_pattern = DATA_MONO_SUMT_TRIGGER_PATTERN
                 else:
                     data_trigger_pattern = DATA_MONO_TRIGGER_PATTERN
-            if self.use_hst_events:
+            if self.is_hast:
                 events_cut["cosmic_events"] = (
                     f"(MTriggerPattern.fPrescaled == {data_trigger_pattern})"
                     f" | (MTriggerPattern.fPrescaled == {DATA_TOPOLOGICAL_TRIGGER})"
@@ -1717,7 +1735,7 @@ class MarsCalibratedRun:
                 )
                 logger.info("Using fDAQEvtNumber to generate event IDs.")
             else:
-                if self.use_hst_events:
+                if self.is_hast:
                     subrun_id = self.uproot_file["RunHeaders"][
                         "MRawRunHeader.fSubRunIndex"
                     ].array(library="np")[0]
