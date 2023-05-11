@@ -629,6 +629,7 @@ class MAGICEventSource(EventSource):
                     stereo = True
 
                 is_stereo.append(stereo)
+                is_hast.append(False)
 
         is_stereo = np.unique(is_stereo).tolist()
         is_sumt = np.unique(is_sumt).tolist()
