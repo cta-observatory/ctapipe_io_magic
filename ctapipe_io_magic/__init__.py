@@ -1126,7 +1126,7 @@ class MAGICEventSource(EventSource):
     def obs_ids(self):
         # ToCheck: will this be compatible in the future, e.g. with merged MC files
         return list(self.observation_blocks)
-        
+
     def _get_badrmspixel_mask(self, event):
         """
         Fetch bad RMS pixel mask for a given event.
@@ -1277,7 +1277,7 @@ class MAGICEventSource(EventSource):
         event.index.obs_id = self.obs_ids[0]
 
         tel_id = self.telescope
-        event.trigger.tels_with_trigger = np.array([tel_id])
+        event.trigger.tels_with_trigger = [tel_id]
 
         counter = 0
 
