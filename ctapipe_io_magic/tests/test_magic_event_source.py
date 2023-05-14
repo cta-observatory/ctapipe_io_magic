@@ -141,10 +141,14 @@ def test_allowed_tels():
         test_calibrated_real_dir
         / "20210314_M1_05095172.001_Y_CrabNebula-W0.40+035.root"
     )
+    allowed_tels={1}
     with MAGICEventSource(
-        input_url=dataset, process_run=False, allowed_tels=[1]
+        input_url=dataset, process_run=False, allowed_tels=allowed_tels
     ) as source:
-        assert np.array_equal(source.subarray.tel_ids, np.array([1]))
+        assert not allowed_tels.symmetric_difference(source.subarray.tel_ids)
+        for event in source:
+            assert set(event.trigger.tels_with_trigger).issubset(allowed_tels)
+            assert set(event.pointing.tel).issubset(allowed_tels)
 
 
 @pytest.mark.parametrize("dataset", test_calibrated_all)
@@ -159,8 +163,10 @@ def test_loop(dataset):
             assert event.count == i
             if "_M1_" in dataset.name:
                 assert 1 in event.trigger.tels_with_trigger
+                assert event.trigger.tels_with_trigger == [1, 2]
             if "_M2_" in dataset.name:
                 assert 2 in event.trigger.tels_with_trigger
+                assert event.trigger.tels_with_trigger == [1, 2]
 
         assert (i + 1) == n_events
 
@@ -242,6 +248,7 @@ def test_multiple_runs_real():
             assert event.trigger.event_type == EventType.SUBARRAY
             assert event.count == i
             assert source.telescope in event.trigger.tels_with_trigger
+            assert event.trigger.tels_with_trigger == [1, 2]
 
         assert (i + 1) == n_events
 
