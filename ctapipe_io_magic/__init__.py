@@ -1419,18 +1419,23 @@ class MAGICEventSource(EventSource):
                         event_data["trigger_pattern"][i_event]
                         == DATA_STEREO_TRIGGER_PATTERN
                     ):
-                        event.trigger.tels_with_trigger = np.array([1, 2])
+                        event.trigger.tels_with_trigger = [1, 2]
                     elif (
                         event_data["trigger_pattern"][i_event]
                         == DATA_TOPOLOGICAL_TRIGGER
                     ):
-                        event.trigger.tels_with_trigger = np.array([tel_id, 3])
+                        event.trigger.tels_with_trigger = [tel_id, 3]
                     elif (
                         event_data["trigger_pattern"][i_event] == DATA_MAGIC_LST_TRIGGER
                     ):
-                        event.trigger.tels_with_trigger = np.array([1, 2, 3])
+                        event.trigger.tels_with_trigger = [1, 2, 3]
+                    else:
+                        event.trigger.tels_with_trigger = [tel_id]
                 else:
-                    event.trigger.tels_with_trigger = np.array([1, 2])
+                    if self.is_stereo and not self.use_mc_mono_events:
+                        event.trigger.tels_with_trigger = [1, 2]
+                    else:
+                        event.trigger.tels_with_trigger = [tel_id]
 
                 event.index.event_id = event_data["event_number"][i_event]
 
