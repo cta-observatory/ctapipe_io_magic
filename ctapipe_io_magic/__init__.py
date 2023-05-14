@@ -1437,6 +1437,15 @@ class MAGICEventSource(EventSource):
                     else:
                         event.trigger.tels_with_trigger = [tel_id]
 
+                if self.allowed_tels:
+                    tels_with_trigger = np.intersect1d(
+                        event.trigger.tels_with_trigger,
+                        self.subarray.tel_ids,
+                        assume_unique=True,
+                    )
+
+                    event.trigger.tels_with_trigger = tels_with_trigger.tolist()
+
                 event.index.event_id = event_data["event_number"][i_event]
 
                 event.trigger.event_type = MAGIC_TO_CTA_EVENT_TYPE.get(
