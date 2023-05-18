@@ -101,6 +101,15 @@ data_dict["20230324_M1_05106879.001_Y_1ES0806+524-W0.40+000.root"][
     "n_events_3_tel"
 ] = 477
 data_dict["20230324_M1_05106879.001_Y_1ES0806+524-W0.40+000.root"][
+    "n_events_2_tel_m1_lst"
+] = 37
+data_dict["20230324_M1_05106879.001_Y_1ES0806+524-W0.40+000.root"][
+    "n_events_2_tel_m2_lst"
+] = 0
+data_dict["20230324_M1_05106879.001_Y_1ES0806+524-W0.40+000.root"][
+    "n_events_2_tel_m1_m2"
+] = 341
+data_dict["20230324_M1_05106879.001_Y_1ES0806+524-W0.40+000.root"][
     "n_events_pedestal"
 ] = 142
 data_dict["20230324_M1_05106879.001_Y_1ES0806+524-W0.40+000.root"][
@@ -116,6 +125,15 @@ data_dict["20230324_M1_05106879.002_Y_1ES0806+524-W0.40+000.root"][
 data_dict["20230324_M1_05106879.002_Y_1ES0806+524-W0.40+000.root"][
     "n_events_3_tel"
 ] = 494
+data_dict["20230324_M1_05106879.002_Y_1ES0806+524-W0.40+000.root"][
+    "n_events_2_tel_m1_lst"
+] = 34
+data_dict["20230324_M1_05106879.002_Y_1ES0806+524-W0.40+000.root"][
+    "n_events_2_tel_m2_lst"
+] = 0
+data_dict["20230324_M1_05106879.002_Y_1ES0806+524-W0.40+000.root"][
+    "n_events_2_tel_m1_m2"
+] = 325
 data_dict["20230324_M1_05106879.002_Y_1ES0806+524-W0.40+000.root"][
     "n_events_pedestal"
 ] = 145
@@ -133,6 +151,15 @@ data_dict["20230324_M2_05106879.001_Y_1ES0806+524-W0.40+000.root"][
     "n_events_3_tel"
 ] = 226
 data_dict["20230324_M2_05106879.001_Y_1ES0806+524-W0.40+000.root"][
+    "n_events_2_tel_m1_lst"
+] = 0
+data_dict["20230324_M2_05106879.001_Y_1ES0806+524-W0.40+000.root"][
+    "n_events_2_tel_m2_lst"
+] = 642
+data_dict["20230324_M2_05106879.001_Y_1ES0806+524-W0.40+000.root"][
+    "n_events_2_tel_m1_m2"
+] = 75
+data_dict["20230324_M2_05106879.001_Y_1ES0806+524-W0.40+000.root"][
     "n_events_pedestal"
 ] = 57
 data_dict["20230324_M2_05106879.001_Y_1ES0806+524-W0.40+000.root"][
@@ -148,6 +175,15 @@ data_dict["20230324_M2_05106879.002_Y_1ES0806+524-W0.40+000.root"][
 data_dict["20230324_M2_05106879.002_Y_1ES0806+524-W0.40+000.root"][
     "n_events_3_tel"
 ] = 215
+data_dict["20230324_M2_05106879.002_Y_1ES0806+524-W0.40+000.root"][
+    "n_events_2_tel_m1_lst"
+] = 0
+data_dict["20230324_M2_05106879.002_Y_1ES0806+524-W0.40+000.root"][
+    "n_events_2_tel_m2_lst"
+] = 644
+data_dict["20230324_M2_05106879.002_Y_1ES0806+524-W0.40+000.root"][
+    "n_events_2_tel_m1_m2"
+] = 90
 data_dict["20230324_M2_05106879.002_Y_1ES0806+524-W0.40+000.root"][
     "n_events_pedestal"
 ] = 51
@@ -285,11 +321,23 @@ def test_number_of_events(dataset):
 
         if source.is_hast:
             count_3_tel = 0
+            count_2_tel_m1_lst = 0
+            count_2_tel_m2_lst = 0
+            count_2_tel_m1_m2 = 0
             for event in source:
                 if event.trigger.tels_with_trigger == [1, 2, 3]:
                     count_3_tel += 1
+                elif event.trigger.tels_with_trigger == [1, 3]:
+                    count_2_tel_m1_lst += 1
+                elif event.trigger.tels_with_trigger == [2, 3]:
+                    count_2_tel_m2_lst += 1
+                elif event.trigger.tels_with_trigger == [1, 2]:
+                    count_2_tel_m1_m2 += 1
 
             assert count_3_tel == data_dict[source.input_url.name]["n_events_3_tel"]
+            assert count_2_tel_m1_lst == data_dict[source.input_url.name]["n_events_2_tel_m1_lst"]
+            assert count_2_tel_m2_lst == data_dict[source.input_url.name]["n_events_2_tel_m2_lst"]
+            assert count_2_tel_m1_m2 == data_dict[source.input_url.name]["n_events_2_tel_m1_m2"]
 
         # if '_M1_' in dataset.name:
         #     assert run['data'].n_cosmics_stereo_events_m1 == data_dict[source.input_url.name]['n_events_stereo']
