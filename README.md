@@ -20,7 +20,7 @@ conda activate ctapipe-io_magic
 pip install .
 ```
 
-### Test Data
+#### Test Data
 
 To run the tests, a set of non-public files is needed. If you are a member of MAGIC, ask one of the project maintainers for the credentials and then run:
 

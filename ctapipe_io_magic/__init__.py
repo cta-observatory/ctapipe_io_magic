@@ -53,6 +53,8 @@ from .constants import (
     DATA_MONO_SUMT_TRIGGER_PATTERN,
     PEDESTAL_TRIGGER_PATTERN,
     DATA_STEREO_TRIGGER_PATTERN,
+    DATA_TOPOLOGICAL_TRIGGER,
+    DATA_MAGIC_LST_TRIGGER,
 )
 
 __all__ = ["MAGICEventSource", "MARSDataLevel", "__version__"]
@@ -74,6 +76,8 @@ MAGIC_TO_CTA_EVENT_TYPE = {
     DATA_STEREO_TRIGGER_PATTERN: EventType.SUBARRAY,
     DATA_MONO_SUMT_TRIGGER_PATTERN: EventType.SUBARRAY,
     PEDESTAL_TRIGGER_PATTERN: EventType.SKY_PEDESTAL,
+    DATA_TOPOLOGICAL_TRIGGER: EventType.SUBARRAY,
+    DATA_MAGIC_LST_TRIGGER: EventType.SUBARRAY,
 }
 
 
@@ -208,7 +212,7 @@ class MAGICEventSource(EventSource):
         if self.is_simulation:
             self._simulation_config = self.parse_simulation_header()
 
-        self.is_stereo, self.is_sumt = self.parse_data_info()
+        self.is_stereo, self.is_sumt, self.is_hast = self.parse_data_info()
 
         if self.is_simulation and self.use_mc_mono_events and not self.is_stereo:
             logger.warning(
@@ -515,11 +519,13 @@ class MAGICEventSource(EventSource):
 
         is_stereo = []
         is_sumt = []
+        is_hast = []
 
         if not self.is_simulation:
             prescaler_mono_nosumt = [1, 1, 0, 1, 0, 0, 0, 0]
             prescaler_mono_sumt = [0, 1, 0, 1, 0, 1, 0, 0]
             prescaler_stereo = [0, 1, 0, 1, 0, 0, 0, 1]
+            prescaler_hast = [0, 1, 1, 1, 0, 0, 0, 1]
 
             # L1_table_mono = "L1_4NN"
             # L1_table_stereo = "L1_3NN"
@@ -543,7 +549,8 @@ class MAGICEventSource(EventSource):
                     )
                     stereo = True
                     sumt = False
-                    return stereo, sumt
+                    hast = False
+                    return stereo, sumt, hast
 
                 prescaler_size = prescaler_array.size
                 if prescaler_size > 1:
@@ -556,10 +563,16 @@ class MAGICEventSource(EventSource):
                     or prescaler == prescaler_mono_sumt
                 ):
                     stereo = False
+                    hast = False
                 elif prescaler == prescaler_stereo:
                     stereo = True
+                    hast = False
+                elif prescaler == prescaler_hast:
+                    stereo = True
+                    hast = True
                 else:
                     stereo = True
+                    hast = False
 
                 sumt = False
                 if stereo:
@@ -587,6 +600,7 @@ class MAGICEventSource(EventSource):
 
                 is_stereo.append(stereo)
                 is_sumt.append(sumt)
+                is_hast.append(hast)
 
         else:
             for rootf in self.files_:
@@ -615,9 +629,11 @@ class MAGICEventSource(EventSource):
                     stereo = True
 
                 is_stereo.append(stereo)
+                is_hast.append(False)
 
         is_stereo = np.unique(is_stereo).tolist()
         is_sumt = np.unique(is_sumt).tolist()
+        is_hast = np.unique(is_hast).tolist()
 
         if len(is_stereo) > 1:
             raise ValueError(
@@ -631,7 +647,13 @@ class MAGICEventSource(EventSource):
                 not an issue, check that this is what you really want to do."
             )
 
-        return is_stereo[0], is_sumt[0]
+        if len(is_hast) > 1:
+            logger.warning(
+                "Found data with both stereo and hardware stereo trigger. While this is \
+                not an issue, check that this is what you really want to do."
+            )
+
+        return is_stereo[0], is_sumt[0], is_hast[0]
 
     def prepare_subarray_info(self):
         """
@@ -1085,10 +1107,27 @@ class MAGICEventSource(EventSource):
 
         time_diffs = np.array([])
 
+        data_trigger_pattern = DATA_STEREO_TRIGGER_PATTERN
+        if not self.is_stereo:
+            if self.is_sumt:
+                data_trigger_pattern = DATA_MONO_SUMT_TRIGGER_PATTERN
+            else:
+                data_trigger_pattern = DATA_MONO_TRIGGER_PATTERN
+        if self.is_hast:
+            event_cut = (
+                f"(MTriggerPattern.fPrescaled == {data_trigger_pattern})"
+            f" | (MTriggerPattern.fPrescaled == {DATA_TOPOLOGICAL_TRIGGER})"
+            f" | (MTriggerPattern.fPrescaled == {DATA_MAGIC_LST_TRIGGER})"
+            )
+        else:
+            event_cut = (
+                f"(MTriggerPattern.fPrescaled == {data_trigger_pattern})",
+            )
+
         for uproot_file in self.files_:
             event_info = uproot_file["Events"].arrays(
                 expressions=["MRawEvtHeader.fTimeDiff"],
-                cut=f"(MTriggerPattern.fPrescaled == {DATA_STEREO_TRIGGER_PATTERN})",
+                cut=event_cut,
                 library="np",
             )
 
@@ -1239,6 +1278,7 @@ class MAGICEventSource(EventSource):
                 uproot_file,
                 self.is_simulation,
                 self.is_stereo,
+                self.is_hast,
                 self.use_mc_mono_events,
                 self.is_sumt,
             )
@@ -1277,7 +1317,6 @@ class MAGICEventSource(EventSource):
         event.index.obs_id = self.obs_ids[0]
 
         tel_id = self.telescope
-        event.trigger.tels_with_trigger = [tel_id]
 
         counter = 0
 
@@ -1380,6 +1419,39 @@ class MAGICEventSource(EventSource):
             # Loop over the events:
             for i_event in range(n_events):
                 event.count = counter
+
+                if not self.is_simulation:
+                    if (
+                        event_data["trigger_pattern"][i_event]
+                        == DATA_STEREO_TRIGGER_PATTERN
+                    ):
+                        event.trigger.tels_with_trigger = [1, 2]
+                    elif (
+                        event_data["trigger_pattern"][i_event]
+                        == DATA_TOPOLOGICAL_TRIGGER
+                    ):
+                        event.trigger.tels_with_trigger = [tel_id, 3]
+                    elif (
+                        event_data["trigger_pattern"][i_event] == DATA_MAGIC_LST_TRIGGER
+                    ):
+                        event.trigger.tels_with_trigger = [1, 2, 3]
+                    else:
+                        event.trigger.tels_with_trigger = [tel_id]
+                else:
+                    if self.is_stereo and not self.use_mc_mono_events:
+                        event.trigger.tels_with_trigger = [1, 2]
+                    else:
+                        event.trigger.tels_with_trigger = [tel_id]
+
+                if self.allowed_tels:
+                    tels_with_trigger = np.intersect1d(
+                        event.trigger.tels_with_trigger,
+                        self.subarray.tel_ids,
+                        assume_unique=True,
+                    )
+
+                    event.trigger.tels_with_trigger = tels_with_trigger.tolist()
+
                 event.index.event_id = event_data["event_number"][i_event]
 
                 event.trigger.event_type = MAGIC_TO_CTA_EVENT_TYPE.get(
@@ -1489,6 +1561,7 @@ class MarsCalibratedRun:
         uproot_file,
         is_mc,
         is_stereo,
+        is_hast,
         use_mc_mono_events,
         use_sumt_events,
         n_cam_pixels=1039,
@@ -1515,6 +1588,7 @@ class MarsCalibratedRun:
         self.use_mc_mono_events = use_mc_mono_events
         self.use_sumt_events = use_sumt_events
         self.n_cam_pixels = n_cam_pixels
+        self.is_hast = is_hast
 
         # Load the input data:
         calib_data = self._load_data()
@@ -1627,9 +1701,16 @@ class MarsCalibratedRun:
                     data_trigger_pattern = DATA_MONO_SUMT_TRIGGER_PATTERN
                 else:
                     data_trigger_pattern = DATA_MONO_TRIGGER_PATTERN
-            events_cut[
-                "cosmic_events"
-            ] = f"(MTriggerPattern.fPrescaled == {data_trigger_pattern})"
+            if self.is_hast:
+                events_cut["cosmic_events"] = (
+                    f"(MTriggerPattern.fPrescaled == {data_trigger_pattern})"
+                    f" | (MTriggerPattern.fPrescaled == {DATA_TOPOLOGICAL_TRIGGER})"
+                    f" | (MTriggerPattern.fPrescaled == {DATA_MAGIC_LST_TRIGGER})"
+                )
+            else:
+                events_cut[
+                    "cosmic_events"
+                ] = f"(MTriggerPattern.fPrescaled == {data_trigger_pattern})"
             # Only for cosmic events because MC data do not have pedestal events:
             events_cut[
                 "pedestal_events"
@@ -1686,10 +1767,29 @@ class MarsCalibratedRun:
                 )
                 logger.info("Using fDAQEvtNumber to generate event IDs.")
             else:
-                calib_data[event_type]["event_number"] = np.array(
-                    common_info["MRawEvtHeader.fStereoEvtNumber"], dtype=int
-                )
-                logger.info("Using fStereoEvtNumber to generate event IDs.")
+                if self.is_hast:
+                    subrun_id = self.uproot_file["RunHeaders"][
+                        "MRawRunHeader.fSubRunIndex"
+                    ].array(library="np")[0]
+                    stereo_ids = common_info["MRawEvtHeader.fStereoEvtNumber"]
+                    daq_ids = common_info["MRawEvtHeader.fDAQEvtNumber"]
+                    calib_data[event_type]["event_number"] = np.array(
+                        [
+                            f"{subrun_id}{daq_ids[event_idx]:07}"
+                            if common_info["MTriggerPattern.fPrescaled"][event_idx]
+                            == DATA_TOPOLOGICAL_TRIGGER
+                            else stereo_ids[event_idx]
+                            for event_idx in range(
+                                common_info["MTriggerPattern.fPrescaled"].size
+                            )
+                        ],
+                        dtype=int,
+                    )
+                else:
+                    calib_data[event_type]["event_number"] = np.array(
+                        common_info["MRawEvtHeader.fStereoEvtNumber"], dtype=int
+                    )
+                    logger.info("Using fStereoEvtNumber to generate event IDs.")
 
             # Set pixel-wise charge and peak time information.
             # The length of the pixel array is 1183, but here only the first part of the pixel
@@ -1911,8 +2011,9 @@ class MarsCalibratedRun:
                 # Check for bit flips in the stereo event IDs:
                 uplim_total_jumps = 100
 
-                stereo_event_number = calib_data["cosmic_events"][
-                    "event_number"
+                stereo_event_number = calib_data["cosmic_events"]["event_number"][
+                    calib_data["cosmic_events"]["trigger_pattern"]
+                    == DATA_STEREO_TRIGGER_PATTERN
                 ].astype(int)
                 number_difference = np.diff(stereo_event_number)
 

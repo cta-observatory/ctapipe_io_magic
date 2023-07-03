@@ -13,6 +13,13 @@ test_calibrated_real = [
     test_calibrated_real_dir / "20210314_M2_05095172.002_Y_CrabNebula-W0.40+035.root",
 ]
 
+test_calibrated_real_hast = [
+    test_calibrated_real_dir / "20230324_M1_05106879.001_Y_1ES0806+524-W0.40+000.root",
+    test_calibrated_real_dir / "20230324_M1_05106879.002_Y_1ES0806+524-W0.40+000.root",
+    test_calibrated_real_dir / "20230324_M2_05106879.001_Y_1ES0806+524-W0.40+000.root",
+    test_calibrated_real_dir / "20230324_M2_05106879.002_Y_1ES0806+524-W0.40+000.root",
+]
+
 test_calibrated_simulated_dir = test_data / "simulated/calibrated"
 test_calibrated_simulated = [
     test_calibrated_simulated_dir / "GA_M1_za35to50_8_824318_Y_w0.root",
@@ -21,7 +28,9 @@ test_calibrated_simulated = [
     test_calibrated_simulated_dir / "GA_M2_za35to50_8_824319_Y_w0.root",
 ]
 
-test_calibrated_all = test_calibrated_real + test_calibrated_simulated
+test_calibrated_all = (
+    test_calibrated_real + test_calibrated_simulated + test_calibrated_real_hast
+)
 
 data_dict = dict()
 
@@ -29,6 +38,10 @@ data_dict["20210314_M1_05095172.001_Y_CrabNebula-W0.40+035.root"] = dict()
 data_dict["20210314_M1_05095172.002_Y_CrabNebula-W0.40+035.root"] = dict()
 data_dict["20210314_M2_05095172.001_Y_CrabNebula-W0.40+035.root"] = dict()
 data_dict["20210314_M2_05095172.002_Y_CrabNebula-W0.40+035.root"] = dict()
+data_dict["20230324_M1_05106879.001_Y_1ES0806+524-W0.40+000.root"] = dict()
+data_dict["20230324_M1_05106879.002_Y_1ES0806+524-W0.40+000.root"] = dict()
+data_dict["20230324_M2_05106879.001_Y_1ES0806+524-W0.40+000.root"] = dict()
+data_dict["20230324_M2_05106879.002_Y_1ES0806+524-W0.40+000.root"] = dict()
 data_dict["GA_M1_za35to50_8_824318_Y_w0.root"] = dict()
 data_dict["GA_M1_za35to50_8_824319_Y_w0.root"] = dict()
 data_dict["GA_M2_za35to50_8_824318_Y_w0.root"] = dict()
@@ -75,6 +88,106 @@ data_dict["20210314_M2_05095172.002_Y_CrabNebula-W0.40+035.root"][
     "n_events_pedestal"
 ] = 50
 data_dict["20210314_M2_05095172.002_Y_CrabNebula-W0.40+035.root"][
+    "n_events_mc_mono"
+] = 0
+
+data_dict["20230324_M1_05106879.001_Y_1ES0806+524-W0.40+000.root"][
+    "n_events_tot"
+] = 1000
+data_dict["20230324_M1_05106879.001_Y_1ES0806+524-W0.40+000.root"][
+    "n_events_stereo"
+] = 855
+data_dict["20230324_M1_05106879.001_Y_1ES0806+524-W0.40+000.root"][
+    "n_events_3_tel"
+] = 477
+data_dict["20230324_M1_05106879.001_Y_1ES0806+524-W0.40+000.root"][
+    "n_events_2_tel_m1_lst"
+] = 37
+data_dict["20230324_M1_05106879.001_Y_1ES0806+524-W0.40+000.root"][
+    "n_events_2_tel_m2_lst"
+] = 0
+data_dict["20230324_M1_05106879.001_Y_1ES0806+524-W0.40+000.root"][
+    "n_events_2_tel_m1_m2"
+] = 341
+data_dict["20230324_M1_05106879.001_Y_1ES0806+524-W0.40+000.root"][
+    "n_events_pedestal"
+] = 142
+data_dict["20230324_M1_05106879.001_Y_1ES0806+524-W0.40+000.root"][
+    "n_events_mc_mono"
+] = 0
+
+data_dict["20230324_M1_05106879.002_Y_1ES0806+524-W0.40+000.root"][
+    "n_events_tot"
+] = 1000
+data_dict["20230324_M1_05106879.002_Y_1ES0806+524-W0.40+000.root"][
+    "n_events_stereo"
+] = 853
+data_dict["20230324_M1_05106879.002_Y_1ES0806+524-W0.40+000.root"][
+    "n_events_3_tel"
+] = 494
+data_dict["20230324_M1_05106879.002_Y_1ES0806+524-W0.40+000.root"][
+    "n_events_2_tel_m1_lst"
+] = 34
+data_dict["20230324_M1_05106879.002_Y_1ES0806+524-W0.40+000.root"][
+    "n_events_2_tel_m2_lst"
+] = 0
+data_dict["20230324_M1_05106879.002_Y_1ES0806+524-W0.40+000.root"][
+    "n_events_2_tel_m1_m2"
+] = 325
+data_dict["20230324_M1_05106879.002_Y_1ES0806+524-W0.40+000.root"][
+    "n_events_pedestal"
+] = 145
+data_dict["20230324_M1_05106879.002_Y_1ES0806+524-W0.40+000.root"][
+    "n_events_mc_mono"
+] = 0
+
+data_dict["20230324_M2_05106879.001_Y_1ES0806+524-W0.40+000.root"][
+    "n_events_tot"
+] = 1000
+data_dict["20230324_M2_05106879.001_Y_1ES0806+524-W0.40+000.root"][
+    "n_events_stereo"
+] = 943
+data_dict["20230324_M2_05106879.001_Y_1ES0806+524-W0.40+000.root"][
+    "n_events_3_tel"
+] = 226
+data_dict["20230324_M2_05106879.001_Y_1ES0806+524-W0.40+000.root"][
+    "n_events_2_tel_m1_lst"
+] = 0
+data_dict["20230324_M2_05106879.001_Y_1ES0806+524-W0.40+000.root"][
+    "n_events_2_tel_m2_lst"
+] = 642
+data_dict["20230324_M2_05106879.001_Y_1ES0806+524-W0.40+000.root"][
+    "n_events_2_tel_m1_m2"
+] = 75
+data_dict["20230324_M2_05106879.001_Y_1ES0806+524-W0.40+000.root"][
+    "n_events_pedestal"
+] = 57
+data_dict["20230324_M2_05106879.001_Y_1ES0806+524-W0.40+000.root"][
+    "n_events_mc_mono"
+] = 0
+
+data_dict["20230324_M2_05106879.002_Y_1ES0806+524-W0.40+000.root"][
+    "n_events_tot"
+] = 1000
+data_dict["20230324_M2_05106879.002_Y_1ES0806+524-W0.40+000.root"][
+    "n_events_stereo"
+] = 949
+data_dict["20230324_M2_05106879.002_Y_1ES0806+524-W0.40+000.root"][
+    "n_events_3_tel"
+] = 215
+data_dict["20230324_M2_05106879.002_Y_1ES0806+524-W0.40+000.root"][
+    "n_events_2_tel_m1_lst"
+] = 0
+data_dict["20230324_M2_05106879.002_Y_1ES0806+524-W0.40+000.root"][
+    "n_events_2_tel_m2_lst"
+] = 644
+data_dict["20230324_M2_05106879.002_Y_1ES0806+524-W0.40+000.root"][
+    "n_events_2_tel_m1_m2"
+] = 90
+data_dict["20230324_M2_05106879.002_Y_1ES0806+524-W0.40+000.root"][
+    "n_events_pedestal"
+] = 51
+data_dict["20230324_M2_05106879.002_Y_1ES0806+524-W0.40+000.root"][
     "n_events_mc_mono"
 ] = 0
 
@@ -141,10 +254,14 @@ def test_allowed_tels():
         test_calibrated_real_dir
         / "20210314_M1_05095172.001_Y_CrabNebula-W0.40+035.root"
     )
+    allowed_tels = {1}
     with MAGICEventSource(
-        input_url=dataset, process_run=False, allowed_tels=[1]
+        input_url=dataset, process_run=False, allowed_tels=allowed_tels
     ) as source:
-        assert np.array_equal(source.subarray.tel_ids, np.array([1]))
+        assert not allowed_tels.symmetric_difference(source.subarray.tel_ids)
+        for event in source:
+            assert set(event.trigger.tels_with_trigger).issubset(allowed_tels)
+            assert set(event.pointing.tel).issubset(allowed_tels)
 
 
 @pytest.mark.parametrize("dataset", test_calibrated_all)
@@ -158,9 +275,13 @@ def test_loop(dataset):
         for i, event in enumerate(source):
             assert event.count == i
             if "_M1_" in dataset.name:
-                assert event.trigger.tels_with_trigger == [1]
+                assert 1 in event.trigger.tels_with_trigger
+                if not source.is_hast:
+                    assert event.trigger.tels_with_trigger == [1, 2]
             if "_M2_" in dataset.name:
-                assert event.trigger.tels_with_trigger == [2]
+                assert 2 in event.trigger.tels_with_trigger
+                if not source.is_hast:
+                    assert event.trigger.tels_with_trigger == [1, 2]
 
         assert (i + 1) == n_events
 
@@ -198,6 +319,26 @@ def test_number_of_events(dataset):
             == data_dict[source.input_url.name]["n_events_pedestal"]
         )
 
+        if source.is_hast:
+            count_3_tel = 0
+            count_2_tel_m1_lst = 0
+            count_2_tel_m2_lst = 0
+            count_2_tel_m1_m2 = 0
+            for event in source:
+                if event.trigger.tels_with_trigger == [1, 2, 3]:
+                    count_3_tel += 1
+                elif event.trigger.tels_with_trigger == [1, 3]:
+                    count_2_tel_m1_lst += 1
+                elif event.trigger.tels_with_trigger == [2, 3]:
+                    count_2_tel_m2_lst += 1
+                elif event.trigger.tels_with_trigger == [1, 2]:
+                    count_2_tel_m1_m2 += 1
+
+            assert count_3_tel == data_dict[source.input_url.name]["n_events_3_tel"]
+            assert count_2_tel_m1_lst == data_dict[source.input_url.name]["n_events_2_tel_m1_lst"]
+            assert count_2_tel_m2_lst == data_dict[source.input_url.name]["n_events_2_tel_m2_lst"]
+            assert count_2_tel_m1_m2 == data_dict[source.input_url.name]["n_events_2_tel_m1_m2"]
+
         # if '_M1_' in dataset.name:
         #     assert run['data'].n_cosmics_stereo_events_m1 == data_dict[source.input_url.name]['n_events_stereo']
         #     assert run['data'].n_pedestal_events_m1 == data_dict[source.input_url.name]['n_events_pedestal']
@@ -225,6 +366,8 @@ def test_run_info(dataset):
         assert datalevel == source.mars_datalevel
         assert source.is_stereo == True
         assert source.is_sumt == False
+        if "1ES0806" in dataset.name:
+            assert source.is_hast == True
 
 
 def test_multiple_runs_real():
@@ -241,7 +384,8 @@ def test_multiple_runs_real():
         for i, event in enumerate(source):
             assert event.trigger.event_type == EventType.SUBARRAY
             assert event.count == i
-            assert event.trigger.tels_with_trigger == [source.telescope]
+            assert source.telescope in event.trigger.tels_with_trigger
+            assert event.trigger.tels_with_trigger == [1, 2]
 
         assert (i + 1) == n_events
 
