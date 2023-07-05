@@ -946,11 +946,20 @@ class MAGICEventSource(EventSource):
 
         time_diffs = np.array([])
 
+        data_trigger_pattern = DATA_STEREO_TRIGGER_PATTERN
+        if not self.is_stereo:
+            if self.is_sumt:
+                data_trigger_pattern = DATA_MONO_SUMT_TRIGGER_PATTERN
+            else:
+                data_trigger_pattern = DATA_MONO_TRIGGER_PATTERN
+
+        event_cut = f"(MTriggerPattern.fPrescaled == {data_trigger_pattern})"
+
         for uproot_file in self.files_:
 
             event_info = uproot_file['Events'].arrays(
                 expressions=['MRawEvtHeader.fTimeDiff'],
-                cut=f'(MTriggerPattern.fPrescaled == {DATA_STEREO_TRIGGER_PATTERN})',
+                cut=event_cut,
                 library='np',
             )
 
