@@ -1,6 +1,6 @@
 ## *ctapipe* MAGIC event source
 
-EventSource plugin for *ctapipe*, needed to read the calibrated data of the MAGIC telescope system. It requires the [*ctapipe*](https://github.com/cta-observatory/ctapipe) (v0.19.0) and [*uproot*](https://github.com/scikit-hep/uproot4) (>=5) packages to run.
+EventSource plugin for *ctapipe*, needed to read the calibrated data of the MAGIC telescope system. It requires [*ctapipe*](https://github.com/cta-observatory/ctapipe) (v0.19.x) and [*uproot*](https://github.com/scikit-hep/uproot5) (>=5) packages to run.
 
 #### Installation
 
@@ -122,4 +122,5 @@ Some general information about the simulated data, useful for IRF calculation, a
 -   v0.5.0: release compatible with ctapipe 0.17. Also, the equivalent focal length is set to the
     correct value used in MAGIC simulations (i.e. 16.97 meters)
 -   v0.5.1: release compatible with ctapipe 0.19
--   v0.5.2: introduce capbility of reading data taken with the Hardware Stereo Trigger (HaST) between MAGIC and LST-1. Also, fixed bug when getting the time difference between events for mono data
+-   v0.5.2: introduce capability of reading data taken with the Hardware Stereo Trigger (HaST) between MAGIC and LST-1. Also, fixed bug when getting the time difference between events for mono data
+-   v0.5.3: support for python 3.11
