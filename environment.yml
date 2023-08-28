@@ -4,14 +4,14 @@ channels:
   - default
 dependencies:
   - astropy=5
-  - python=3.10
+  - python=3.11
   - ctapipe=0.19
   - eventio
   - corsikaio
   - zeromq
   - ipython
-  - numba
-  - numpy=1.22
+  - numba>=0.56
+  - numpy>=1.22
   - numpydoc
   - pytest
   - pyyaml
@@ -19,7 +19,4 @@ dependencies:
   - zlib
   - pip
   - h5py
-  - pip:
-      - pytest_runner
-      - uproot~=5.0
-
+  - uproot=5
