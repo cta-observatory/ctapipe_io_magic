@@ -123,3 +123,4 @@ Some general information about the simulated data, useful for IRF calculation, a
     correct value used in MAGIC simulations (i.e. 16.97 meters)
 -   v0.5.1: release compatible with ctapipe 0.19
 -   v0.5.2: introduce capability of reading data taken with the Hardware Stereo Trigger (HaST) between MAGIC and LST-1. Also, fixed bug when getting the time difference between events for mono data
+-   v0.5.3: support for python 3.11
