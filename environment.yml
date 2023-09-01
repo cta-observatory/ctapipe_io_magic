@@ -1,7 +1,6 @@
 name: magicio
 channels:
   - conda-forge
-  - default
 dependencies:
   - astropy=5
   - python=3.11
