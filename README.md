@@ -1,3 +1,5 @@
+# ctapipe_io_magic [![Build Status](https://github.com/cta-observatory/ctapipe_io_magic/workflows/CI/badge.svg?branch=master)](https://github.com/cta-observatory/ctapipe_io_magic/actions?query=workflow%3ACI+branch%3Amaster) [![PyPI version](https://badge.fury.io/py/ctapipe-io-magic.svg)](https://badge.fury.io/py/ctapipe-io-magic)
+
 ## *ctapipe* MAGIC event source
 
 EventSource plugin for *ctapipe*, needed to read the calibrated data of the MAGIC telescope system. It requires [*ctapipe*](https://github.com/cta-observatory/ctapipe) (v0.19.x) and [*uproot*](https://github.com/scikit-hep/uproot5) (>=5) packages to run.
