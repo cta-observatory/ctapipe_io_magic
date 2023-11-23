@@ -970,7 +970,6 @@ class MAGICEventSource(EventSource):
             laser.Klett_k = laser_info_runh['MReportLaser.fKlett_k'][0]
             laser.PheCounts = laser_info_runh['MReportLaser.fPheCounts'][0]
             
-        print("laser init = ", laser)   
         return laser    
             
 
