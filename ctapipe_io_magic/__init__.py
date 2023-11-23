@@ -10,14 +10,16 @@ import scipy.interpolate
 import uproot
 import logging
 import numpy as np
+from numpy import nan
 from pathlib import Path
 from decimal import Decimal
 from astropy import units as u
 from astropy.time import Time
+from astropy.coordinates import Angle
 from pkg_resources import resource_filename
 
 from ctapipe.io import EventSource, DataLevel
-from ctapipe.core import Provenance
+from ctapipe.core import Provenance, Container, Field, Map
 from ctapipe.core.traits import Bool, UseEnum
 from ctapipe.coordinates import CameraFrame
 
@@ -80,6 +82,29 @@ MAGIC_TO_CTA_EVENT_TYPE = {
     DATA_MAGIC_LST_TRIGGER: EventType.SUBARRAY,
 }
 
+class ReportLaserContainer(Container):
+    """ Container for Magic laser parameters """
+     
+    OverShoot = Field(nan, 'Over Shoot') 
+    UnderShoot = Field(nan, 'Under Shoot') 
+    Transmission3km = Field(np.float32(np.nan), 'Transmission at 3 km')
+    Transmission6km = Field(np.float32(np.nan), 'Transmission at 6 km')
+    Transmission9km = Field(np.float32(np.nan), 'Transmission at 9 km')
+    Transmission12km = Field(np.float32(np.nan), 'Transmission at 12 km')
+    Zenith = Field(Angle(np.nan, u.deg), 'Zenith angle', unit=u.deg)
+    Azimuth = Field(Angle(np.nan, u.deg), 'Azimuth angle', unit=u.deg)
+    CloudFWHM = Field(np.float32(np.nan), 'Cloud FWHM')
+    CloudBase = Field(np.float32(np.nan), 'Cloud Base')
+    CloudTop = Field(np.float32(np.nan), 'Cloud Top')
+    CloudTrans = Field(np.float32(np.nan), 'Cloud Trans')
+    CloudHM = Field(np.float32(np.nan), 'Cloud HM')
+    CloudHStd = Field(np.float32(np.nan), 'Cloud HStd')
+    CloudLR = Field(np.float32(np.nan), 'Cloud LR')
+    FullOverlap = Field(np.float32(np.nan), 'Full Overlap')
+    EndGroundLayer = Field(np.float32(np.nan), 'End Ground Layer')
+    GroundLayerTrans = Field(np.float32(np.nan), 'Ground Layer Trans')
+    Klett_k = Field(np.float32(np.nan), 'Klett k')
+    PheCounts = Field(np.float32(np.nan), 'Phe Counts')
 
 def load_camera_geometry():
     """Load camera geometry from bundled resources of this repo"""
@@ -205,6 +230,8 @@ class MAGICEventSource(EventSource):
         self.mars_datalevel = run_info[3][0]
 
         self.metadata = self.parse_metadata_info()
+        
+        self.laser = self.parse_laser_info()
 
         # Retrieving the data level (so far HARDCODED Sorcerer)
         self.datalevel = DataLevel.DL0
@@ -888,6 +915,64 @@ class MAGICEventSource(EventSource):
             )
 
         return metadata
+        
+    def parse_laser_info(self):
+
+        laser_info_array_list_runh = [
+            'MReportLaser.fOverShoot',
+            'MReportLaser.fUnderShoot',
+            'MReportLaser.fTransmission3km',
+            'MReportLaser.fTransmission6km',
+            'MReportLaser.fTransmission9km',
+            'MReportLaser.fTransmission12km',
+            'MReportLaser.fZenith',
+            'MReportLaser.fAzimuth',
+            'MReportLaser.fCloudFWHM[10]', 
+            'MReportLaser.fCloudBase[10]', 
+            'MReportLaser.fCloudTop[10]', 
+            'MReportLaser.fCloudTrans[10]', 
+            'MReportLaser.fCloudHM[10]',
+            'MReportLaser.fCloudHStd[10]',
+            'MReportLaser.fCloudLR[10]',
+            'MReportLaser.fFullOverlap',
+            'MReportLaser.fEndGroundLayer',
+            'MReportLaser.fGroundLayerTrans',
+            'MReportLaser.fKlett_k',
+            'MReportLaser.fPheCounts',
+        ]
+
+        laser = ReportLaserContainer()  # Create an instance of ReportLaserContainer
+
+        for rootf in self.files_:
+            laser_info_runh = rootf['Laser'].arrays(
+                laser_info_array_list_runh, library="np"
+            )
+
+            # Populate the attributes of the laser object with values from report_laser
+            laser.OverShoot = int(laser_info_runh['MReportLaser.fOverShoot'][0])
+            laser.UnderShoot = int(laser_info_runh['MReportLaser.fUnderShoot'][0])
+            laser.Transmission3km = laser_info_runh['MReportLaser.fTransmission3km'][0]
+            laser.Transmission6km = laser_info_runh['MReportLaser.fTransmission6km'][0]
+            laser.Transmission9km = laser_info_runh['MReportLaser.fTransmission9km'][0]
+            laser.Transmission12km = laser_info_runh['MReportLaser.fTransmission12km'][0]
+            laser.Zenith = laser_info_runh['MReportLaser.fZenith'][0]
+            laser.Azimuth = laser_info_runh['MReportLaser.fAzimuth'][0]
+            laser.CloudFWHM = laser_info_runh['MReportLaser.fCloudFWHM[10]'][0]
+            laser.CloudBase = laser_info_runh['MReportLaser.fCloudBase[10]'][0]
+            laser.CloudTop = laser_info_runh['MReportLaser.fCloudTop[10]'][0]
+            laser.CloudTrans = laser_info_runh['MReportLaser.fCloudTrans[10]'][0]
+            laser.CloudHM = laser_info_runh['MReportLaser.fCloudHM[10]'][0]
+            laser.CloudHStd = laser_info_runh['MReportLaser.fCloudHStd[10]'][0]
+            laser.CloudLR = laser_info_runh['MReportLaser.fCloudLR[10]'][0]
+            laser.FullOverlap = laser_info_runh['MReportLaser.fFullOverlap'][0]
+            laser.EndGroundLayer = laser_info_runh['MReportLaser.fEndGroundLayer'][0]
+            laser.GroundLayerTrans = laser_info_runh['MReportLaser.fGroundLayerTrans'][0]
+            laser.Klett_k = laser_info_runh['MReportLaser.fKlett_k'][0]
+            laser.PheCounts = laser_info_runh['MReportLaser.fPheCounts'][0]
+            
+        print("laser init = ", laser)   
+        return laser    
+            
 
     def parse_simulation_header(self):
         """
