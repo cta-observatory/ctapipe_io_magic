@@ -84,7 +84,20 @@ MAGIC_TO_CTA_EVENT_TYPE = {
 
 class ReportLaserContainer(Container):
     """ Container for Magic laser parameters """
-     
+    UniqueID = Field(None, 'No.')
+    Bits = Field(None, 'ID')
+    MJD = Field(None, 'Modified Julian Date')
+    MiliSec = Field(None, 'Mili sec')
+    NanoSec = Field(None, 'Nano sec')
+    BadReport  = Field(np.bool, 'Bad Report')
+    Telescope = Field(None, 'Telescope')
+    State = Field(None, 'State')
+    IsOffsetCorrection = Field(np.bool, 'Is Offset Correction')
+    IsOffsetFitted = Field(np.bool, 'Is Offset Fitted')
+    IsBGCorrection = Field(np.bool, 'Is BG Correction')
+    IsT0ShiftFitted = Field(np.bool, 'Is T0 Shift Fitted')
+    IsUseGDAS = Field(np.bool, 'Is Use GDAS')
+    IsUpwardMoving = Field(np.bool, 'Is Upward Moving') 
     OverShoot = Field(nan, 'Over Shoot') 
     UnderShoot = Field(nan, 'Under Shoot') 
     Transmission3km = Field(np.float32(np.nan), 'Transmission at 3 km')
@@ -103,8 +116,44 @@ class ReportLaserContainer(Container):
     FullOverlap = Field(np.float32(np.nan), 'Full Overlap')
     EndGroundLayer = Field(np.float32(np.nan), 'End Ground Layer')
     GroundLayerTrans = Field(np.float32(np.nan), 'Ground Layer Trans')
+    Calimaness = Field(np.float32(np.nan), 'Calimaness')
+    CloudLayerAlt = Field(np.float32(np.nan), 'Altitude of cloud layer')
+    CloudLayerDens = Field(np.float32(np.nan), 'Density of cloud layer')
     Klett_k = Field(np.float32(np.nan), 'Klett k')
-    PheCounts = Field(np.float32(np.nan), 'Phe Counts')
+    PheCounts = Field([], 'Phe Counts')
+    Offset = Field(np.float32(np.nan), 'Offset')
+    Offset_Calculated = Field(np.float32(np.nan), 'Offset calculated')
+    Offset_Fitted = Field(np.float32(np.nan), 'Offset fitted')
+    Offset2 = Field(np.float32(np.nan), 'Offset 2')
+    Offset3 = Field(np.float32(np.nan), 'Offset 3')
+    Background1 = Field(np.float32(np.nan), 'Background 1')
+    Background2 = Field(np.float32(np.nan), 'Background 2')
+    BackgroundErr1 = Field(np.float32(np.nan), 'Background error 1')
+    BackgroundErr2 = Field(np.float32(np.nan), 'Background error 2')
+    RangeMax = Field(np.float32(np.nan), 'Range max')
+    RangeMax_Clouds = Field(np.float32(np.nan), 'Range max clouds')
+    ErrorCode = Field(None, 'Error code')
+    ScaleHeight_fit = Field(np.float32(np.nan), 'Scale Height fit')
+    Alpha_fit = Field(np.float32(np.nan), 'Alpha fit')
+    Chi2Alpha_fit = Field(np.float32(np.nan), 'Chi2 Alpha fit')
+    Alpha_firstY = Field(np.float32(np.nan), 'Alpha first Y')
+    Alpha_Junge = Field(np.float32(np.nan), 'Alpha Junge')
+    PBLHeight = Field(np.float32(np.nan), 'PBL Height')
+    Chi2Full_fit = Field(np.float32(np.nan), 'Chi2 Full fit')
+    BGSamples = Field(np.float32(np.nan), 'BG Samples')
+    SignalSamples = Field(np.float32(np.nan), 'Signal Samples') 
+    HWSwitch = Field(np.float32(np.nan), 'HW Switch') 
+    HWSwitchMaxOffset = Field(np.float32(np.nan), 'HW Switch Max Offset') 
+    NCollapse = Field(np.float32(np.nan), 'N Collapse') 
+    Shots = Field(np.float32(np.nan), 'Shots')
+    T0Shift = Field(np.float32(np.nan), 'T0 Shift')
+    Interval_0 = Field(np.float32(np.nan), 'Interval 0')
+    RCS_min_perfect = Field(np.float32(np.nan), 'RCS min perfect')
+    RCS_min_clouds = Field(np.float32(np.nan), 'RCS min cloud')
+    RCS_min_mol = Field(np.float32(np.nan), 'RCS min mol')
+    LIDAR_ratio = Field(np.float32(np.nan), 'LIDAR ratio')
+    LIDAR_ratio_Cloud = Field(np.float32(np.nan), 'LIDAR ratio cloud')
+    LIDAR_ratio_Junge = Field(np.float32(np.nan), 'LIDAR ratio Junge')    
 
 def load_camera_geometry():
     """Load camera geometry from bundled resources of this repo"""
@@ -919,6 +968,21 @@ class MAGICEventSource(EventSource):
     def parse_laser_info(self):
 
         laser_info_array_list_runh = [
+            'MReportLaser.MReport.fUniqueID',
+            'MReportLaser.MReport.fBits',
+            'MTimeLaser.fMjd',
+            #'MTimeLaser.fTime',
+            'MTimeLaser.fTime.fMilliSec',
+            'MTimeLaser.fNanoSec',
+            'MReportLaser.MReport.fBadReport',
+            'MReportLaser.MReport.fTelescope',
+            'MReportLaser.MReport.fState',
+            'MReportLaser.fIsOffsetCorrection',
+            'MReportLaser.fIsOffsetFitted',
+            'MReportLaser.fIsBGCorrection',
+            'MReportLaser.fIsT0ShiftFitted',
+            'MReportLaser.fIsUseGDAS',
+            'MReportLaser.fIsUpwardMoving', 
             'MReportLaser.fOverShoot',
             'MReportLaser.fUnderShoot',
             'MReportLaser.fTransmission3km',
@@ -939,6 +1003,39 @@ class MAGICEventSource(EventSource):
             'MReportLaser.fGroundLayerTrans',
             'MReportLaser.fKlett_k',
             'MReportLaser.fPheCounts',
+            'MReportLaser.fCalimaness',
+            'MReportLaser.fCloudLayerAlt',
+            'MReportLaser.fCloudLayerDens',
+            'MReportLaser.fOffset',
+            'MReportLaser.fOffset_Calculated',
+            'MReportLaser.fOffset_Fitted',
+            'MReportLaser.fOffset2',
+            'MReportLaser.fOffset3',
+            'MReportLaser.fBackground1',
+            'MReportLaser.fBackground2',
+            'MReportLaser.fBackgroundErr1',
+            'MReportLaser.fBackgroundErr2',
+            'MReportLaser.fRangeMax',
+            'MReportLaser.fRangeMax_Clouds',
+            'MReportLaser.fErrorCode',
+            'MReportLaser.fScaleHeight_fit',
+            'MReportLaser.fChi2Alpha_fit',
+            'MReportLaser.fChi2Alpha_fit',
+            'MReportLaser.fAlpha_firstY',
+            'MReportLaser.fAlpha_Junge',
+            'MReportLaser.fPBLHeight',
+            'MReportLaser.fChi2Full_fit',
+            'MReportLaser.fHWSwitchMaxOffset',
+            'MReportLaser.fNCollapse',
+            'MReportLaser.fShots', 
+            'MReportLaser.fT0Shift',
+            'MReportLaser.fInterval_0',
+            'MReportLaser.fRCS_min_perfect',
+            'MReportLaser.fRCS_min_clouds',
+            'MReportLaser.fRCS_min_mol',
+            'MReportLaser.fLIDAR_ratio',
+            'MReportLaser.fLIDAR_ratio_Cloud',
+            'MReportLaser.fLIDAR_ratio_Junge',
         ]
 
         laser = ReportLaserContainer()  # Create an instance of ReportLaserContainer
@@ -949,14 +1046,28 @@ class MAGICEventSource(EventSource):
             )
 
             # Populate the attributes of the laser object with values from report_laser
+            laser.UniqueID = laser_info_runh['MReportLaser.MReport.fUniqueID'][0]
+            laser.Bits = laser_info_runh['MReportLaser.MReport.fBits'][0]
+            laser.MJD = laser_info_runh['MTimeLaser.fMjd'][0]
+            laser.MiliSec = laser_info_runh['MTimeLaser.fTime.fMilliSec'][0]
+            laser.NanoSec = laser_info_runh['MTimeLaser.fNanoSec'][0]
+            laser.BadReport = bool(laser_info_runh['MReportLaser.MReport.fBadReport'][0])
+            laser.Telescope = laser_info_runh['MReportLaser.MReport.fTelescope'][0]
+            laser.State = laser_info_runh['MReportLaser.MReport.fState'][0]
+            laser.IsOffsetCorrection = bool(laser_info_runh['MReportLaser.fIsOffsetCorrection'][0])
+            laser.IsOffsetFitted = bool(laser_info_runh['MReportLaser.fIsOffsetFitted'][0])
+            laser.IsBGCorrection = bool(laser_info_runh['MReportLaser.fIsBGCorrection'][0])
+            laser.IsT0ShiftFitted = bool(laser_info_runh['MReportLaser.fIsT0ShiftFitted'][0])
+            laser.IsUseGDAS = bool(laser_info_runh['MReportLaser.fIsUseGDAS'][0])
+            laser.IsUpwardMoving = bool(laser_info_runh['MReportLaser.fIsUpwardMoving'][0])
             laser.OverShoot = int(laser_info_runh['MReportLaser.fOverShoot'][0])
             laser.UnderShoot = int(laser_info_runh['MReportLaser.fUnderShoot'][0])
             laser.Transmission3km = laser_info_runh['MReportLaser.fTransmission3km'][0]
             laser.Transmission6km = laser_info_runh['MReportLaser.fTransmission6km'][0]
             laser.Transmission9km = laser_info_runh['MReportLaser.fTransmission9km'][0]
             laser.Transmission12km = laser_info_runh['MReportLaser.fTransmission12km'][0]
-            laser.Zenith = laser_info_runh['MReportLaser.fZenith'][0]
-            laser.Azimuth = laser_info_runh['MReportLaser.fAzimuth'][0]
+            laser.Zenith = laser_info_runh['MReportLaser.fZenith'][0]* u.deg
+            laser.Azimuth = laser_info_runh['MReportLaser.fAzimuth'][0]* u.deg
             laser.CloudFWHM = laser_info_runh['MReportLaser.fCloudFWHM[10]'][0]
             laser.CloudBase = laser_info_runh['MReportLaser.fCloudBase[10]'][0]
             laser.CloudTop = laser_info_runh['MReportLaser.fCloudTop[10]'][0]
@@ -969,9 +1080,41 @@ class MAGICEventSource(EventSource):
             laser.GroundLayerTrans = laser_info_runh['MReportLaser.fGroundLayerTrans'][0]
             laser.Klett_k = laser_info_runh['MReportLaser.fKlett_k'][0]
             laser.PheCounts = laser_info_runh['MReportLaser.fPheCounts'][0]
-            
+            laser.Calimaness = laser_info_runh['MReportLaser.fCalimaness'][0]
+            laser.CloudLayerAlt = laser_info_runh['MReportLaser.fCloudLayerAlt'][0]
+            laser.CloudLayerDens = laser_info_runh['MReportLaser.fCloudLayerDens'][0]
+            laser.Offset = laser_info_runh['MReportLaser.fOffset'][0]
+            laser.Offset_Calculated = laser_info_runh['MReportLaser.fOffset_Calculated'][0]
+            laser.Offset_Fitted = laser_info_runh['MReportLaser.fOffset_Fitted'][0]
+            laser.Offset2 = laser_info_runh['MReportLaser.fOffset2'][0]
+            laser.Offset3 = laser_info_runh['MReportLaser.fOffset3'][0]
+            laser.Background1 = laser_info_runh['MReportLaser.fBackground1'][0]
+            laser.Background2 = laser_info_runh['MReportLaser.fBackground2'][0]
+            laser.BackgroundErr1 = laser_info_runh['MReportLaser.fBackgroundErr1'][0]
+            laser.BackgroundErr2 = laser_info_runh['MReportLaser.fBackgroundErr2'][0]
+            laser.RangeMax = laser_info_runh['MReportLaser.fRangeMax'][0]
+            laser.RangeMax_Clouds = laser_info_runh['MReportLaser.fRangeMax_Clouds'][0]
+            laser.ErrorCode = laser_info_runh['MReportLaser.fErrorCode'][0]
+            laser.ScaleHeight_fit = laser_info_runh['MReportLaser.fScaleHeight_fit'][0]
+            laser.Alpha_fit = laser_info_runh['MReportLaser.fChi2Alpha_fit'][0]
+            laser.Chi2Alpha_fit = laser_info_runh['MReportLaser.fChi2Alpha_fit'][0]
+            laser.Alpha_firstY = laser_info_runh['MReportLaser.fAlpha_firstY'][0]
+            laser.Alpha_Junge = laser_info_runh['MReportLaser.fAlpha_Junge'][0]
+            laser.PBLHeight = laser_info_runh['MReportLaser.fPBLHeight'][0]
+            laser.Chi2Full_fit = laser_info_runh['MReportLaser.fChi2Full_fit'][0]
+            laser.HWSwitchMaxOffset = laser_info_runh['MReportLaser.fHWSwitchMaxOffset'][0]
+            laser.NCollapse = laser_info_runh['MReportLaser.fNCollapse'][0]
+            laser.Shots = laser_info_runh['MReportLaser.fShots'][0]
+            laser.T0Shift = laser_info_runh['MReportLaser.fT0Shift'][0]
+            laser.Interval_0 = laser_info_runh['MReportLaser.fInterval_0'][0]
+            laser.RCS_min_perfect = laser_info_runh['MReportLaser.fRCS_min_perfect'][0]
+            laser.RCS_min_clouds = laser_info_runh['MReportLaser.fRCS_min_clouds'][0]
+            laser.RCS_min_mol = laser_info_runh['MReportLaser.fRCS_min_mol'][0]
+            laser.LIDAR_ratio = laser_info_runh['MReportLaser.fLIDAR_ratio'][0]
+            laser.LIDAR_ratio_Cloud = laser_info_runh['MReportLaser.fLIDAR_ratio_Cloud'][0]
+            laser.LIDAR_ratio_Junge = laser_info_runh['MReportLaser.fLIDAR_ratio_Junge'][0]
+  
         return laser    
-            
 
     def parse_simulation_header(self):
         """
