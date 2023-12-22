@@ -88,6 +88,24 @@ def load_camera_geometry():
     return CameraGeometry.from_table(f)
 
 
+class MissingInputFilesError(Exception):
+    """
+    Exception raised when the files check fails.
+    """
+
+    def __init__(self, message):
+        self.message = message
+
+
+class FailedFileCheckError(Exception):
+    """
+    Exception raised when the files check fails.
+    """
+
+    def __init__(self, message):
+        self.message = message
+
+
 class MissingDriveReportError(Exception):
     """
     Exception raised when a subrun does not have drive reports.
@@ -179,7 +197,10 @@ class MAGICEventSource(EventSource):
         reg_comp_mc = re.compile(regex_mc)
 
         ls = Path(path).iterdir()
+
+        self.file_list = []
         self.file_list_drive = []
+        self.excluded_files_ = []
 
         for file_path in ls:
             if (
@@ -187,6 +208,12 @@ class MAGICEventSource(EventSource):
                 or reg_comp_mc.match(file_path.name) is not None
             ):
                 self.file_list_drive.append(file_path)
+
+        if not len(self.file_list_drive):
+            raise MissingInputFilesError(
+                f"No input files found in {path}. Exiting."
+                f"Check your input: {input_url}."
+            )
 
         self.file_list_drive.sort()
 
@@ -197,6 +224,12 @@ class MAGICEventSource(EventSource):
 
         # Retrieving the list of run numbers corresponding to the data files
         self.files_ = [uproot.open(rootf) for rootf in self.file_list]
+
+        is_check_valid = self.check_files()
+
+        if not is_check_valid:
+            raise FailedFileCheckError("Validity check for the files failed. Exiting.")
+
         run_info = self.parse_run_info()
 
         self.run_id = run_info[0][0]
@@ -278,6 +311,8 @@ class MAGICEventSource(EventSource):
         """
 
         for rootf in self.files_:
+            rootf.close()
+        for rootf in self.excluded_files_:
             rootf.close()
 
     @staticmethod
@@ -404,6 +439,39 @@ class MAGICEventSource(EventSource):
             )
 
         return run_number, is_mc, telescope, datalevel
+
+    def check_files(self):
+        """Check the the input files contain needed trees."""
+
+        needed_trees = ["RunHeaders", "Events"]
+        num_files = len(self.files_)
+
+        if num_files == 1 and "Drive" not in self.files_[0]:
+            logger.error(f"Cannot proceed without Drive information for a single file.")
+            return False
+
+        for rootf in self.files_:
+            for tree in needed_trees:
+                if tree not in rootf.keys(cycle=False):
+                    logger.warning(
+                        f"File {rootf.file_path} does not have the tree {tree}."
+                    )
+                    if tree == "RunHeaders" or tree == "Events":
+                        logger.error(
+                            f"Cannot proceed without RunHeaders or Events tree."
+                            f"File {rootf.file_path} will be excluded."
+                        )
+                        self.file_list.remove(rootf.file_path)
+                        self.file_list_drive.remove(rootf.file_path)
+                        self.files_.remove(rootf)
+                        self.excluded_files_.append(rootf)
+                        break
+
+        if len(self.excluded_files_) == num_files:
+            logger.error("All input files were excluded.")
+            return False
+
+        return True
 
     def parse_run_info(self):
         """
@@ -1116,13 +1184,11 @@ class MAGICEventSource(EventSource):
         if self.is_hast:
             event_cut = (
                 f"(MTriggerPattern.fPrescaled == {data_trigger_pattern})"
-            f" | (MTriggerPattern.fPrescaled == {DATA_TOPOLOGICAL_TRIGGER})"
-            f" | (MTriggerPattern.fPrescaled == {DATA_MAGIC_LST_TRIGGER})"
+                f" | (MTriggerPattern.fPrescaled == {DATA_TOPOLOGICAL_TRIGGER})"
+                f" | (MTriggerPattern.fPrescaled == {DATA_MAGIC_LST_TRIGGER})"
             )
         else:
-            event_cut = (
-                f"(MTriggerPattern.fPrescaled == {data_trigger_pattern})",
-            )
+            event_cut = (f"(MTriggerPattern.fPrescaled == {data_trigger_pattern})",)
 
         for uproot_file in self.files_:
             event_info = uproot_file["Events"].arrays(
