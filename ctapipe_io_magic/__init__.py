@@ -521,6 +521,13 @@ class MAGICEventSource(EventSource):
         is_sumt = []
         is_hast = []
 
+        stereo_prev = None
+        sumt_prev = None
+        hast_prev = None
+
+        has_prescaler_info = True
+        has_trigger_table_info = True
+
         if not self.is_simulation:
             prescaler_mono_nosumt = [1, 1, 0, 1, 0, 0, 0, 0]
             prescaler_mono_sumt = [0, 1, 0, 1, 0, 1, 0, 0]
@@ -545,55 +552,103 @@ class MAGICEventSource(EventSource):
                     ].array(library="np")
                 except AssertionError:
                     logger.warning(
-                        "No prescaler info found. Will assume standard stereo data."
+                        f"No prescaler factors branch found in {rootf.file_path}."
                     )
-                    stereo = True
-                    sumt = False
-                    hast = False
-                    return stereo, sumt, hast
+                    if stereo_prev is not None and hast_prev is not None:
+                        logger.warning("Assuming previous subrun information.")
+                        stereo = stereo_prev
+                        hast = hast_prev
+                    else:
+                        logger.warning("Assuming standard stereo data.")
+                        stereo = True
+                        hast = False
 
-                prescaler_size = prescaler_array.size
-                if prescaler_size > 1:
-                    prescaler = list(prescaler_array[1])
-                else:
-                    prescaler = list(prescaler_array[0])
+                    has_prescaler_info = False
 
-                if (
-                    prescaler == prescaler_mono_nosumt
-                    or prescaler == prescaler_mono_sumt
-                ):
-                    stereo = False
-                    hast = False
-                elif prescaler == prescaler_stereo:
-                    stereo = True
-                    hast = False
-                elif prescaler == prescaler_hast:
-                    stereo = True
-                    hast = True
-                else:
-                    stereo = True
-                    hast = False
+                if has_prescaler_info:
+                    prescaler = None
+                    prescaler_size = prescaler_array.size
+                    if prescaler_size > 1:
+                        prescaler = list(prescaler_array[1])
+                    elif prescaler_size == 1:
+                        prescaler = list(prescaler_array[0])
+                    else:
+                        logger.warning(
+                            f"No prescaler info found in {rootf.file_path}."
+                        )
+                        if stereo_prev is not None and hast_prev is not None:
+                            logger.warning("Assuming previous subrun information.")
+                            stereo = stereo_prev
+                            hast = hast_prev
+                        else:
+                            logger.warning("Assuming standard stereo data.")
+                            stereo = True
+                            hast = False
+
+                    if prescaler is not None:
+                        if (
+                            prescaler == prescaler_mono_nosumt
+                            or prescaler == prescaler_mono_sumt
+                        ):
+                            stereo = False
+                            hast = False
+                        elif prescaler == prescaler_stereo:
+                            stereo = True
+                            hast = False
+                        elif prescaler == prescaler_hast:
+                            stereo = True
+                            hast = True
+                        else:
+                            stereo = True
+                            hast = False
 
                 sumt = False
                 if stereo:
                     # here we take the 2nd element for the same reason as above
                     # L3Table is empty for mono data i.e. taken with one telescope only
                     # if both telescopes take data with no L3, L3Table is filled anyway
-                    L3Table_array = L3T_tree["MReportL3T.fTablename"].array(
-                        library="np"
-                    )
-                    L3Table_size = L3Table_array.size
-                    if L3Table_size > 1:
-                        L3Table = L3Table_array[1]
-                    else:
-                        L3Table = L3Table_array[0]
+                    try:
+                        L3Table_array = L3T_tree["MReportL3T.fTablename"].array(
+                            library="np"
+                        )
+                    except AssertionError:
+                        logger.warning(
+                            f"No trigger table branch found in {rootf.file_path}."
+                        )
+                        if sumt_prev is not None:
+                            logger.warning("Assuming previous subrun information.")
+                            sumt = sumt_prev
+                        else:
+                            logger.warning("Assuming standard trigger data.")
+                            sumt = False
 
-                    if L3Table == L3_table_sumt:
-                        sumt = True
-                    elif L3Table == L3_table_nosumt:
-                        sumt = False
-                    else:
-                        sumt = False
+                        has_trigger_table_info = False
+
+                    if has_trigger_table_info:
+                        L3Table = None
+                        L3Table_size = L3Table_array.size
+                        if L3Table_size > 1:
+                            L3Table = L3Table_array[1]
+                        elif L3Table_size == 1:
+                            L3Table = L3Table_array[0]
+                        else:
+                            logger.warning(
+                                f"No trigger table info found in {rootf.file_path}."
+                            )
+                            if sumt_prev is not None:
+                                logger.warning("Assuming previous subrun information.")
+                                sumt = sumt_prev
+                            else:
+                                logger.warning("Assuming standard trigger data.")
+                                sumt = False
+
+                        if L3Table is not None:
+                            if L3Table == L3_table_sumt:
+                                sumt = True
+                            elif L3Table == L3_table_nosumt:
+                                sumt = False
+                            else:
+                                sumt = False
                 else:
                     if prescaler == prescaler_mono_sumt:
                         sumt = True
@@ -601,6 +656,10 @@ class MAGICEventSource(EventSource):
                 is_stereo.append(stereo)
                 is_sumt.append(sumt)
                 is_hast.append(hast)
+
+                stereo_prev = stereo
+                sumt_prev = sumt
+                hast_prev = hast
 
         else:
             for rootf in self.files_:
