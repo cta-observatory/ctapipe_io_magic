@@ -450,6 +450,10 @@ class MAGICEventSource(EventSource):
             logger.error(f"Cannot proceed without Drive information for a single file.")
             return False
 
+        if num_files == 1 and "Trigger" not in self.files_[0].keys(cycle=False):
+            logger.error(f"Cannot proceed without Trigger information for a single file.")
+            return False
+
         for rootf in self.files_:
             for tree in needed_trees:
                 if tree not in rootf.keys(cycle=False):
