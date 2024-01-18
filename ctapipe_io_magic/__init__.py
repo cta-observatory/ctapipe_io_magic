@@ -441,12 +441,12 @@ class MAGICEventSource(EventSource):
         return run_number, is_mc, telescope, datalevel
 
     def check_files(self):
-        """Check the the input files contain needed trees."""
+        """Check the the input files contain the needed trees."""
 
         needed_trees = ["RunHeaders", "Events"]
         num_files = len(self.files_)
 
-        if num_files == 1 and "Drive" not in self.files_[0]:
+        if num_files == 1 and "Drive" not in self.files_[0].keys(cycle=False):
             logger.error(f"Cannot proceed without Drive information for a single file.")
             return False
 
