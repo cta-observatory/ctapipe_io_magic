@@ -436,7 +436,7 @@ class MAGICEventSource(EventSource):
             and "Drive" not in self.files_[0].keys(cycle=False)
             and "OriginalMC" not in self.files_[0].keys(cycle=False)
         ):
-            logger.error(f"Cannot proceed without Drive information for a single file.")
+            logger.error("Cannot proceed without Drive information for a single file.")
             return False
 
         if (
@@ -445,7 +445,7 @@ class MAGICEventSource(EventSource):
             and "OriginalMC" not in self.files_[0].keys(cycle=False)
         ):
             logger.error(
-                f"Cannot proceed without Trigger information for a single file."
+                "Cannot proceed without Trigger information for a single file."
             )
             return False
 
@@ -457,11 +457,9 @@ class MAGICEventSource(EventSource):
                     )
                     if tree == "RunHeaders" or tree == "Events":
                         logger.error(
-                            f"Cannot proceed without RunHeaders or Events tree."
+                            f"Cannot proceed without RunHeaders or Events tree. "
                             f"File {rootf.file_path} will be excluded."
                         )
-                        self.file_list.remove(rootf.file_path)
-                        self.file_list_drive.remove(rootf.file_path)
                         self.files_.remove(rootf)
                         self.excluded_files_.append(rootf)
                         break
