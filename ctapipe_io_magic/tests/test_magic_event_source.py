@@ -28,6 +28,11 @@ test_calibrated_real_only_runh = [
     / "20210314_M1_05095173.001_Y_CrabNebula-W0.40+035_only_runh.root",
 ]
 
+test_calibrated_real_only_trigger = [
+    test_calibrated_real_dir
+    / "20210314_M1_05095173.001_Y_CrabNebula-W0.40+035_only_trigger.root",
+]
+
 test_calibrated_real_hast = [
     test_calibrated_real_dir / "20230324_M1_05106879.001_Y_1ES0806+524-W0.40+000.root",
     test_calibrated_real_dir / "20230324_M1_05106879.002_Y_1ES0806+524-W0.40+000.root",
@@ -51,6 +56,7 @@ test_calibrated_missing_trees = (
     test_calibrated_real_only_events
     + test_calibrated_real_only_drive
     + test_calibrated_real_only_runh
+    + test_calibrated_real_only_trigger
 )
 
 data_dict = dict()

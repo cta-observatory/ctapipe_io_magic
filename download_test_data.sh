@@ -13,6 +13,7 @@ echo "https://www.magic.iac.es/mcp-testdata/test_data/real/calibrated/20230324_M
 echo "https://www.magic.iac.es/mcp-testdata/test_data/real/calibrated/20210314_M1_05095173.001_Y_CrabNebula-W0.40+035_only_events.root" >>  test_data_real.txt
 echo "https://www.magic.iac.es/mcp-testdata/test_data/real/calibrated/20210314_M1_05095173.001_Y_CrabNebula-W0.40+035_only_drive.root" >>  test_data_real.txt
 echo "https://www.magic.iac.es/mcp-testdata/test_data/real/calibrated/20210314_M1_05095173.001_Y_CrabNebula-W0.40+035_only_runh.root" >>  test_data_real.txt
+echo "https://www.magic.iac.es/mcp-testdata/test_data/real/calibrated/20210314_M1_05095173.001_Y_CrabNebula-W0.40+035_only_trigger.root" >>  test_data_real.txt
 
 echo "https://www.magic.iac.es/mcp-testdata/test_data/simulated/calibrated/GA_M1_za35to50_8_824318_Y_w0.root" >  test_data_simulated.txt
 echo "https://www.magic.iac.es/mcp-testdata/test_data/simulated/calibrated/GA_M1_za35to50_8_824319_Y_w0.root" >> test_data_simulated.txt
