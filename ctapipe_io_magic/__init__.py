@@ -44,6 +44,11 @@ from ctapipe.instrument import (
 )
 
 from .mars_datalevels import MARSDataLevel
+from .exceptions import (
+    MissingInputFilesError,
+    FailedFileCheckError,
+    MissingDriveReportError,
+)
 from .version import __version__
 
 from .constants import (
@@ -57,7 +62,14 @@ from .constants import (
     DATA_MAGIC_LST_TRIGGER,
 )
 
-__all__ = ["MAGICEventSource", "MARSDataLevel", "__version__"]
+__all__ = [
+    "MAGICEventSource",
+    "MARSDataLevel",
+    "MissingInputFilesError",
+    "FailedFileCheckError",
+    "MissingDriveReportError",
+    "__version__",
+]
 
 logger = logging.getLogger(__name__)
 
