@@ -44,6 +44,11 @@ from ctapipe.instrument import (
 )
 
 from .mars_datalevels import MARSDataLevel
+from .exceptions import (
+    MissingInputFilesError,
+    FailedFileCheckError,
+    MissingDriveReportError,
+)
 from .version import __version__
 
 from .constants import (
@@ -57,7 +62,14 @@ from .constants import (
     DATA_MAGIC_LST_TRIGGER,
 )
 
-__all__ = ["MAGICEventSource", "MARSDataLevel", "__version__"]
+__all__ = [
+    "MAGICEventSource",
+    "MARSDataLevel",
+    "MissingInputFilesError",
+    "FailedFileCheckError",
+    "MissingDriveReportError",
+    "__version__",
+]
 
 logger = logging.getLogger(__name__)
 
@@ -86,15 +98,6 @@ def load_camera_geometry():
     f = resource_filename("ctapipe_io_magic", "resources/MAGICCam.camgeom.fits.gz")
     Provenance().add_input_file(f, role="CameraGeometry")
     return CameraGeometry.from_table(f)
-
-
-class MissingDriveReportError(Exception):
-    """
-    Exception raised when a subrun does not have drive reports.
-    """
-
-    def __init__(self, message):
-        self.message = message
 
 
 class MAGICEventSource(EventSource):
@@ -179,6 +182,8 @@ class MAGICEventSource(EventSource):
         reg_comp_mc = re.compile(regex_mc)
 
         ls = Path(path).iterdir()
+
+        self.file_list = []
         self.file_list_drive = []
 
         for file_path in ls:
@@ -187,6 +192,12 @@ class MAGICEventSource(EventSource):
                 or reg_comp_mc.match(file_path.name) is not None
             ):
                 self.file_list_drive.append(file_path)
+
+        if not len(self.file_list_drive):
+            raise MissingInputFilesError(
+                f"No input files found in {path}. Exiting."
+                f"Check your input: {input_url}."
+            )
 
         self.file_list_drive.sort()
 
@@ -197,6 +208,12 @@ class MAGICEventSource(EventSource):
 
         # Retrieving the list of run numbers corresponding to the data files
         self.files_ = [uproot.open(rootf) for rootf in self.file_list]
+
+        is_check_valid = self.check_files()
+
+        if not is_check_valid:
+            raise FailedFileCheckError("Validity check for the files failed. Exiting.")
+
         run_info = self.parse_run_info()
 
         self.run_id = run_info[0][0]
@@ -404,6 +421,51 @@ class MAGICEventSource(EventSource):
             )
 
         return run_number, is_mc, telescope, datalevel
+
+    def check_files(self):
+        """Check the the input files contain the needed trees."""
+
+        needed_trees = ["RunHeaders", "Events"]
+        num_files = len(self.files_)
+
+        if (
+            num_files == 1
+            and "Drive" not in self.files_[0].keys(cycle=False)
+            and "OriginalMC" not in self.files_[0].keys(cycle=False)
+        ):
+            logger.error("Cannot proceed without Drive information for a single file.")
+            return False
+
+        if (
+            num_files == 1
+            and "Trigger" not in self.files_[0].keys(cycle=False)
+            and "OriginalMC" not in self.files_[0].keys(cycle=False)
+        ):
+            logger.error(
+                "Cannot proceed without Trigger information for a single file."
+            )
+            return False
+
+        num_invalid_files = 0
+
+        for rootf in self.files_:
+            for tree in needed_trees:
+                if tree not in rootf.keys(cycle=False):
+                    logger.warning(
+                        f"File {rootf.file_path} does not have the tree {tree}."
+                    )
+                    if tree == "RunHeaders" or tree == "Events":
+                        logger.error(
+                            f"File {rootf.file_path} does not have a {tree} tree. "
+                            f"Please check the file and try again. If the file "
+                            f"cannot be recovered, exclude it from the analysis."
+                        )
+                        num_invalid_files += 1
+
+        if num_invalid_files > 0:
+            return False
+        else:
+            return True
 
     def parse_run_info(self):
         """
@@ -1116,13 +1178,11 @@ class MAGICEventSource(EventSource):
         if self.is_hast:
             event_cut = (
                 f"(MTriggerPattern.fPrescaled == {data_trigger_pattern})"
-            f" | (MTriggerPattern.fPrescaled == {DATA_TOPOLOGICAL_TRIGGER})"
-            f" | (MTriggerPattern.fPrescaled == {DATA_MAGIC_LST_TRIGGER})"
+                f" | (MTriggerPattern.fPrescaled == {DATA_TOPOLOGICAL_TRIGGER})"
+                f" | (MTriggerPattern.fPrescaled == {DATA_MAGIC_LST_TRIGGER})"
             )
         else:
-            event_cut = (
-                f"(MTriggerPattern.fPrescaled == {data_trigger_pattern})",
-            )
+            event_cut = (f"(MTriggerPattern.fPrescaled == {data_trigger_pattern})",)
 
         for uproot_file in self.files_:
             event_info = uproot_file["Events"].arrays(
