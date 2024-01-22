@@ -185,7 +185,6 @@ class MAGICEventSource(EventSource):
 
         self.file_list = []
         self.file_list_drive = []
-        self.excluded_files_ = []
 
         for file_path in ls:
             if (
@@ -296,8 +295,6 @@ class MAGICEventSource(EventSource):
         """
 
         for rootf in self.files_:
-            rootf.close()
-        for rootf in self.excluded_files_:
             rootf.close()
 
     @staticmethod
@@ -449,6 +446,8 @@ class MAGICEventSource(EventSource):
             )
             return False
 
+        num_invalid_files = 0
+
         for rootf in self.files_:
             for tree in needed_trees:
                 if tree not in rootf.keys(cycle=False):
@@ -457,18 +456,16 @@ class MAGICEventSource(EventSource):
                     )
                     if tree == "RunHeaders" or tree == "Events":
                         logger.error(
-                            f"Cannot proceed without RunHeaders or Events tree. "
-                            f"File {rootf.file_path} will be excluded."
+                            f"File {rootf.file_path} does not have a {tree} tree. "
+                            f"Please check the file and try again. If the file "
+                            f"cannot be recovered, exclude it from the analysis."
                         )
-                        self.files_.remove(rootf)
-                        self.excluded_files_.append(rootf)
-                        break
+                        num_invalid_files += 1
 
-        if len(self.excluded_files_) == num_files:
-            logger.error("All input files were excluded.")
+        if num_invalid_files > 0:
             return False
-
-        return True
+        else:
+            return True
 
     def parse_run_info(self):
         """
