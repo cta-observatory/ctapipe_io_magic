@@ -539,9 +539,23 @@ def test_check_missing_files():
         )
 
 
-def test_broken_subruns():
+def test_broken_subruns_missing_trees():
     from ctapipe_io_magic import MAGICEventSource
 
     input_file = test_calibrated_real_dir / "missing_prescaler_trigger/20210314_M1_05095172.001_Y_CrabNebula-W0.40+035.root"
 
     MAGICEventSource(input_url=input_file, process_run=True,)
+
+
+def test_broken_subruns_missing_arrays():
+    from ctapipe_io_magic import MAGICEventSource
+
+    input_file = (
+        test_calibrated_real_dir
+        / "missing_arrays/20210314_M1_05095172.001_Y_CrabNebula-W0.40+035.root"
+    )
+
+    MAGICEventSource(
+        input_url=input_file,
+        process_run=True,
+    )
