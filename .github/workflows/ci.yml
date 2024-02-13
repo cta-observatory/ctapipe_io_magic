@@ -68,4 +68,4 @@ jobs:
         run: |
           pytest --cov=ctapipe_io_magic --cov-report=xml
 
-      - uses: codecov/codecov-action@v3
+      - uses: codecov/codecov-action@v4
