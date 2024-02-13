@@ -18,6 +18,9 @@ echo "https://www.magic.iac.es/mcp-testdata/test_data/real/calibrated/20210314_M
 echo "https://www.magic.iac.es/mcp-testdata/test_data/real/calibrated/20210314_M1_05095172.001_Y_CrabNebula-W0.40+035.root" > test_data_real_missing_prescaler_trigger.txt
 echo "https://www.magic.iac.es/mcp-testdata/test_data/real/calibrated/20210314_M1_05095172.002_Y_CrabNebula-W0.40+035_no_prescaler_trigger.root" >> test_data_real_missing_prescaler_trigger.txt
 
+echo "https://www.magic.iac.es/mcp-testdata/test_data/real/calibrated/20210314_M1_05095172.001_Y_CrabNebula-W0.40+035.root" > test_data_real_missing_arrays.txt
+echo "https://www.magic.iac.es/mcp-testdata/test_data/real/calibrated/20210314_M1_05095172.002_Y_CrabNebula-W0.40+035_no_arrays.root" >> test_data_real_missing_arrays.txt
+
 echo "https://www.magic.iac.es/mcp-testdata/test_data/simulated/calibrated/GA_M1_za35to50_8_824318_Y_w0.root" >  test_data_simulated.txt
 echo "https://www.magic.iac.es/mcp-testdata/test_data/simulated/calibrated/GA_M1_za35to50_8_824319_Y_w0.root" >> test_data_simulated.txt
 echo "https://www.magic.iac.es/mcp-testdata/test_data/simulated/calibrated/GA_M2_za35to50_8_824318_Y_w0.root" >> test_data_simulated.txt
@@ -67,6 +70,17 @@ if ! wget \
 fi
 
 if ! wget \
+    -i test_data_real_missing_arrays.txt \
+    --user="$TEST_DATA_USER" \
+    --password="$TEST_DATA_PASSWORD" \
+    --no-check-certificate \
+    --no-verbose \
+    --timestamping \
+    --directory-prefix=test_data/real/calibrated/missing_arrays; then
+    echo "Problem in downloading the test data set (calibrated with missing prescaler and trigger arrays) for real data."
+fi
+
+if ! wget \
     -i test_data_simulated.txt \
     --user="$TEST_DATA_USER" \
     --password="$TEST_DATA_PASSWORD" \
@@ -77,4 +91,4 @@ if ! wget \
     echo "Problem in downloading the test data set (calibrated) for simulated data."
 fi
 
-rm -f test_data_real.txt test_data_simulated.txt test_data_real_missing_trees.txt test_data_real_missing_prescaler_trigger.txt
+rm -f test_data_real.txt test_data_simulated.txt test_data_real_missing_trees.txt test_data_real_missing_prescaler_trigger.txt test_data_real_missing_arrays.txt
