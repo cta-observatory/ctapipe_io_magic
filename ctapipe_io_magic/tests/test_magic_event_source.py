@@ -13,6 +13,26 @@ test_calibrated_real = [
     test_calibrated_real_dir / "20210314_M2_05095172.002_Y_CrabNebula-W0.40+035.root",
 ]
 
+test_calibrated_real_only_events = [
+    test_calibrated_real_dir
+    / "missing_trees/20210314_M1_05095172.001_Y_CrabNebula-W0.40+035_only_events.root",
+]
+
+test_calibrated_real_only_drive = [
+    test_calibrated_real_dir
+    / "missing_trees/20210314_M1_05095172.001_Y_CrabNebula-W0.40+035_only_drive.root",
+]
+
+test_calibrated_real_only_runh = [
+    test_calibrated_real_dir
+    / "missing_trees/20210314_M1_05095172.001_Y_CrabNebula-W0.40+035_only_runh.root",
+]
+
+test_calibrated_real_only_trigger = [
+    test_calibrated_real_dir
+    / "missing_trees/20210314_M1_05095172.001_Y_CrabNebula-W0.40+035_only_trigger.root",
+]
+
 test_calibrated_real_hast = [
     test_calibrated_real_dir / "20230324_M1_05106879.001_Y_1ES0806+524-W0.40+000.root",
     test_calibrated_real_dir / "20230324_M1_05106879.002_Y_1ES0806+524-W0.40+000.root",
@@ -30,6 +50,13 @@ test_calibrated_simulated = [
 
 test_calibrated_all = (
     test_calibrated_real + test_calibrated_simulated + test_calibrated_real_hast
+)
+
+test_calibrated_missing_trees = (
+    test_calibrated_real_only_events
+    + test_calibrated_real_only_drive
+    + test_calibrated_real_only_runh
+    + test_calibrated_real_only_trigger
 )
 
 data_dict = dict()
@@ -335,9 +362,18 @@ def test_number_of_events(dataset):
                     count_2_tel_m1_m2 += 1
 
             assert count_3_tel == data_dict[source.input_url.name]["n_events_3_tel"]
-            assert count_2_tel_m1_lst == data_dict[source.input_url.name]["n_events_2_tel_m1_lst"]
-            assert count_2_tel_m2_lst == data_dict[source.input_url.name]["n_events_2_tel_m2_lst"]
-            assert count_2_tel_m1_m2 == data_dict[source.input_url.name]["n_events_2_tel_m1_m2"]
+            assert (
+                count_2_tel_m1_lst
+                == data_dict[source.input_url.name]["n_events_2_tel_m1_lst"]
+            )
+            assert (
+                count_2_tel_m2_lst
+                == data_dict[source.input_url.name]["n_events_2_tel_m2_lst"]
+            )
+            assert (
+                count_2_tel_m1_m2
+                == data_dict[source.input_url.name]["n_events_2_tel_m1_m2"]
+            )
 
         # if '_M1_' in dataset.name:
         #     assert run['data'].n_cosmics_stereo_events_m1 == data_dict[source.input_url.name]['n_events_stereo']
@@ -475,6 +511,24 @@ def test_focal_length_choice(dataset):
         )
         assert source.subarray.tel[2].camera.geometry.frame.focal_length == u.Quantity(
             17 * 1.0713, u.m
+        )
+
+
+@pytest.mark.parametrize("dataset", test_calibrated_missing_trees)
+def test_check_files(dataset):
+    from ctapipe_io_magic import MAGICEventSource, FailedFileCheckError
+
+    with pytest.raises(FailedFileCheckError):
+        MAGICEventSource(input_url=dataset, process_run=False)
+
+
+def test_check_missing_files():
+    from ctapipe_io_magic import MAGICEventSource, MissingInputFilesError
+
+    with pytest.raises(MissingInputFilesError):
+        MAGICEventSource(
+            input_url="20501312_M1_05095172.001_Y_FakeSource-W0.40+035.root",
+            process_run=False,
         )
 
 
