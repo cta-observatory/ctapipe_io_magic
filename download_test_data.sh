@@ -77,4 +77,4 @@ if ! wget \
     echo "Problem in downloading the test data set (calibrated) for simulated data."
 fi
 
-rm -f test_data_real.txt test_data_simulated.txt
+rm -f test_data_real.txt test_data_simulated.txt test_data_real_missing_trees.txt test_data_real_missing_prescaler_trigger.txt
