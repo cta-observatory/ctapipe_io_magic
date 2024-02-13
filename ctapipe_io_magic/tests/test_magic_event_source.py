@@ -33,6 +33,13 @@ test_calibrated_real_only_trigger = [
     / "missing_trees/20210314_M1_05095172.001_Y_CrabNebula-W0.40+035_only_trigger.root",
 ]
 
+test_calibrated_real_without_prescaler_trigger = [
+    test_calibrated_real_dir
+    / "missing_prescaler_trigger/20210314_M1_05095172.001_Y_CrabNebula-W0.40+035.root",
+    test_calibrated_real_dir
+    / "missing_prescaler_trigger/20210314_M1_05095172.002_Y_CrabNebula-W0.40+035_no_prescaler_trigger.root",
+]
+
 test_calibrated_real_hast = [
     test_calibrated_real_dir / "20230324_M1_05106879.001_Y_1ES0806+524-W0.40+000.root",
     test_calibrated_real_dir / "20230324_M1_05106879.002_Y_1ES0806+524-W0.40+000.root",
@@ -532,24 +539,9 @@ def test_check_missing_files():
         )
 
 
-# def test_eventseeker():
-#    dataset = get_dataset_path("20131004_M1_05029747.003_Y_MagicCrab-W0.40+035.root")
-#
-#    with MAGICEventSource(input_url=dataset) as source:
-#        seeker = EventSeeker(source)
-#        event = seeker.get_event_index(0)
-#        assert event.count == 0
-#        assert event.index.event_id == 29795
-#
-#        event = seeker.get_event_index(2)
-#        assert event.count == 2
-#        assert event.index.event_id == 29798
-#
-# def test_eventcontent():
-#    dataset = get_dataset_path("20131004_M1_05029747.003_Y_MagicCrab-W0.40+035.root")
-#
-#    with MAGICEventSource(input_url=dataset) as source:
-#        seeker = EventSeeker(source)
-#        event = seeker.get_event_index(0)
-#        assert event.dl1.tel[1].image[0] == -0.53125
-#        assert event.dl1.tel[1].peak_time[0] == 49.125
+def test_broken_subruns():
+    from ctapipe_io_magic import MAGICEventSource
+
+    input_file = test_calibrated_real_dir / "missing_prescaler_trigger/20210314_M1_05095172.001_Y_CrabNebula-W0.40+035.root"
+
+    MAGICEventSource(input_url=input_file, process_run=True,)
