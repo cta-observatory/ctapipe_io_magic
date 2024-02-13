@@ -603,29 +603,49 @@ class MAGICEventSource(EventSource):
             L3_table_sumt = "L3T_SUMSUM_100_SYNC"
 
             for rootf in self.files_:
-                trigger_tree = rootf["Trigger"]
-                L3T_tree = rootf["L3T"]
+                has_trigger_info = True
+                try:
+                    trigger_tree = rootf["Trigger"]
+                except uproot.exceptions.KeyInFileError:
+                    logger.warning(
+                        f"No Trigger tree found in {rootf.file_path}."
+                    )
+                    has_trigger_info = False
+
+                has_l3_info = True
+
+                try:
+                    L3T_tree = rootf["L3T"]
+                except uproot.exceptions.KeyInFileError:
+                    logger.warning(
+                        f"No L3T tree found in {rootf.file_path}."
+                    )
+                    has_l3_info = False
 
                 # here we take the 2nd element (if possible) because sometimes
                 # the first trigger report has still the old prescaler values from a previous run
-                try:
-                    prescaler_array = trigger_tree[
-                        "MTriggerPrescFact.fPrescFact"
-                    ].array(library="np")
-                except AssertionError:
-                    logger.warning(
-                        f"No prescaler factors branch found in {rootf.file_path}."
-                    )
+                if has_trigger_info:
+                    try:
+                        prescaler_array = trigger_tree[
+                            "MTriggerPrescFact.fPrescFact"
+                        ].array(library="np")
+                    except AssertionError:
+                        logger.warning(
+                            f"No prescaler factors branch found in {rootf.file_path}."
+                        )
+                        has_prescaler_info = False
+
+                if not has_trigger_info or not has_prescaler_info:
                     if stereo_prev is not None and hast_prev is not None:
-                        logger.warning("Assuming previous subrun information.")
+                        logger.warning(
+                            "Assuming previous subrun information for trigger settings."
+                        )
                         stereo = stereo_prev
                         hast = hast_prev
                     else:
                         logger.warning("Assuming standard stereo data.")
                         stereo = True
                         hast = False
-
-                    has_prescaler_info = False
 
                 if has_prescaler_info:
                     prescaler = None
@@ -639,7 +659,9 @@ class MAGICEventSource(EventSource):
                             f"No prescaler info found in {rootf.file_path}."
                         )
                         if stereo_prev is not None and hast_prev is not None:
-                            logger.warning("Assuming previous subrun information.")
+                            logger.warning(
+                                "Assuming previous subrun information for trigger settings."
+                            )
                             stereo = stereo_prev
                             hast = hast_prev
                         else:
@@ -669,22 +691,26 @@ class MAGICEventSource(EventSource):
                     # here we take the 2nd element for the same reason as above
                     # L3Table is empty for mono data i.e. taken with one telescope only
                     # if both telescopes take data with no L3, L3Table is filled anyway
-                    try:
-                        L3Table_array = L3T_tree["MReportL3T.fTablename"].array(
-                            library="np"
-                        )
-                    except AssertionError:
-                        logger.warning(
-                            f"No trigger table branch found in {rootf.file_path}."
-                        )
+                    if has_l3_info:
+                        try:
+                            L3Table_array = L3T_tree["MReportL3T.fTablename"].array(
+                                library="np"
+                            )
+                        except AssertionError:
+                            logger.warning(
+                                f"No trigger table branch found in {rootf.file_path}."
+                            )
+                            has_trigger_table_info = False
+
+                    if not has_l3_info or not has_trigger_table_info:
                         if sumt_prev is not None:
-                            logger.warning("Assuming previous subrun information.")
+                            logger.warning(
+                                "Assuming previous subrun information trigger table information."
+                            )
                             sumt = sumt_prev
                         else:
                             logger.warning("Assuming standard trigger data.")
                             sumt = False
-
-                        has_trigger_table_info = False
 
                     if has_trigger_table_info:
                         L3Table = None
@@ -698,7 +724,9 @@ class MAGICEventSource(EventSource):
                                 f"No trigger table info found in {rootf.file_path}."
                             )
                             if sumt_prev is not None:
-                                logger.warning("Assuming previous subrun information.")
+                                logger.warning(
+                                    "Assuming previous subrun information trigger table information."
+                                )
                                 sumt = sumt_prev
                             else:
                                 logger.warning("Assuming standard trigger data.")
