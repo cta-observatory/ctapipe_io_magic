@@ -583,6 +583,13 @@ class MAGICEventSource(EventSource):
         is_sumt = []
         is_hast = []
 
+        stereo_prev = None
+        sumt_prev = None
+        hast_prev = None
+
+        has_prescaler_info = True
+        has_trigger_table_info = True
+
         if not self.is_simulation:
             prescaler_mono_nosumt = [1, 1, 0, 1, 0, 0, 0, 0]
             prescaler_mono_sumt = [0, 1, 0, 1, 0, 1, 0, 0]
@@ -596,66 +603,139 @@ class MAGICEventSource(EventSource):
             L3_table_sumt = "L3T_SUMSUM_100_SYNC"
 
             for rootf in self.files_:
-                trigger_tree = rootf["Trigger"]
-                L3T_tree = rootf["L3T"]
+                has_trigger_info = True
+                try:
+                    trigger_tree = rootf["Trigger"]
+                except uproot.exceptions.KeyInFileError:
+                    logger.warning(f"No Trigger tree found in {rootf.file_path}.")
+                    has_trigger_info = False
+
+                has_l3_info = True
+
+                try:
+                    L3T_tree = rootf["L3T"]
+                except uproot.exceptions.KeyInFileError:
+                    logger.warning(f"No L3T tree found in {rootf.file_path}.")
+                    has_l3_info = False
 
                 # here we take the 2nd element (if possible) because sometimes
                 # the first trigger report has still the old prescaler values from a previous run
-                try:
-                    prescaler_array = trigger_tree[
-                        "MTriggerPrescFact.fPrescFact"
-                    ].array(library="np")
-                except AssertionError:
-                    logger.warning(
-                        "No prescaler info found. Will assume standard stereo data."
-                    )
-                    stereo = True
-                    sumt = False
-                    hast = False
-                    return stereo, sumt, hast
+                if has_trigger_info:
+                    try:
+                        prescaler_array = trigger_tree[
+                            "MTriggerPrescFact.fPrescFact"
+                        ].array(library="np")
+                    except AssertionError:
+                        logger.warning(
+                            f"No prescaler factors branch found in {rootf.file_path}."
+                        )
+                        has_prescaler_info = False
 
-                prescaler_size = prescaler_array.size
-                if prescaler_size > 1:
-                    prescaler = list(prescaler_array[1])
-                else:
-                    prescaler = list(prescaler_array[0])
+                if not has_trigger_info or not has_prescaler_info:
+                    if stereo_prev is not None and hast_prev is not None:
+                        logger.warning(
+                            "Assuming previous subrun information for trigger settings."
+                        )
+                        stereo = stereo_prev
+                        hast = hast_prev
+                    else:
+                        logger.warning("Assuming standard stereo data.")
+                        stereo = True
+                        hast = False
 
-                if (
-                    prescaler == prescaler_mono_nosumt
-                    or prescaler == prescaler_mono_sumt
-                ):
-                    stereo = False
-                    hast = False
-                elif prescaler == prescaler_stereo:
-                    stereo = True
-                    hast = False
-                elif prescaler == prescaler_hast:
-                    stereo = True
-                    hast = True
-                else:
-                    stereo = True
-                    hast = False
+                if has_prescaler_info:
+                    prescaler = None
+                    prescaler_size = prescaler_array.size
+                    if prescaler_size > 1:
+                        prescaler = list(prescaler_array[1])
+                    elif prescaler_size == 1:
+                        prescaler = list(prescaler_array[0])
+                    else:
+                        logger.warning(f"No prescaler info found in {rootf.file_path}.")
+                        if stereo_prev is not None and hast_prev is not None:
+                            logger.warning(
+                                "Assuming previous subrun information for trigger settings."
+                            )
+                            stereo = stereo_prev
+                            hast = hast_prev
+                        else:
+                            logger.warning("Assuming standard stereo data.")
+                            stereo = True
+                            hast = False
+
+                    if prescaler is not None:
+                        if (
+                            prescaler == prescaler_mono_nosumt
+                            or prescaler == prescaler_mono_sumt
+                        ):
+                            stereo = False
+                            hast = False
+                        elif prescaler == prescaler_stereo:
+                            stereo = True
+                            hast = False
+                        elif prescaler == prescaler_hast:
+                            stereo = True
+                            hast = True
+                        else:
+                            logger.warning(
+                                f"Prescaler different from the default mono, stereo or hast was found: {prescaler}. Please check your data."
+                            )
+                            stereo = True
+                            hast = False
 
                 sumt = False
                 if stereo:
                     # here we take the 2nd element for the same reason as above
                     # L3Table is empty for mono data i.e. taken with one telescope only
                     # if both telescopes take data with no L3, L3Table is filled anyway
-                    L3Table_array = L3T_tree["MReportL3T.fTablename"].array(
-                        library="np"
-                    )
-                    L3Table_size = L3Table_array.size
-                    if L3Table_size > 1:
-                        L3Table = L3Table_array[1]
-                    else:
-                        L3Table = L3Table_array[0]
+                    if has_l3_info:
+                        try:
+                            L3Table_array = L3T_tree["MReportL3T.fTablename"].array(
+                                library="np"
+                            )
+                        except AssertionError:
+                            logger.warning(
+                                f"No trigger table branch found in {rootf.file_path}."
+                            )
+                            has_trigger_table_info = False
 
-                    if L3Table == L3_table_sumt:
-                        sumt = True
-                    elif L3Table == L3_table_nosumt:
-                        sumt = False
-                    else:
-                        sumt = False
+                    if not has_l3_info or not has_trigger_table_info:
+                        if sumt_prev is not None:
+                            logger.warning(
+                                "Assuming previous subrun information trigger table information."
+                            )
+                            sumt = sumt_prev
+                        else:
+                            logger.warning("Assuming standard trigger data.")
+                            sumt = False
+
+                    if has_trigger_table_info:
+                        L3Table = None
+                        L3Table_size = L3Table_array.size
+                        if L3Table_size > 1:
+                            L3Table = L3Table_array[1]
+                        elif L3Table_size == 1:
+                            L3Table = L3Table_array[0]
+                        else:
+                            logger.warning(
+                                f"No trigger table info found in {rootf.file_path}."
+                            )
+                            if sumt_prev is not None:
+                                logger.warning(
+                                    "Assuming previous subrun information trigger table information."
+                                )
+                                sumt = sumt_prev
+                            else:
+                                logger.warning("Assuming standard trigger data.")
+                                sumt = False
+
+                        if L3Table is not None:
+                            if L3Table == L3_table_sumt:
+                                sumt = True
+                            elif L3Table == L3_table_nosumt:
+                                sumt = False
+                            else:
+                                sumt = False
                 else:
                     if prescaler == prescaler_mono_sumt:
                         sumt = True
@@ -663,6 +743,10 @@ class MAGICEventSource(EventSource):
                 is_stereo.append(stereo)
                 is_sumt.append(sumt)
                 is_hast.append(hast)
+
+                stereo_prev = stereo
+                sumt_prev = sumt
+                hast_prev = hast
 
         else:
             for rootf in self.files_:
@@ -1524,9 +1608,9 @@ class MAGICEventSource(EventSource):
 
                 if not self.use_pedestals:
                     badrmspixel_mask = self._get_badrmspixel_mask(event)
-                    event.mon.tel[
-                        tel_id
-                    ].pixel_status.pedestal_failing_pixels = badrmspixel_mask
+                    event.mon.tel[tel_id].pixel_status.pedestal_failing_pixels = (
+                        badrmspixel_mask
+                    )
 
                 # Set the telescope pointing container:
                 event.pointing.array_azimuth = event_data["pointing_az"][i_event].to(
@@ -1746,9 +1830,9 @@ class MarsCalibratedRun:
             if self.use_sumt_events:
                 mc_trigger_pattern = MC_SUMT_TRIGGER_PATTERN
             if self.use_mc_mono_events or not self.is_stereo:
-                events_cut[
-                    "cosmic_events"
-                ] = f"(MTriggerPattern.fPrescaled == {mc_trigger_pattern})"
+                events_cut["cosmic_events"] = (
+                    f"(MTriggerPattern.fPrescaled == {mc_trigger_pattern})"
+                )
             else:
                 events_cut["cosmic_events"] = (
                     f"(MTriggerPattern.fPrescaled == {mc_trigger_pattern})"
@@ -1768,13 +1852,13 @@ class MarsCalibratedRun:
                     f" | (MTriggerPattern.fPrescaled == {DATA_MAGIC_LST_TRIGGER})"
                 )
             else:
-                events_cut[
-                    "cosmic_events"
-                ] = f"(MTriggerPattern.fPrescaled == {data_trigger_pattern})"
+                events_cut["cosmic_events"] = (
+                    f"(MTriggerPattern.fPrescaled == {data_trigger_pattern})"
+                )
             # Only for cosmic events because MC data do not have pedestal events:
-            events_cut[
-                "pedestal_events"
-            ] = f"(MTriggerPattern.fPrescaled == {PEDESTAL_TRIGGER_PATTERN})"
+            events_cut["pedestal_events"] = (
+                f"(MTriggerPattern.fPrescaled == {PEDESTAL_TRIGGER_PATTERN})"
+            )
 
         logger.info(f"Cosmic events selection: {events_cut['cosmic_events']}")
 
@@ -1835,10 +1919,12 @@ class MarsCalibratedRun:
                     daq_ids = common_info["MRawEvtHeader.fDAQEvtNumber"]
                     calib_data[event_type]["event_number"] = np.array(
                         [
-                            f"{subrun_id}{daq_ids[event_idx]:07}"
-                            if common_info["MTriggerPattern.fPrescaled"][event_idx]
-                            == DATA_TOPOLOGICAL_TRIGGER
-                            else stereo_ids[event_idx]
+                            (
+                                f"{subrun_id}{daq_ids[event_idx]:07}"
+                                if common_info["MTriggerPattern.fPrescaled"][event_idx]
+                                == DATA_TOPOLOGICAL_TRIGGER
+                                else stereo_ids[event_idx]
+                            )
                             for event_idx in range(
                                 common_info["MTriggerPattern.fPrescaled"].size
                             )
