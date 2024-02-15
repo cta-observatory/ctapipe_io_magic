@@ -607,9 +607,7 @@ class MAGICEventSource(EventSource):
                 try:
                     trigger_tree = rootf["Trigger"]
                 except uproot.exceptions.KeyInFileError:
-                    logger.warning(
-                        f"No Trigger tree found in {rootf.file_path}."
-                    )
+                    logger.warning(f"No Trigger tree found in {rootf.file_path}.")
                     has_trigger_info = False
 
                 has_l3_info = True
@@ -617,9 +615,7 @@ class MAGICEventSource(EventSource):
                 try:
                     L3T_tree = rootf["L3T"]
                 except uproot.exceptions.KeyInFileError:
-                    logger.warning(
-                        f"No L3T tree found in {rootf.file_path}."
-                    )
+                    logger.warning(f"No L3T tree found in {rootf.file_path}.")
                     has_l3_info = False
 
                 # here we take the 2nd element (if possible) because sometimes
@@ -655,9 +651,7 @@ class MAGICEventSource(EventSource):
                     elif prescaler_size == 1:
                         prescaler = list(prescaler_array[0])
                     else:
-                        logger.warning(
-                            f"No prescaler info found in {rootf.file_path}."
-                        )
+                        logger.warning(f"No prescaler info found in {rootf.file_path}.")
                         if stereo_prev is not None and hast_prev is not None:
                             logger.warning(
                                 "Assuming previous subrun information for trigger settings."
@@ -683,6 +677,9 @@ class MAGICEventSource(EventSource):
                             stereo = True
                             hast = True
                         else:
+                            logger.warning(
+                                f"Prescaler different from the default mono, stereo or hast was found: {prescaler}. Please check your data."
+                            )
                             stereo = True
                             hast = False
 
@@ -1611,9 +1608,9 @@ class MAGICEventSource(EventSource):
 
                 if not self.use_pedestals:
                     badrmspixel_mask = self._get_badrmspixel_mask(event)
-                    event.mon.tel[
-                        tel_id
-                    ].pixel_status.pedestal_failing_pixels = badrmspixel_mask
+                    event.mon.tel[tel_id].pixel_status.pedestal_failing_pixels = (
+                        badrmspixel_mask
+                    )
 
                 # Set the telescope pointing container:
                 event.pointing.array_azimuth = event_data["pointing_az"][i_event].to(
@@ -1833,9 +1830,9 @@ class MarsCalibratedRun:
             if self.use_sumt_events:
                 mc_trigger_pattern = MC_SUMT_TRIGGER_PATTERN
             if self.use_mc_mono_events or not self.is_stereo:
-                events_cut[
-                    "cosmic_events"
-                ] = f"(MTriggerPattern.fPrescaled == {mc_trigger_pattern})"
+                events_cut["cosmic_events"] = (
+                    f"(MTriggerPattern.fPrescaled == {mc_trigger_pattern})"
+                )
             else:
                 events_cut["cosmic_events"] = (
                     f"(MTriggerPattern.fPrescaled == {mc_trigger_pattern})"
@@ -1855,13 +1852,13 @@ class MarsCalibratedRun:
                     f" | (MTriggerPattern.fPrescaled == {DATA_MAGIC_LST_TRIGGER})"
                 )
             else:
-                events_cut[
-                    "cosmic_events"
-                ] = f"(MTriggerPattern.fPrescaled == {data_trigger_pattern})"
+                events_cut["cosmic_events"] = (
+                    f"(MTriggerPattern.fPrescaled == {data_trigger_pattern})"
+                )
             # Only for cosmic events because MC data do not have pedestal events:
-            events_cut[
-                "pedestal_events"
-            ] = f"(MTriggerPattern.fPrescaled == {PEDESTAL_TRIGGER_PATTERN})"
+            events_cut["pedestal_events"] = (
+                f"(MTriggerPattern.fPrescaled == {PEDESTAL_TRIGGER_PATTERN})"
+            )
 
         logger.info(f"Cosmic events selection: {events_cut['cosmic_events']}")
 
@@ -1922,10 +1919,12 @@ class MarsCalibratedRun:
                     daq_ids = common_info["MRawEvtHeader.fDAQEvtNumber"]
                     calib_data[event_type]["event_number"] = np.array(
                         [
-                            f"{subrun_id}{daq_ids[event_idx]:07}"
-                            if common_info["MTriggerPattern.fPrescaled"][event_idx]
-                            == DATA_TOPOLOGICAL_TRIGGER
-                            else stereo_ids[event_idx]
+                            (
+                                f"{subrun_id}{daq_ids[event_idx]:07}"
+                                if common_info["MTriggerPattern.fPrescaled"][event_idx]
+                                == DATA_TOPOLOGICAL_TRIGGER
+                                else stereo_ids[event_idx]
+                            )
                             for event_idx in range(
                                 common_info["MTriggerPattern.fPrescaled"].size
                             )
