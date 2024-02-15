@@ -36,59 +36,26 @@ if [ -z "$TEST_DATA_PASSWORD" ]; then
     echo
 fi
 
-if ! wget \
-    -i test_data_real.txt \
-    --user="$TEST_DATA_USER" \
-    --password="$TEST_DATA_PASSWORD" \
-    --no-check-certificate \
-    --no-verbose \
-    --timestamping \
-    --directory-prefix=test_data/real/calibrated; then
-    echo "Problem in downloading the test data set (calibrated) for real data."
-fi
+declare -A TEST_FILES_DOWNLOAD
 
-if ! wget \
-    -i test_data_real_missing_trees.txt \
-    --user="$TEST_DATA_USER" \
-    --password="$TEST_DATA_PASSWORD" \
-    --no-check-certificate \
-    --no-verbose \
-    --timestamping \
-    --directory-prefix=test_data/real/calibrated/missing_trees; then
-    echo "Problem in downloading the test data set (calibrated with missing trees) for real data."
-fi
+TEST_FILES_DOWNLOAD[test_data_real]="test_data/real/calibrated"
+TEST_FILES_DOWNLOAD[test_data_real_missing_trees]="test_data/real/calibrated/missing_trees"
+TEST_FILES_DOWNLOAD[test_data_real_missing_prescaler_trigger]="test_data/real/calibrated/missing_prescaler_trigger"
+TEST_FILES_DOWNLOAD[test_data_real_missing_arrays]="test_data/real/calibrated/missing_arrays"
+TEST_FILES_DOWNLOAD[test_data_simulated]="test_data/simulated/calibrated"
 
-if ! wget \
-    -i test_data_real_missing_prescaler_trigger.txt \
-    --user="$TEST_DATA_USER" \
-    --password="$TEST_DATA_PASSWORD" \
-    --no-check-certificate \
-    --no-verbose \
-    --timestamping \
-    --directory-prefix=test_data/real/calibrated/missing_prescaler_trigger; then
-    echo "Problem in downloading the test data set (calibrated with missing prescaler and trigger trees) for real data."
+for key in "${!TEST_FILES_DOWNLOAD[@]}"
+do
+    if ! wget \
+        -i "${key}.txt" \
+        --user="$TEST_DATA_USER" \
+        --password="$TEST_DATA_PASSWORD" \
+        --no-check-certificate \
+        --no-verbose \
+        --timestamping \
+        --directory-prefix="${TEST_FILES_DOWNLOAD[${key}]}"; then
+    echo "Problem in downloading the test data set from ${key}.txt."
 fi
-
-if ! wget \
-    -i test_data_real_missing_arrays.txt \
-    --user="$TEST_DATA_USER" \
-    --password="$TEST_DATA_PASSWORD" \
-    --no-check-certificate \
-    --no-verbose \
-    --timestamping \
-    --directory-prefix=test_data/real/calibrated/missing_arrays; then
-    echo "Problem in downloading the test data set (calibrated with missing prescaler and trigger arrays) for real data."
-fi
-
-if ! wget \
-    -i test_data_simulated.txt \
-    --user="$TEST_DATA_USER" \
-    --password="$TEST_DATA_PASSWORD" \
-    --no-check-certificate \
-    --no-verbose \
-    --timestamping \
-    --directory-prefix=test_data/simulated/calibrated; then
-    echo "Problem in downloading the test data set (calibrated) for simulated data."
-fi
+done
 
 rm -f test_data_real.txt test_data_simulated.txt test_data_real_missing_trees.txt test_data_real_missing_prescaler_trigger.txt test_data_real_missing_arrays.txt
