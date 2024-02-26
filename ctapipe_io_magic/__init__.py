@@ -1,4 +1,4 @@
-"""
+y"""
 # Event source for MAGIC calibrated data files.
 # Requires uproot package (https://github.com/scikit-hep/uproot).
 """
@@ -275,7 +275,9 @@ class MAGICEventSource(EventSource):
         self.mars_datalevel = run_info[3][0]
 
         self.metadata = self.parse_metadata_info()
-        self.laser = self.parse_laser_info()
+
+        if not self.is_simulation:
+            self.laser = self.parse_laser_info()
 
         # Retrieving the data level (so far HARDCODED Sorcerer)
         self.datalevel = DataLevel.DL0
