@@ -1,4 +1,4 @@
-"""
+="""
 # Event source for MAGIC calibrated data files.
 # Requires uproot package (https://github.com/scikit-hep/uproot).
 """
@@ -1105,7 +1105,7 @@ class MAGICEventSource(EventSource):
                 millisec_seconds = millisec_value * 1e-3
                 combined_mjd_value = mjd_value + millisec_seconds / 86400
                 laser.MJD = combined_mjd_value
-  
+
             except KeyError as e:
                 print(f"Required key not found in the file {rootf}: {e}")
                 continue
