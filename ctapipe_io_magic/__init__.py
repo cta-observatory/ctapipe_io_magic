@@ -960,9 +960,8 @@ class MAGICEventSource(EventSource):
             )
 
         return metadata
-        
-    def parse_laser_info(self):
 
+    def parse_laser_info(self):
         laser_info_array_list_runh = [
             'MReportLaser.MReport.fUniqueID',
             'MReportLaser.MReport.fBits',
@@ -975,7 +974,7 @@ class MAGICEventSource(EventSource):
             'MReportLaser.fIsBGCorrection',
             'MReportLaser.fIsT0ShiftFitted',
             'MReportLaser.fIsUseGDAS',
-            'MReportLaser.fIsUpwardMoving', 
+            'MReportLaser.fIsUpwardMoving',
             'MReportLaser.fOverShoot',
             'MReportLaser.fUnderShoot',
             'MReportLaser.fTransmission3km',
@@ -984,10 +983,10 @@ class MAGICEventSource(EventSource):
             'MReportLaser.fTransmission12km',
             'MReportLaser.fZenith',
             'MReportLaser.fAzimuth',
-            'MReportLaser.fCloudFWHM[10]', 
-            'MReportLaser.fCloudBase[10]', 
-            'MReportLaser.fCloudTop[10]', 
-            'MReportLaser.fCloudTrans[10]', 
+            'MReportLaser.fCloudFWHM[10]',
+            'MReportLaser.fCloudBase[10]',
+            'MReportLaser.fCloudTop[10]',
+            'MReportLaser.fCloudTrans[10]',
             'MReportLaser.fCloudHM[10]',
             'MReportLaser.fCloudHStd[10]',
             'MReportLaser.fCloudLR[10]',
@@ -1020,7 +1019,7 @@ class MAGICEventSource(EventSource):
             'MReportLaser.fChi2Full_fit',
             'MReportLaser.fHWSwitchMaxOffset',
             'MReportLaser.fNCollapse',
-            'MReportLaser.fShots', 
+            'MReportLaser.fShots',
             'MReportLaser.fT0Shift',
             'MReportLaser.fInterval_0',
             'MReportLaser.fRCS_min_perfect',
@@ -1103,7 +1102,7 @@ class MAGICEventSource(EventSource):
                 laser.LIDAR_ratio = laser_info_runh['MReportLaser.fLIDAR_ratio'][0]
                 laser.LIDAR_ratio_Cloud = laser_info_runh['MReportLaser.fLIDAR_ratio_Cloud'][0]
                 laser.LIDAR_ratio_Junge = laser_info_runh['MReportLaser.fLIDAR_ratio_Junge'][0]
-            
+
                 millisec_seconds = millisec_value * 1e-3
                 combined_mjd_value = mjd_value + millisec_seconds / 86400
                 laser.MJD = combined_mjd_value
@@ -1112,7 +1111,7 @@ class MAGICEventSource(EventSource):
                 print(f"Required key not found in the file {rootf}: {e}")
                 continue
 
-        return laser    
+        return laser
 
     def parse_simulation_header(self):
         """
