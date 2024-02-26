@@ -97,6 +97,7 @@ class ReportLaserContainer(Container):
     IsUpwardMoving = Field(bool, 'Is Upward Moving')
     OverShoot = Field(nan, 'Over Shoot')
     UnderShoot = Field(nan, 'Under Shoot')
+    BGSamples = Field(np.float32(np.nan), 'BG Samples')
     Transmission3km = Field(np.float32(np.nan), 'Transmission at 3 km')
     Transmission6km = Field(np.float32(np.nan), 'Transmission at 6 km')
     Transmission9km = Field(np.float32(np.nan), 'Transmission at 9 km')
@@ -978,6 +979,7 @@ class MAGICEventSource(EventSource):
             'MReportLaser.fIsUpwardMoving',
             'MReportLaser.fOverShoot',
             'MReportLaser.fUnderShoot',
+            'MReportLaser.fBGSamples',
             'MReportLaser.fTransmission3km',
             'MReportLaser.fTransmission6km',
             'MReportLaser.fTransmission9km',
@@ -1052,6 +1054,7 @@ class MAGICEventSource(EventSource):
                 laser.IsUpwardMoving = bool(laser_info_runh['MReportLaser.fIsUpwardMoving'][0])
                 laser.OverShoot = int(laser_info_runh['MReportLaser.fOverShoot'][0])
                 laser.UnderShoot = int(laser_info_runh['MReportLaser.fUnderShoot'][0])
+                laser.BGSamples = int(laser_info_runh['MReportLaser.fBGSamples'][0])
                 laser.Transmission3km = laser_info_runh['MReportLaser.fTransmission3km'][0]
                 laser.Transmission6km = laser_info_runh['MReportLaser.fTransmission6km'][0]
                 laser.Transmission9km = laser_info_runh['MReportLaser.fTransmission9km'][0]
