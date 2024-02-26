@@ -1,4 +1,4 @@
-="""
+"""
 # Event source for MAGIC calibrated data files.
 # Requires uproot package (https://github.com/scikit-hep/uproot).
 """
