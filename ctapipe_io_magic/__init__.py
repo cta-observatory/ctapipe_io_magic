@@ -10,7 +10,7 @@ import scipy.interpolate
 import uproot
 import logging
 import numpy as np
-from typing import List
+from typing import List, Any
 from pathlib import Path
 from decimal import Decimal
 from astropy import units as u
@@ -84,19 +84,19 @@ MAGIC_TO_CTA_EVENT_TYPE = {
 
 class ReportLaserContainer(Container):
     """ Container for Magic laser parameters """
-    UniqueID = Field(List[], 'No.')
-    Bits = Field(List[], 'ID')
-    MJD = Field(List[], 'Modified Julian Date')
-    BadReport = Field(List[], 'Bad Report')
-    State = Field(List[], 'State')
-    IsOffsetCorrection = Field(List[], 'Is Offset Correction')
-    IsOffsetFitted = Field(List[], 'Is Offset Fitted')
-    IsBGCorrection = Field(List[], 'Is BG Correction')
-    IsT0ShiftFitted = Field(List[], 'Is T0 Shift Fitted')
-    IsUseGDAS = Field(List[], 'Is Use GDAS')
-    IsUpwardMoving = Field(List[], 'Is Upward Moving')
-    OverShoot = Field(List[], 'Over Shoot')
-    UnderShoot = Field(List[], 'Under Shoot')
+    UniqueID = Field(List[Any], 'No.')
+    Bits = Field(List[Any], 'ID')
+    MJD = Field(List[Any], 'Modified Julian Date')
+    BadReport = Field(List[bool], 'Bad Report')
+    State = Field(List[Any], 'State')
+    IsOffsetCorrection = Field(List[bool], 'Is Offset Correction')
+    IsOffsetFitted = Field(List[bool], 'Is Offset Fitted')
+    IsBGCorrection = Field(List[bool], 'Is BG Correction')
+    IsT0ShiftFitted = Field(List[bool], 'Is T0 Shift Fitted')
+    IsUseGDAS = Field(List[bool], 'Is Use GDAS')
+    IsUpwardMoving = Field(List[bool], 'Is Upward Moving')
+    OverShoot = Field(List[Any], 'Over Shoot')
+    UnderShoot = Field(List[Any], 'Under Shoot')
     BGSamples = Field(List[np.float32], 'BG Samples')
     Transmission3km = Field(List[np.float32], 'Transmission at 3 km')
     Transmission6km = Field(List[np.float32], 'Transmission at 6 km')
@@ -123,7 +123,7 @@ class ReportLaserContainer(Container):
     BackgroundErr2 = Field(List[np.float32], 'Background error 2')
     RangeMax = Field(List[np.float32], 'Range max')
     RangeMax_Clouds = Field(List[np.float32], 'Range max clouds')
-    ErrorCode = Field(List[], 'Error code')
+    ErrorCode = Field(List[Any], 'Error code')
     ScaleHeight_fit = Field(List[np.float32], 'Scale Height fit')
     Alpha_fit = Field(List[np.float32], 'Alpha fit')
     Chi2Alpha_fit = Field(List[np.float32], 'Chi2 Alpha fit')
