@@ -84,19 +84,19 @@ MAGIC_TO_CTA_EVENT_TYPE = {
 
 class ReportLaserContainer(Container):
     """ Container for Magic laser parameters """
-    UniqueID = Field(None, 'No.')
-    Bits = Field(None, 'ID')
-    MJD = Field(None, 'Modified Julian Date')
-    BadReport = Field(bool, 'Bad Report')
-    State = Field(None, 'State')
-    IsOffsetCorrection = Field(bool, 'Is Offset Correction')
-    IsOffsetFitted = Field(bool, 'Is Offset Fitted')
-    IsBGCorrection = Field(bool, 'Is BG Correction')
-    IsT0ShiftFitted = Field(bool, 'Is T0 Shift Fitted')
-    IsUseGDAS = Field(bool, 'Is Use GDAS')
-    IsUpwardMoving = Field(bool, 'Is Upward Moving')
-    OverShoot = Field(np.nan, 'Over Shoot')
-    UnderShoot = Field(np.nan, 'Under Shoot')
+    UniqueID = Field(List[], 'No.')
+    Bits = Field(List[], 'ID')
+    MJD = Field(List[], 'Modified Julian Date')
+    BadReport = Field(List[], 'Bad Report')
+    State = Field(List[], 'State')
+    IsOffsetCorrection = Field(List[], 'Is Offset Correction')
+    IsOffsetFitted = Field(List[], 'Is Offset Fitted')
+    IsBGCorrection = Field(List[], 'Is BG Correction')
+    IsT0ShiftFitted = Field(List[], 'Is T0 Shift Fitted')
+    IsUseGDAS = Field(List[], 'Is Use GDAS')
+    IsUpwardMoving = Field(List[], 'Is Upward Moving')
+    OverShoot = Field(List[], 'Over Shoot')
+    UnderShoot = Field(List[], 'Under Shoot')
     BGSamples = Field(List[np.float32], 'BG Samples')
     Transmission3km = Field(List[np.float32], 'Transmission at 3 km')
     Transmission6km = Field(List[np.float32], 'Transmission at 6 km')
@@ -111,7 +111,7 @@ class ReportLaserContainer(Container):
     CloudLayerAlt = Field(List[np.float32], 'Altitude of cloud layer')
     CloudLayerDens = Field(List[np.float32], 'Density of cloud layer')
     Klett_k = Field(List[np.float32], 'Klett k')
-    PheCounts = Field(List[np.float32], 'Phe Counts')
+    PheCounts = Field(List[List[np.float32]], 'Phe Counts')
     Offset = Field(List[np.float32], 'Offset')
     Offset_Calculated = Field(List[np.float32], 'Offset calculated')
     Offset_Fitted = Field(List[np.float32], 'Offset fitted')
@@ -123,7 +123,7 @@ class ReportLaserContainer(Container):
     BackgroundErr2 = Field(List[np.float32], 'Background error 2')
     RangeMax = Field(List[np.float32], 'Range max')
     RangeMax_Clouds = Field(List[np.float32], 'Range max clouds')
-    ErrorCode = Field(None, 'Error code')
+    ErrorCode = Field(List[], 'Error code')
     ScaleHeight_fit = Field(List[np.float32], 'Scale Height fit')
     Alpha_fit = Field(List[np.float32], 'Alpha fit')
     Chi2Alpha_fit = Field(List[np.float32], 'Chi2 Alpha fit')
@@ -1090,12 +1090,13 @@ class MAGICEventSource(EventSource):
                     unique_key = (mjd_values, millisec_values)
                     if unique_key not in unique_reports:
                         unique_reports[unique_key] = True
-                        laser.UniqueID = laser_info_runh['MReportLaser.MReport.fUniqueID'][idx]
-                        laser.Bits = laser_info_runh['MReportLaser.MReport.fBits'][idx]
+                        unique_laser = ReportLaserContainer()
+                        unique_laser.UniqueID = laser_info_runh['MReportLaser.MReport.fUniqueID'][idx]
+                        unique_laser.Bits = laser_info_runh['MReportLaser.MReport.fBits'][idx]
                         millisec_seconds = millisec_values * 1e-3
                         combined_mjd_value = mjd_values + millisec_seconds / 86400
-                        laser.MJD = combined_mjd_value
-
+                        unique_laser.MJD = combined_mjd_value
+                        laser.append(unique_laser)
             except KeyError as e:
                 print(f"Required key not found in the file {rootf}: {e}")
                 continue
