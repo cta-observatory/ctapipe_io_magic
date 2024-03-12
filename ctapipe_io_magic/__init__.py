@@ -1034,7 +1034,7 @@ class MAGICEventSource(EventSource):
         ]
 
         laser = ReportLaserContainer()
-
+        unique_reports = {}
         for rootf in self.files_:
             try:
                 laser_info_runh = rootf['Laser'].arrays(
@@ -1107,21 +1107,18 @@ class MAGICEventSource(EventSource):
                 laser.LIDAR_ratio_Cloud = laser_info_runh['MReportLaser.fLIDAR_ratio_Cloud']
                 laser.LIDAR_ratio_Junge = laser_info_runh['MReportLaser.fLIDAR_ratio_Junge']
 
-                unique_reports = {}
-
-                for report in reports:
-                    mjd_value = report['fMjD']
-                    millisec_value = report['fMilliSec']
+                mjd_values = laser_info_runh['MTimeLaser.fMjd']
+                millisec_values = laser_info_runh['MTimeLaser.fTime.fMilliSec']
+                for mjd_value, millisec_value in zip(mjd_values, millisec_values):
                     millisec_seconds = millisec_value * 1e-3
                     combined_mjd_value = mjd_value + millisec_seconds / 86400
-    
                     if (mjd_value, millisec_value) not in unique_reports:
                         unique_reports[(mjd_value, millisec_value)] = combined_mjd_value
-                        report['laser.MJD'] = combined_mjd_value
-
             except KeyError as e:
                 print(f"Required key not found in the file {rootf}: {e}")
                 continue
+        for key, value in unique_reports.items():
+            laser.MJD = value
 
         return laser
 
