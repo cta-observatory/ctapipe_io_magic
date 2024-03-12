@@ -10,7 +10,6 @@ import scipy.interpolate
 import uproot
 import logging
 import numpy as np
-from numpy import nan
 from typing import List
 from pathlib import Path
 from decimal import Decimal
@@ -1087,17 +1086,17 @@ class MAGICEventSource(EventSource):
                 laser.LIDAR_ratio_Cloud = laser_info_runh['MReportLaser.fLIDAR_ratio_Cloud']
                 laser.LIDAR_ratio_Junge = laser_info_runh['MReportLaser.fLIDAR_ratio_Junge']
 
-                for i in range(len(mjd_values)):
-                    mjd_value = mjd_values[i]
-                    millisec_value = millisec_values[i]
-                    unique_key = (mjd_value, millisec_value)
+                for idx, (mjd_values, millisec_values) in enumerate(zip(mjd_value, millisec_value)):
+                    unique_key = (mjd_values, millisec_values)
+                
                     if unique_key not in unique_reports:
-                        unique_reports[unique_key] = True  # Marking as seen
-                        laser.UniqueID = laser_info_runh['MReportLaser.MReport.fUniqueID'][i]
-                        laser.Bits = laser_info_runh['MReportLaser.MReport.fBits'][i]
-                        millisec_seconds = millisec_value * 1e-3
-                        combined_mjd_value = mjd_value + millisec_seconds / 86400
+                        unique_reports[unique_key] = True
+                        laser.UniqueID = laser_info_runh['MReportLaser.MReport.fUniqueID'][idx]
+                        laser.Bits = laser_info_runh['MReportLaser.MReport.fBits'][idx]
+                        millisec_seconds = millisec_values * 1e-3
+                        combined_mjd_value = mjd_values + millisec_seconds / 86400
                         laser.MJD = combined_mjd_value
+
             except KeyError as e:
                 print(f"Required key not found in the file {rootf}: {e}")
                 continue
