@@ -1088,7 +1088,6 @@ class MAGICEventSource(EventSource):
 
                 for idx, (mjd_values, millisec_values) in enumerate(zip(mjd_value, millisec_value)):
                     unique_key = (mjd_values, millisec_values)
-                
                     if unique_key not in unique_reports:
                         unique_reports[unique_key] = True
                         laser.UniqueID = laser_info_runh['MReportLaser.MReport.fUniqueID'][idx]
