@@ -1117,7 +1117,7 @@ class MAGICEventSource(EventSource):
             except KeyError as e:
                 print(f"Required key not found in the file {rootf}: {e}")
                 continue
-        for key, value in unique_reports.items():
+        for _ , value in unique_reports.items():
             laser.MJD = value
 
         return laser
