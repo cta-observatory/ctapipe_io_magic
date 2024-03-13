@@ -1096,7 +1096,7 @@ class MAGICEventSource(EventSource):
                         millisec_seconds = millisec_values * 1e-3
                         combined_mjd_value = mjd_values + millisec_seconds / 86400
                         unique_laser.MJD = combined_mjd_value
-                        unique_reports.append(unique_laser)
+                        unique_reports[unique_key] = unique_laser
             except KeyError as e:
                 print(f"Required key not found in the file {rootf}: {e}")
                 continue
