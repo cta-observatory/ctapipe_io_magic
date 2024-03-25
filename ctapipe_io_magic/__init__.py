@@ -99,14 +99,14 @@ class ReportLaserContainer(Container):
     UniqueID = Field(List[Any], 'No.')
     Bits = Field(List[Any], 'ID')
     MJD = Field(List[Any], 'Modified Julian Date')
-    BadReport = Field(List[bool], 'Bad Report')
-    State = Field(List[Any], 'State')
-    IsOffsetCorrection = Field(List[bool], 'Is Offset Correction')
-    IsOffsetFitted = Field(List[bool], 'Is Offset Fitted')
-    IsBGCorrection = Field(List[bool], 'Is BG Correction')
-    IsT0ShiftFitted = Field(List[bool], 'Is T0 Shift Fitted')
-    IsUseGDAS = Field(List[bool], 'Is Use GDAS')
-    IsUpwardMoving = Field(List[bool], 'Is Upward Moving')
+#    BadReport = Field(List[Any], 'Bad Report') # to be improved
+#    State = Field(List[Any], 'State') # to be	improved
+    IsOffsetCorrection = Field(List[Any], 'Is Offset Correction')
+    IsOffsetFitted = Field(List[Any], 'Is Offset Fitted')
+    IsBGCorrection = Field(List[Any], 'Is BG Correction')
+    IsT0ShiftFitted = Field(List[Any], 'Is T0 Shift Fitted')
+    IsUseGDAS = Field(List[Any], 'Is Use GDAS')
+    IsUpwardMoving = Field(List[Any], 'Is Upward Moving')
     OverShoot = Field(List[Any], 'Over Shoot')
     UnderShoot = Field(List[Any], 'Under Shoot')
     BGSamples = Field(List[np.float32], 'BG Samples')
@@ -448,13 +448,13 @@ class MAGICEventSource(EventSource):
         elif re.match(mask_data_superstar, file_name) is not None:
             parsed_info = re.match(mask_data_superstar, file_name)
             telescope = None
-            run_number = int(parsed_info.grou(1))
+            run_number = int(parsed_info.group(1))
             datalevel = MARSDataLevel.SUPERSTAR
             is_mc = False
         elif re.match(mask_data_melibea, file_name) is not None:
             parsed_info = re.match(mask_data_melibea, file_name)
             telescope = None
-            run_number = int(parsed_info.grou(1))
+            run_number = int(parsed_info.group(1))
             datalevel = MARSDataLevel.MELIBEA
             is_mc = False
         elif re.match(mask_mc_calibrated, file_name) is not None:
@@ -1108,8 +1108,8 @@ class MAGICEventSource(EventSource):
             'MReportLaser.MReport.fBits',
             'MTimeLaser.fMjd',
             'MTimeLaser.fTime.fMilliSec',
-            'MReportLaser.MReport.fBadReport',
-            'MReportLaser.MReport.fState',
+            #'MReportLaser.MReport.fBadReport', # to be	improved
+            #'MReportLaser.MReport.fState', # to be improved
             'MReportLaser.fIsOffsetCorrection',
             'MReportLaser.fIsOffsetFitted',
             'MReportLaser.fIsBGCorrection',
@@ -1165,84 +1165,84 @@ class MAGICEventSource(EventSource):
             'MReportLaser.fLIDAR_ratio_Junge',
         ]
 
-        laser = ReportLaserContainer()
         unique_reports = {}
         for rootf in self.files_:
             try:
                 laser_info_runh = rootf['Laser'].arrays(
-                    laser_info_array_list_runh, library="np"
+                laser_info_array_list_runh, library="np"
                 )
-                laser.UniqueID = laser_info_runh['MReportLaser.MReport.fUniqueID']
-                laser.Bits = laser_info_runh['MReportLaser.MReport.fBits']
                 mjd_value = laser_info_runh['MTimeLaser.fMjd']
                 millisec_value = laser_info_runh['MTimeLaser.fTime.fMilliSec']
-                laser.BadReport = bool(laser_info_runh['MReportLaser.MReport.fBadReport'])
-                laser.State = laser_info_runh['MReportLaser.MReport.fState']
-                laser.IsOffsetCorrection = bool(laser_info_runh['MReportLaser.fIsOffsetCorrection'])
-                laser.IsOffsetFitted = bool(laser_info_runh['MReportLaser.fIsOffsetFitted'])
-                laser.IsBGCorrection = bool(laser_info_runh['MReportLaser.fIsBGCorrection'])
-                laser.IsT0ShiftFitted = bool(laser_info_runh['MReportLaser.fIsT0ShiftFitted'])
-                laser.IsUseGDAS = bool(laser_info_runh['MReportLaser.fIsUseGDAS'])
-                laser.IsUpwardMoving = bool(laser_info_runh['MReportLaser.fIsUpwardMoving'])
-                laser.OverShoot = int(laser_info_runh['MReportLaser.fOverShoot'])
-                laser.UnderShoot = int(laser_info_runh['MReportLaser.fUnderShoot'])
-                laser.BGSamples = int(laser_info_runh['MReportLaser.fBGSamples'])
-                laser.Transmission3km = laser_info_runh['MReportLaser.fTransmission3km']
-                laser.Transmission6km = laser_info_runh['MReportLaser.fTransmission6km']
-                laser.Transmission9km = laser_info_runh['MReportLaser.fTransmission9km']
-                laser.Transmission12km = laser_info_runh['MReportLaser.fTransmission12km']
-                laser.Zenith = laser_info_runh['MReportLaser.fZenith']* u.deg
-                laser.Azimuth = laser_info_runh['MReportLaser.fAzimuth']* u.deg
-                laser.FullOverlap = laser_info_runh['MReportLaser.fFullOverlap']
-                laser.EndGroundLayer = laser_info_runh['MReportLaser.fEndGroundLayer']
-                laser.GroundLayerTrans = laser_info_runh['MReportLaser.fGroundLayerTrans']
-                laser.Klett_k = laser_info_runh['MReportLaser.fKlett_k']
-                laser.PheCounts = laser_info_runh['MReportLaser.fPheCounts']
-                laser.Calimaness = laser_info_runh['MReportLaser.fCalimaness']
-                laser.CloudLayerAlt = laser_info_runh['MReportLaser.fCloudLayerAlt']
-                laser.CloudLayerDens = laser_info_runh['MReportLaser.fCloudLayerDens']
-                laser.Offset = laser_info_runh['MReportLaser.fOffset']
-                laser.Offset_Calculated = laser_info_runh['MReportLaser.fOffset_Calculated']
-                laser.Offset_Fitted = laser_info_runh['MReportLaser.fOffset_Fitted']
-                laser.Offset2 = laser_info_runh['MReportLaser.fOffset2']
-                laser.Offset3 = laser_info_runh['MReportLaser.fOffset3']
-                laser.Background1 = laser_info_runh['MReportLaser.fBackground1']
-                laser.Background2 = laser_info_runh['MReportLaser.fBackground2']
-                laser.BackgroundErr1 = laser_info_runh['MReportLaser.fBackgroundErr1']
-                laser.BackgroundErr2 = laser_info_runh['MReportLaser.fBackgroundErr2']
-                laser.RangeMax = laser_info_runh['MReportLaser.fRangeMax']
-                laser.RangeMax_Clouds = laser_info_runh['MReportLaser.fRangeMax_Clouds']
-                laser.ErrorCode = laser_info_runh['MReportLaser.fErrorCode']
-                laser.ScaleHeight_fit = laser_info_runh['MReportLaser.fScaleHeight_fit']
-                laser.Alpha_fit = laser_info_runh['MReportLaser.fChi2Alpha_fit']
-                laser.Chi2Alpha_fit = laser_info_runh['MReportLaser.fChi2Alpha_fit']
-                laser.Alpha_firstY = laser_info_runh['MReportLaser.fAlpha_firstY']
-                laser.Alpha_Junge = laser_info_runh['MReportLaser.fAlpha_Junge']
-                laser.PBLHeight = laser_info_runh['MReportLaser.fPBLHeight']
-                laser.Chi2Full_fit = laser_info_runh['MReportLaser.fChi2Full_fit']
-                laser.HWSwitchMaxOffset = laser_info_runh['MReportLaser.fHWSwitchMaxOffset']
-                laser.NCollapse = laser_info_runh['MReportLaser.fNCollapse']
-                laser.Shots = laser_info_runh['MReportLaser.fShots']
-                laser.T0Shift = laser_info_runh['MReportLaser.fT0Shift']
-                laser.Interval_0 = laser_info_runh['MReportLaser.fInterval_0']
-                laser.RCS_min_perfect = laser_info_runh['MReportLaser.fRCS_min_perfect']
-                laser.RCS_min_clouds = laser_info_runh['MReportLaser.fRCS_min_clouds']
-                laser.RCS_min_mol = laser_info_runh['MReportLaser.fRCS_min_mol']
-                laser.LIDAR_ratio = laser_info_runh['MReportLaser.fLIDAR_ratio']
-                laser.LIDAR_ratio_Cloud = laser_info_runh['MReportLaser.fLIDAR_ratio_Cloud']
-                laser.LIDAR_ratio_Junge = laser_info_runh['MReportLaser.fLIDAR_ratio_Junge']
 
                 for idx, (mjd_values, millisec_values) in enumerate(zip(mjd_value, millisec_value)):
                     unique_key = (mjd_values, millisec_values)
                     if unique_key not in unique_reports:
                         unique_reports[unique_key] = True
-                        unique_laser = ReportLaserContainer()
-                        unique_laser.UniqueID = laser_info_runh['MReportLaser.MReport.fUniqueID'][idx]
-                        unique_laser.Bits = laser_info_runh['MReportLaser.MReport.fBits'][idx]
+                        laser = ReportLaserContainer()
+                        laser.UniqueID = laser_info_runh['MReportLaser.MReport.fUniqueID']
+                        laser.Bits = laser_info_runh['MReportLaser.MReport.fBits']
+                        #mjd_value = laser_info_runh['MTimeLaser.fMjd']
+                        #millisec_value = laser_info_runh['MTimeLaser.fTime.fMilliSec']
+                        #laser.BadReport = laser_info_runh['MReportLaser.MReport.fBadReport'] # to be improved
+                        #laser.State = laser_info_runh['MReportLaser.MReport.fState'] # to be improved
+                        laser.IsOffsetCorrection = laser_info_runh['MReportLaser.fIsOffsetCorrection']
+                        laser.IsOffsetFitted = laser_info_runh['MReportLaser.fIsOffsetFitted']
+                        laser.IsBGCorrection = laser_info_runh['MReportLaser.fIsBGCorrection']
+                        laser.IsT0ShiftFitted = laser_info_runh['MReportLaser.fIsT0ShiftFitted']
+                        laser.IsUseGDAS = laser_info_runh['MReportLaser.fIsUseGDAS']
+                        laser.IsUpwardMoving = laser_info_runh['MReportLaser.fIsUpwardMoving']
+                        laser.OverShoot = int(laser_info_runh['MReportLaser.fOverShoot'])
+                        laser.UnderShoot = int(laser_info_runh['MReportLaser.fUnderShoot'])
+                        laser.BGSamples = int(laser_info_runh['MReportLaser.fBGSamples'])
+                        laser.Transmission3km = laser_info_runh['MReportLaser.fTransmission3km']
+                        laser.Transmission6km = laser_info_runh['MReportLaser.fTransmission6km']
+                        laser.Transmission9km = laser_info_runh['MReportLaser.fTransmission9km']
+                        laser.Transmission12km = laser_info_runh['MReportLaser.fTransmission12km']
+                        laser.Zenith = laser_info_runh['MReportLaser.fZenith']* u.deg
+                        laser.Azimuth = laser_info_runh['MReportLaser.fAzimuth']* u.deg
+                        laser.FullOverlap = laser_info_runh['MReportLaser.fFullOverlap']
+                        laser.EndGroundLayer = laser_info_runh['MReportLaser.fEndGroundLayer']
+                        laser.GroundLayerTrans = laser_info_runh['MReportLaser.fGroundLayerTrans']
+                        laser.Klett_k = laser_info_runh['MReportLaser.fKlett_k']
+                        laser.PheCounts = laser_info_runh['MReportLaser.fPheCounts']
+                        laser.Calimaness = laser_info_runh['MReportLaser.fCalimaness']
+                        laser.CloudLayerAlt = laser_info_runh['MReportLaser.fCloudLayerAlt']
+                        laser.CloudLayerDens = laser_info_runh['MReportLaser.fCloudLayerDens']
+                        laser.Offset = laser_info_runh['MReportLaser.fOffset']
+                        laser.Offset_Calculated = laser_info_runh['MReportLaser.fOffset_Calculated']
+                        laser.Offset_Fitted = laser_info_runh['MReportLaser.fOffset_Fitted']
+                        laser.Offset2 = laser_info_runh['MReportLaser.fOffset2']
+                        laser.Offset3 = laser_info_runh['MReportLaser.fOffset3']
+                        laser.Background1 = laser_info_runh['MReportLaser.fBackground1']
+                        laser.Background2 = laser_info_runh['MReportLaser.fBackground2']
+                        laser.BackgroundErr1 = laser_info_runh['MReportLaser.fBackgroundErr1']
+                        laser.BackgroundErr2 = laser_info_runh['MReportLaser.fBackgroundErr2']
+                        laser.RangeMax = laser_info_runh['MReportLaser.fRangeMax']
+                        laser.RangeMax_Clouds = laser_info_runh['MReportLaser.fRangeMax_Clouds']
+                        laser.ErrorCode = laser_info_runh['MReportLaser.fErrorCode']
+                        laser.ScaleHeight_fit = laser_info_runh['MReportLaser.fScaleHeight_fit']
+                        laser.Alpha_fit = laser_info_runh['MReportLaser.fChi2Alpha_fit']
+                        laser.Chi2Alpha_fit = laser_info_runh['MReportLaser.fChi2Alpha_fit']
+                        laser.Alpha_firstY = laser_info_runh['MReportLaser.fAlpha_firstY']
+                        laser.Alpha_Junge = laser_info_runh['MReportLaser.fAlpha_Junge']
+                        laser.PBLHeight = laser_info_runh['MReportLaser.fPBLHeight']
+                        laser.Chi2Full_fit = laser_info_runh['MReportLaser.fChi2Full_fit']
+                        laser.HWSwitchMaxOffset = laser_info_runh['MReportLaser.fHWSwitchMaxOffset']
+                        laser.NCollapse = laser_info_runh['MReportLaser.fNCollapse']
+                        laser.Shots = laser_info_runh['MReportLaser.fShots']
+                        laser.T0Shift = laser_info_runh['MReportLaser.fT0Shift']
+                        laser.Interval_0 = laser_info_runh['MReportLaser.fInterval_0']
+                        laser.RCS_min_perfect = laser_info_runh['MReportLaser.fRCS_min_perfect']
+                        laser.RCS_min_clouds = laser_info_runh['MReportLaser.fRCS_min_clouds']
+                        laser.RCS_min_mol = laser_info_runh['MReportLaser.fRCS_min_mol']
+                        laser.LIDAR_ratio = laser_info_runh['MReportLaser.fLIDAR_ratio']
+                        laser.LIDAR_ratio_Cloud = laser_info_runh['MReportLaser.fLIDAR_ratio_Cloud']
+                        laser.LIDAR_ratio_Junge = laser_info_runh['MReportLaser.fLIDAR_ratio_Junge']
+
                         millisec_seconds = millisec_values * 1e-3
                         combined_mjd_value = mjd_values + millisec_seconds / 86400
-                        unique_laser.MJD = combined_mjd_value
-                        unique_reports[unique_key] = unique_laser
+                        laser.MJD = combined_mjd_value
+                        unique_reports[unique_key] = laser
             except KeyError as e:
                 print(f"Required key not found in the file {rootf}: {e}")
                 continue

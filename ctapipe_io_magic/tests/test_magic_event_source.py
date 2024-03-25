@@ -286,7 +286,7 @@ def test_allowed_tels():
 
     dataset = (
         test_calibrated_real_dir
-        / "20210314_M1_05095172.001_Y_CrabNebula-W0.40+035.root"
+        / "20210314_M1_05095172.002_Y_CrabNebula-W0.40+035.root" #"20210314_M1_05095172.001_Y_CrabNebula-W0.40+035.root"
     )
     allowed_tels = {1}
     with MAGICEventSource(
@@ -559,3 +559,58 @@ def test_broken_subruns_missing_arrays():
         input_url=input_file,
         process_run=True,
     )
+# def test_eventseeker():
+#    dataset = get_dataset_path("20131004_M1_05029747.003_Y_MagicCrab-W0.40+035.root")
+#
+#    with MAGICEventSource(input_url=dataset) as source:
+#        seeker = EventSeeker(source)
+#        event = seeker.get_event_index(0)
+#        assert event.count == 0
+#        assert event.index.event_id == 29795
+#
+#        event = seeker.get_event_index(2)
+#        assert event.count == 2
+#        assert event.index.event_id == 29798
+#
+# def test_eventcontent():
+#    dataset = get_dataset_path("20131004_M1_05029747.003_Y_MagicCrab-W0.40+035.root")
+#
+#    with MAGICEventSource(input_url=dataset) as source:
+#        seeker = EventSeeker(source)
+#        event = seeker.get_event_index(0)
+#        assert event.dl1.tel[1].image[0] == -0.53125
+#        assert event.dl1.tel[1].peak_time[0] == 49.125
+
+
+#@pytest.mark.parametrize("dataset", test_calibrated_all)
+#def test_lidar_parameters(dataset):
+#    try:
+#        with MAGICEventSource(input_url=dataset) as source:
+#            params = ReportLaserContainer()
+#            for item, event in params:
+#                #params.parse_laser_info()
+#                # assert params.laser.MJD == 59286.91349633102
+#                assert params.Transmission12km == 0.89
+#                # assert params.laser.Azimuth == u.Quantity(277, u.deg)
+#                #assert params.laser.BadReport == False
+#    except KeyInFileError:
+#        pytest.skip("Skipping test for file without 'Laser' key.")
+
+#dataset = (
+#    test_calibrated_real_dir
+#    / "20210314_M1_05095172.002_Y_CrabNebula-W0.40+035.root"
+#)
+
+@pytest.mark.parametrize("dataset", test_calibrated_all)
+def test_lidar_parameters(dataset):
+    from ctapipe_io_magic import MAGICEventSource, ReportLaserContainer
+
+    dataset = (test_calibrated_real_dir/"20210314_M1_05095172.002_Y_CrabNebula-W0.40+035.root")
+
+    with MAGICEventSource(input_url=dataset) as source:
+        assert source.laser.Transmission12km == pytest.approx(0.89)
+        assert source.laser.Transmission3km == pytest.approx(0.96)
+        assert source.laser.Transmission6km == pytest.approx(0.93)
+        assert source.laser.Transmission9km == pytest.approx(0.89)
+
+
