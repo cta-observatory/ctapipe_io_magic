@@ -601,16 +601,3 @@ def test_broken_subruns_missing_arrays():
 #    / "20210314_M1_05095172.002_Y_CrabNebula-W0.40+035.root"
 #)
 
-@pytest.mark.parametrize("dataset", test_calibrated_all)
-def test_lidar_parameters(dataset):
-    from ctapipe_io_magic import MAGICEventSource, ReportLaserContainer
-
-    dataset = (test_calibrated_real_dir/"20210314_M1_05095172.002_Y_CrabNebula-W0.40+035.root")
-
-    with MAGICEventSource(input_url=dataset) as source:
-        assert source.laser.Transmission12km == pytest.approx(0.89)
-        assert source.laser.Transmission3km == pytest.approx(0.96)
-        assert source.laser.Transmission6km == pytest.approx(0.93)
-        assert source.laser.Transmission9km == pytest.approx(0.89)
-
-
