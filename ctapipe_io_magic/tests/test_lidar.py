@@ -1,4 +1,3 @@
-import copy
 import os
 import numpy as np
 from pathlib import Path
@@ -21,10 +20,8 @@ data_dict["20210314_M1_05095172.002_Y_CrabNebula-W0.40+035.root"]["n_events_pede
 data_dict["20210314_M1_05095172.002_Y_CrabNebula-W0.40+035.root"]["n_events_mc_mono"] = 0
 
 def test_sample_report_laser(sample_report_laser):
-    # Write your test code here
     assert sample_report_laser is not None
 
-# Define a fixture to create an instance of ReportLaserContainer for testing
 @pytest.fixture
 def sample_report_laser():
     from ctapipe_io_magic import MAGICEventSource, ReportLaserContainer
@@ -36,8 +33,6 @@ def sample_report_laser():
 @pytest.mark.parametrize("dataset", test_calibrated_real)
 def test_lidar_parameters(dataset):
     from ctapipe_io_magic import MAGICEventSource
-    
-    # Ensure dataset is properly passed from parametrize
     with MAGICEventSource(input_url=dataset) as source:
         laser = source.laser
         for key, report_list in laser.items():
