@@ -99,8 +99,8 @@ class ReportLaserContainer(Container):
     UniqueID = Field(List[Any], 'No.')
     Bits = Field(List[Any], 'ID')
     MJD = Field(List[Any], 'Modified Julian Date')
-#    BadReport = Field(List[Any], 'Bad Report') # to be improved
-#    State = Field(List[Any], 'State') # to be	improved
+    BadReport = Field(List[Any], 'Bad Report') # to be improved
+    State = Field(List[Any], 'State') # to be	improved
     IsOffsetCorrection = Field(List[Any], 'Is Offset Correction')
     IsOffsetFitted = Field(List[Any], 'Is Offset Fitted')
     IsBGCorrection = Field(List[Any], 'Is BG Correction')
@@ -1108,8 +1108,8 @@ class MAGICEventSource(EventSource):
             'MReportLaser.MReport.fBits',
             'MTimeLaser.fMjd',
             'MTimeLaser.fTime.fMilliSec',
-            #'MReportLaser.MReport.fBadReport', # to be	improved
-            #'MReportLaser.MReport.fState', # to be improved
+            'MReportLaser.MReport.fBadReport', # to be	improved
+            'MReportLaser.MReport.fState', # to be improved
             'MReportLaser.fIsOffsetCorrection',
             'MReportLaser.fIsOffsetFitted',
             'MReportLaser.fIsBGCorrection',
@@ -1181,8 +1181,8 @@ class MAGICEventSource(EventSource):
                     laser = ReportLaserContainer()
                     laser.UniqueID = laser_info_runh['MReportLaser.MReport.fUniqueID']
                     laser.Bits = laser_info_runh['MReportLaser.MReport.fBits']
-                    #laser.BadReport = laser_info_runh['MReportLaser.MReport.fBadReport'] # to be improved
-                    #laser.State = laser_info_runh['MReportLaser.MReport.fState'] # to be improved
+                    laser.BadReport = laser_info_runh['MReportLaser.MReport.fBadReport'] # to be improved
+                    laser.State = laser_info_runh['MReportLaser.MReport.fState'] # to be improved
                     laser.IsOffsetCorrection = laser_info_runh['MReportLaser.fIsOffsetCorrection']
                     laser.IsOffsetFitted = laser_info_runh['MReportLaser.fIsOffsetFitted']
                     laser.IsBGCorrection = laser_info_runh['MReportLaser.fIsBGCorrection']
