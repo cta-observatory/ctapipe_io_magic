@@ -10,14 +10,16 @@ import scipy.interpolate
 import uproot
 import logging
 import numpy as np
+from typing import List, Any
 from pathlib import Path
 from decimal import Decimal
 from astropy import units as u
 from astropy.time import Time
+from astropy.coordinates import Angle
 from pkg_resources import resource_filename
 
 from ctapipe.io import EventSource, DataLevel
-from ctapipe.core import Provenance
+from ctapipe.core import Provenance, Container, Field
 from ctapipe.core.traits import Bool, UseEnum
 from ctapipe.coordinates import CameraFrame
 
@@ -92,6 +94,68 @@ MAGIC_TO_CTA_EVENT_TYPE = {
     DATA_MAGIC_LST_TRIGGER: EventType.SUBARRAY,
 }
 
+class ReportLaserContainer(Container):
+    """ Container for Magic laser parameters """
+    UniqueID = Field(List[Any], 'No.')
+    Bits = Field(List[Any], 'ID')
+    MJD = Field(List[Any], 'Modified Julian Date')
+    BadReport = Field(List[Any], 'Bad Report') # to be improved
+    State = Field(List[Any], 'State') # to be	improved
+    IsOffsetCorrection = Field(List[Any], 'Is Offset Correction')
+    IsOffsetFitted = Field(List[Any], 'Is Offset Fitted')
+    IsBGCorrection = Field(List[Any], 'Is BG Correction')
+    IsT0ShiftFitted = Field(List[Any], 'Is T0 Shift Fitted')
+    IsUseGDAS = Field(List[Any], 'Is Use GDAS')
+    IsUpwardMoving = Field(List[Any], 'Is Upward Moving')
+    OverShoot = Field(List[Any], 'Over Shoot')
+    UnderShoot = Field(List[Any], 'Under Shoot')
+    BGSamples = Field(List[np.float32], 'BG Samples')
+    Transmission3km = Field(List[np.float32], 'Transmission at 3 km')
+    Transmission6km = Field(List[np.float32], 'Transmission at 6 km')
+    Transmission9km = Field(List[np.float32], 'Transmission at 9 km')
+    Transmission12km = Field(List[np.float32], 'Transmission at 12 km')
+    Zenith = Field(List[Angle], 'Zenith angle', unit=u.deg)
+    Azimuth = Field(List[Angle], 'Azimuth angle', unit=u.deg)
+    FullOverlap = Field(List[np.float32], 'Full Overlap')
+    EndGroundLayer = Field(List[np.float32], 'End Ground Layer')
+    GroundLayerTrans = Field(List[np.float32], 'Ground Layer Trans')
+    Calimaness = Field(List[np.float32], 'Calimaness')
+    CloudLayerAlt = Field(List[np.float32], 'Altitude of cloud layer')
+    CloudLayerDens = Field(List[np.float32], 'Density of cloud layer')
+    Klett_k = Field(List[np.float32], 'Klett k')
+    PheCounts = Field(List[List[np.float32]], 'Phe Counts')
+    Offset = Field(List[np.float32], 'Offset')
+    Offset_Calculated = Field(List[np.float32], 'Offset calculated')
+    Offset_Fitted = Field(List[np.float32], 'Offset fitted')
+    Offset2 = Field(List[np.float32], 'Offset 2')
+    Offset3 = Field(List[np.float32], 'Offset 3')
+    Background1 = Field(List[np.float32], 'Background 1')
+    Background2 = Field(List[np.float32], 'Background 2')
+    BackgroundErr1 = Field(List[np.float32], 'Background error 1')
+    BackgroundErr2 = Field(List[np.float32], 'Background error 2')
+    RangeMax = Field(List[np.float32], 'Range max')
+    RangeMax_Clouds = Field(List[np.float32], 'Range max clouds')
+    ErrorCode = Field(List[Any], 'Error code')
+    ScaleHeight_fit = Field(List[np.float32], 'Scale Height fit')
+    Alpha_fit = Field(List[np.float32], 'Alpha fit')
+    Chi2Alpha_fit = Field(List[np.float32], 'Chi2 Alpha fit')
+    Alpha_firstY = Field(List[np.float32], 'Alpha first Y')
+    Alpha_Junge = Field(List[np.float32], 'Alpha Junge')
+    PBLHeight = Field(List[np.float32], 'PBL Height')
+    Chi2Full_fit = Field(List[np.float32], 'Chi2 Full fit')
+    SignalSamples = Field(List[np.float32], 'Signal Samples')
+    HWSwitch = Field(List[np.float32], 'HW Switch')
+    HWSwitchMaxOffset = Field(List[np.float32], 'HW Switch Max Offset')
+    NCollapse = Field(List[np.float32], 'N Collapse')
+    Shots = Field(List[np.float32], 'Shots')
+    T0Shift = Field(List[np.float32], 'T0 Shift')
+    Interval_0 = Field(List[np.float32], 'Interval 0')
+    RCS_min_perfect = Field(List[np.float32], 'RCS min perfect')
+    RCS_min_clouds = Field(List[np.float32], 'RCS min cloud')
+    RCS_min_mol = Field(List[np.float32], 'RCS min mol')
+    LIDAR_ratio = Field(List[np.float32], 'LIDAR ratio')
+    LIDAR_ratio_Cloud = Field(List[np.float32], 'LIDAR ratio cloud')
+    LIDAR_ratio_Junge = Field(List[np.float32], 'LIDAR ratio Junge')
 
 def load_camera_geometry():
     """Load camera geometry from bundled resources of this repo"""
@@ -222,6 +286,9 @@ class MAGICEventSource(EventSource):
         self.mars_datalevel = run_info[3][0]
 
         self.metadata = self.parse_metadata_info()
+
+        if not self.is_simulation:
+            self.laser = self.parse_laser_info()
 
         # Retrieving the data level (so far HARDCODED Sorcerer)
         self.datalevel = DataLevel.DL0
@@ -381,13 +448,13 @@ class MAGICEventSource(EventSource):
         elif re.match(mask_data_superstar, file_name) is not None:
             parsed_info = re.match(mask_data_superstar, file_name)
             telescope = None
-            run_number = int(parsed_info.grou(1))
+            run_number = int(parsed_info.group(1))
             datalevel = MARSDataLevel.SUPERSTAR
             is_mc = False
         elif re.match(mask_data_melibea, file_name) is not None:
             parsed_info = re.match(mask_data_melibea, file_name)
             telescope = None
-            run_number = int(parsed_info.grou(1))
+            run_number = int(parsed_info.group(1))
             datalevel = MARSDataLevel.MELIBEA
             is_mc = False
         elif re.match(mask_mc_calibrated, file_name) is not None:
@@ -1034,6 +1101,150 @@ class MAGICEventSource(EventSource):
             )
 
         return metadata
+
+    def parse_laser_info(self):
+        laser_info_array_list_runh = [
+            'MReportLaser.MReport.fUniqueID',
+            'MReportLaser.MReport.fBits',
+            'MTimeLaser.fMjd',
+            'MTimeLaser.fTime.fMilliSec',
+            'MReportLaser.MReport.fBadReport', # to be	improved
+            'MReportLaser.MReport.fState', # to be improved
+            'MReportLaser.fIsOffsetCorrection',
+            'MReportLaser.fIsOffsetFitted',
+            'MReportLaser.fIsBGCorrection',
+            'MReportLaser.fIsT0ShiftFitted',
+            'MReportLaser.fIsUseGDAS',
+            'MReportLaser.fIsUpwardMoving',
+            'MReportLaser.fOverShoot',
+            'MReportLaser.fUnderShoot',
+            'MReportLaser.fBGSamples',
+            'MReportLaser.fTransmission3km',
+            'MReportLaser.fTransmission6km',
+            'MReportLaser.fTransmission9km',
+            'MReportLaser.fTransmission12km',
+            'MReportLaser.fZenith',
+            'MReportLaser.fAzimuth',
+            'MReportLaser.fFullOverlap',
+            'MReportLaser.fEndGroundLayer',
+            'MReportLaser.fGroundLayerTrans',
+            'MReportLaser.fKlett_k',
+            'MReportLaser.fPheCounts',
+            'MReportLaser.fCalimaness',
+            'MReportLaser.fCloudLayerAlt',
+            'MReportLaser.fCloudLayerDens',
+            'MReportLaser.fOffset',
+            'MReportLaser.fOffset_Calculated',
+            'MReportLaser.fOffset_Fitted',
+            'MReportLaser.fOffset2',
+            'MReportLaser.fOffset3',
+            'MReportLaser.fBackground1',
+            'MReportLaser.fBackground2',
+            'MReportLaser.fBackgroundErr1',
+            'MReportLaser.fBackgroundErr2',
+            'MReportLaser.fRangeMax',
+            'MReportLaser.fRangeMax_Clouds',
+            'MReportLaser.fErrorCode',
+            'MReportLaser.fScaleHeight_fit',
+            'MReportLaser.fChi2Alpha_fit',
+            'MReportLaser.fChi2Alpha_fit',
+            'MReportLaser.fAlpha_firstY',
+            'MReportLaser.fAlpha_Junge',
+            'MReportLaser.fPBLHeight',
+            'MReportLaser.fChi2Full_fit',
+            'MReportLaser.fHWSwitchMaxOffset',
+            'MReportLaser.fNCollapse',
+            'MReportLaser.fShots',
+            'MReportLaser.fT0Shift',
+            'MReportLaser.fInterval_0',
+            'MReportLaser.fRCS_min_perfect',
+            'MReportLaser.fRCS_min_clouds',
+            'MReportLaser.fRCS_min_mol',
+            'MReportLaser.fLIDAR_ratio',
+            'MReportLaser.fLIDAR_ratio_Cloud',
+            'MReportLaser.fLIDAR_ratio_Junge',
+        ]
+
+        unique_reports = {}
+        for rootf in self.files_:
+            try:
+                laser_info_runh = rootf['Laser'].arrays(
+                laser_info_array_list_runh, library="np"
+                )
+                mjd_value = laser_info_runh['MTimeLaser.fMjd']
+                millisec_value = laser_info_runh['MTimeLaser.fTime.fMilliSec']
+
+                for mjd_values, millisec_values in zip(mjd_value, millisec_value):
+                    unique_key = (mjd_values, millisec_values)
+                    if unique_key not in unique_reports:
+                        unique_reports[unique_key] = []
+                    laser = ReportLaserContainer()
+                    laser.UniqueID = laser_info_runh['MReportLaser.MReport.fUniqueID']
+                    laser.Bits = laser_info_runh['MReportLaser.MReport.fBits']
+                    laser.BadReport = laser_info_runh['MReportLaser.MReport.fBadReport'] # to be improved
+                    laser.State = laser_info_runh['MReportLaser.MReport.fState'] # to be improved
+                    laser.IsOffsetCorrection = laser_info_runh['MReportLaser.fIsOffsetCorrection']
+                    laser.IsOffsetFitted = laser_info_runh['MReportLaser.fIsOffsetFitted']
+                    laser.IsBGCorrection = laser_info_runh['MReportLaser.fIsBGCorrection']
+                    laser.IsT0ShiftFitted = laser_info_runh['MReportLaser.fIsT0ShiftFitted']
+                    laser.IsUseGDAS = laser_info_runh['MReportLaser.fIsUseGDAS']
+                    laser.IsUpwardMoving = laser_info_runh['MReportLaser.fIsUpwardMoving']
+                    laser.OverShoot = int(laser_info_runh['MReportLaser.fOverShoot'])
+                    laser.UnderShoot = int(laser_info_runh['MReportLaser.fUnderShoot'])
+                    laser.BGSamples = int(laser_info_runh['MReportLaser.fBGSamples'])
+                    laser.Transmission3km = laser_info_runh['MReportLaser.fTransmission3km']
+                    laser.Transmission6km = laser_info_runh['MReportLaser.fTransmission6km']
+                    laser.Transmission9km = laser_info_runh['MReportLaser.fTransmission9km']
+                    laser.Transmission12km = laser_info_runh['MReportLaser.fTransmission12km']
+                    laser.Zenith = laser_info_runh['MReportLaser.fZenith']* u.deg
+                    laser.Azimuth = laser_info_runh['MReportLaser.fAzimuth']* u.deg
+                    laser.FullOverlap = laser_info_runh['MReportLaser.fFullOverlap']
+                    laser.EndGroundLayer = laser_info_runh['MReportLaser.fEndGroundLayer']
+                    laser.GroundLayerTrans = laser_info_runh['MReportLaser.fGroundLayerTrans']
+                    laser.Klett_k = laser_info_runh['MReportLaser.fKlett_k']
+                    laser.PheCounts = laser_info_runh['MReportLaser.fPheCounts']
+                    laser.Calimaness = laser_info_runh['MReportLaser.fCalimaness']
+                    laser.CloudLayerAlt = laser_info_runh['MReportLaser.fCloudLayerAlt']
+                    laser.CloudLayerDens = laser_info_runh['MReportLaser.fCloudLayerDens']
+                    laser.Offset = laser_info_runh['MReportLaser.fOffset']
+                    laser.Offset_Calculated = laser_info_runh['MReportLaser.fOffset_Calculated']
+                    laser.Offset_Fitted = laser_info_runh['MReportLaser.fOffset_Fitted']
+                    laser.Offset2 = laser_info_runh['MReportLaser.fOffset2']
+                    laser.Offset3 = laser_info_runh['MReportLaser.fOffset3']
+                    laser.Background1 = laser_info_runh['MReportLaser.fBackground1']
+                    laser.Background2 = laser_info_runh['MReportLaser.fBackground2']
+                    laser.BackgroundErr1 = laser_info_runh['MReportLaser.fBackgroundErr1']
+                    laser.BackgroundErr2 = laser_info_runh['MReportLaser.fBackgroundErr2']
+                    laser.RangeMax = laser_info_runh['MReportLaser.fRangeMax']
+                    laser.RangeMax_Clouds = laser_info_runh['MReportLaser.fRangeMax_Clouds']
+                    laser.ErrorCode = laser_info_runh['MReportLaser.fErrorCode']
+                    laser.ScaleHeight_fit = laser_info_runh['MReportLaser.fScaleHeight_fit']
+                    laser.Alpha_fit = laser_info_runh['MReportLaser.fChi2Alpha_fit']
+                    laser.Chi2Alpha_fit = laser_info_runh['MReportLaser.fChi2Alpha_fit']
+                    laser.Alpha_firstY = laser_info_runh['MReportLaser.fAlpha_firstY']
+                    laser.Alpha_Junge = laser_info_runh['MReportLaser.fAlpha_Junge']
+                    laser.PBLHeight = laser_info_runh['MReportLaser.fPBLHeight']
+                    laser.Chi2Full_fit = laser_info_runh['MReportLaser.fChi2Full_fit']
+                    laser.HWSwitchMaxOffset = laser_info_runh['MReportLaser.fHWSwitchMaxOffset']
+                    laser.NCollapse = laser_info_runh['MReportLaser.fNCollapse']
+                    laser.Shots = laser_info_runh['MReportLaser.fShots']
+                    laser.T0Shift = laser_info_runh['MReportLaser.fT0Shift']
+                    laser.Interval_0 = laser_info_runh['MReportLaser.fInterval_0']
+                    laser.RCS_min_perfect = laser_info_runh['MReportLaser.fRCS_min_perfect']
+                    laser.RCS_min_clouds = laser_info_runh['MReportLaser.fRCS_min_clouds']
+                    laser.RCS_min_mol = laser_info_runh['MReportLaser.fRCS_min_mol']
+                    laser.LIDAR_ratio = laser_info_runh['MReportLaser.fLIDAR_ratio']
+                    laser.LIDAR_ratio_Cloud = laser_info_runh['MReportLaser.fLIDAR_ratio_Cloud']
+                    laser.LIDAR_ratio_Junge = laser_info_runh['MReportLaser.fLIDAR_ratio_Junge']
+
+                    millisec_seconds = millisec_values * 1e-3
+                    combined_mjd_value = mjd_values + millisec_seconds / 86400
+                    laser.MJD = combined_mjd_value
+                    unique_reports[unique_key].append(laser)
+            except KeyError as e:
+                print(f"Required key not found in the file {rootf}: {e}")
+                continue
+        return unique_reports
 
     def parse_simulation_header(self):
         """
