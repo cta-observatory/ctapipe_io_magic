@@ -5,9 +5,6 @@ import os
 import numpy as np
 import astropy.units as u
 from ctapipe_io_magic import MAGICEventSource
-import zd_az_corr
-import params
-from switch_times import switch_times
 
 logger = logging.getLogger(__name__)
 logger.addHandler(logging.StreamHandler())
@@ -35,24 +32,70 @@ class ReportLaser:
         return report
 
     def get_c0(self, time, zenith, range_max):
-        C_0 = params.gkC_0Period1  # absolute calibration at beginning of 2013
-        if params.stime21 > 0:
-            fFullOverlap = params.gkFullOverlap5  # overlap has moved, after installation of new DAQ, seems that saturation occurs earlier now
-        if params.stime22 > 0:
+        filename = '/home/zywuckan/ctapipe_io_magic/ctapipe_io_magic/params.txt'
+
+        gkC_0Period1 = None
+        gkFullOverlap5 = None
+        gkFullOverlap6 = None
+        gkFullOverlap7 = None
+        gkIntegrationWindow = None
+        gkHWSwitchV1to4 = None
+
+        with open(filename, 'r') as file:
+            for line in file:
+                if line.strip():
+                    variable, value = line.split("=")
+                    variable = variable.strip()
+                    value = value.split("#")[0].strip()
+                    if variable == "stime21":
+                        stime21 = int(value)
+                    elif variable == "stime22":
+                        stime22 = int(value)
+                    elif variable == "stime26":
+                        stime26 = int(value)
+                    elif variable == "stime261":
+                        stime261 = int(value)
+                    elif variable == "stime232":
+                        stime232 = int(value)
+                    elif variable == "stime233":
+                        stime233 = int(value)
+                    elif variable == "stime234":
+                        stime234 = int(value)
+                    elif variable == "stime27":
+                        stime27 = int(value)
+                    elif variable == "stime285":
+                        stime285 = int(value)
+                    elif variable == "gkC_0Period1":
+                        gkC_0Period1 = float(value)
+                    elif variable == "gkFullOverlap5":
+                        gkFullOverlap5 = float(value)
+                    elif variable == "gkFullOverlap6":
+                        gkFullOverlap6 = float(value)
+                    elif variable == "gkFullOverlap7":
+                        gkFullOverlap7 = float(value)
+                    elif variable == "gkIntegrationWindow":
+                        gkIntegrationWindow = float(value)
+                    elif variable == "gkHWSwitchV1to4":
+                        gkHWSwitchV1to4 = int(value)
+
+        C_0 = gkC_0Period1  # absolute calibration at beginning of 2013
+        if stime21 > 0:
+            fFullOverlap = gkFullOverlap5  # overlap has moved, after installation of new DAQ, seems that saturation occurs earlier now
+        if stime22 > 0:
             fFullOverlap = 400.  # overlap has moved, after installation of new DAQ, seems that saturation occurs earlier now
-        if params.stime232 > 0:
-            fFullOverlap = params.gkFullOverlap6  # overlap has moved, after installation of new DAQ, seems that saturation occurs earlier now
-        if params.stime233 > 0:
-            fFullOverlap = params.gkFullOverlap5  # overlap has moved, after installation of new DAQ, seems that saturation occurs earlier now
-        if params.stime234 > 0:
-            fFullOverlap = params.gkFullOverlap7  # overlap has moved, after installation of new DAQ, seems that saturation occurs earlier now
-        if params.stime26 > 0:
-            fFullOverlap = params.gkFullOverlap5  # overlap was corrected again, valid for only one night
-        if params.stime261 > 0:
-            fFullOverlap = params.gkFullOverlap7  # overlap got worse, probably screw loose
-        if params.stime27 > 0:
+        if stime232 > 0:
+            fFullOverlap = gkFullOverlap6  # overlap has moved, after installation of new DAQ, seems that saturation occurs earlier now
+        if stime233 > 0:
+            fFullOverlap = gkFullOverlap5  # overlap has moved, after installation of new DAQ, seems that saturation occurs earlier now
+        if stime234 > 0:
+            fFullOverlap = gkFullOverlap7  # overlap has moved, after installation of new DAQ, seems that saturation occurs earlier now
+        if stime26 > 0:
+            fFullOverlap = gkFullOverlap5  # overlap was corrected again, valid for only one night
+        if stime261 > 0:
+            fFullOverlap = gkFullOverlap7  # overlap got worse, probably screw loose
+        if stime27 > 0:
             fFullOverlap = 1500.  # overlap got worse, probably screw loose
-        if params.stime285 > 0:
+        if stime285 > 0:
             fFullOverlap = 1000.  # overlap got worse, probably screw loose
         range_max_clouds = 23000.
 
@@ -65,6 +108,18 @@ class ReportLaser:
         return C_0
 
     def apply_time_dependent_corrections(self, datime, c0, coszd, case_index=None):
+        switch_times = {}
+        filename = '/home/zywuckan/ctapipe_io_magic/ctapipe_io_magic/switch_times.txt'
+        with open(filename, 'r') as file:
+             switch_time = None
+             for line in file:
+                 if line.startswith("Switch Time:"):
+                     switch_time = datetime.datetime.strptime(line.split(": ")[1].strip(), "%Y-%m-%d %H:%M:%S")
+                 elif line.startswith("Correction Parameters:"):
+                     correction_params = eval(line.split(": ")[1].strip())
+                     if switch_time:
+                         switch_times[switch_time] = correction_params
+
         stimes = [(datime - switch_time).total_seconds() for switch_time in switch_times]
         Alphafit_corr = 0.0
 
@@ -74,29 +129,76 @@ class ReportLaser:
         c0 += 2 * zd_corr
         return True
 
-    def apply_azimuth_correction(self, c0, zenith, azimuth, zd_az_corr):
-        zenith_threshold = zd_az_corr.correction_rules[0].get('zenith_threshold', None)
-        azimuth_threshold = zd_az_corr.correction_rules[0].get('azimuth_threshold', None)
-        zenith_threshold_min = zd_az_corr.correction_rules[0].get('zenith_threshold_min', None)
-        zenith_threshold_max = zd_az_corr.correction_rules[0].get('zenith_threshold_max', None)
-        azimuth_threshold_min = zd_az_corr.correction_rules[0].get('azimuth_threshold_min', None)
-        azimuth_threshold_max = zd_az_corr.correction_rules[0].get('azimuth_threshold_max', None)
+    def apply_azimuth_correction(self, c0, zenith, azimuth):
+        filename = '/home/zywuckan/ctapipe_io_magic/ctapipe_io_magic/zd_az_corr.txt'
+        rules = []
+        with open(filename, 'r') as file:
+            rule = {}
+            for line in file:
+                if line.startswith("Rule"):
+                    if rule:
+                        rules.append(rule)
+                        rule = {}
+                elif line.startswith("Zenith Threshold:"):
+                    rule['zenith_threshold'] = float(line.split(": ")[1].strip())
+                elif line.startswith("Azimuth Threshold:"):
+                    rule['azimuth_threshold'] = eval(line.split(": ")[1].strip())
+                elif line.startswith("Zenith Threshold Min:"):
+                    rule['zenith_threshold_min'] = float(line.split(": ")[1].strip())
+                elif line.startswith("Zenith Threshold Max:"):
+                    rule['zenith_threshold_max'] = float(line.split(": ")[1].strip())
+                elif line.startswith("Azimuth Threshold Min:"):
+                    rule['azimuth_threshold_min'] = float(line.split(": ")[1].strip())
+                elif line.startswith("Azimuth Threshold Max:"):
+                    rule['azimuth_threshold_max'] = float(line.split(": ")[1].strip())
+                elif line.startswith("Correction Factor:"):
+                    rule['correction_factor'] = float(line.split(": ")[1].strip())
+            if rule:
+                rules.append(rule)
 
-        if zenith_threshold is not None and azimuth_threshold is not None:
-            if (zenith < zenith_threshold * u.deg and
-                    azimuth_threshold[0] * u.deg < azimuth < azimuth_threshold[1] * u.deg):
-                c0 -= 2 * zd_az_corr.correction_rules[0]['correction_factor']
+        for rule in rules:
+            zenith_threshold = rule.get('zenith_threshold', None)
+            azimuth_threshold = rule.get('azimuth_threshold', None)
+            zenith_threshold_min = rule.get('zenith_threshold_min', None)
+            zenith_threshold_max = rule.get('zenith_threshold_max', None)
+            azimuth_threshold_min = rule.get('azimuth_threshold_min', None)
+            azimuth_threshold_max = rule.get('azimuth_threshold_max', None)
+
+            if zenith_threshold is not None and azimuth_threshold is not None:
+                if (zenith < zenith_threshold * u.deg and
+                        azimuth_threshold[0] * u.deg < azimuth < azimuth_threshold[1] * u.deg):
+                    c0 -= 2 * rule['correction_factor']
                 return True
-        elif zenith_threshold_min is not None and zenith_threshold_max is not None:
-            if (zenith_threshold_min * u.deg < zenith < zenith_threshold_max * u.deg and
-                    azimuth_threshold_min * u.deg < azimuth < azimuth_threshold_max * u.deg):
-                c0 -= 2 * zd_az_corr.correction_rules[0]['correction_factor']
-                return True
+            elif zenith_threshold_min is not None and zenith_threshold_max is not None:
+                if (zenith_threshold_min * u.deg < zenith < zenith_threshold_max * u.deg and
+                        azimuth_threshold_min * u.deg < azimuth < azimuth_threshold_max * u.deg):
+                    c0 -= 2 * rule['correction_factor']
+                    return True
         return False
 
     def get_bin_width(self, ifadc, bgsamples, ncollapse):
-        #fBGSamples = 0
-        if bgsamples <= params.gkBGSamplesV1to4:
+        filename = '/home/zywuckan/ctapipe_io_magic/ctapipe_io_magic/params.txt'
+        gkBGSamplesV1to4 = None
+        with open(filename, 'r') as file:
+            for line in file:
+                line = line.strip()
+                if line and not line.startswith("#"):  # Skip empty lines and comments
+                    variable, value = line.split("=")
+                    variable = variable.strip()
+                    value = value.split("#")[0].strip()  # Remove comments
+                    if variable == "gkBGSamplesV1to4":
+                        try:
+                            gkBGSamplesV1to4 = int(value)
+                        except ValueError:
+                            raise ValueError("Invalid value for gkBGSamplesV1to4 in params.txt")
+
+        if gkBGSamplesV1to4 is None:
+            raise ValueError("Variable gkBGSamplesV1to4 not found in params.txt")
+
+        if not isinstance(bgsamples, int):
+            raise ValueError("Invalid type for bgsamples")
+
+        if bgsamples <= gkBGSamplesV1to4:
             return 1.0
         if ifadc < 128:
             return 0.5
@@ -109,26 +211,75 @@ class ReportLaser:
         return 4.0 * ncollapse
 
     def get_offset_r(self, ifadc, bgsamples, ncollapse):
-        #fBGSamples = 0
-        if bgsamples <= params.gkBGSamplesV1to4:
+        filename = '/home/zywuckan/ctapipe_io_magic/ctapipe_io_magic/params.txt'
+        gkBGSamplesV1to4 = None
+        gkIntegrationWindow = None
+        with open(filename, 'r') as file:
+            for line in file:
+                exec(line.strip())
+                if line.strip():  # Check if line is not empty
+                    variable, value = line.split("=")
+                    variable = variable.strip()
+                    value = value.split("#")[0].strip()  # Remove comments
+                    if variable == "gkBGSamplesV1to4":
+                        try:
+                            gkBGSamplesV1to4 = int(value)
+                        except ValueError:
+                            raise ValueError("Invalid value for gkBGSamplesV1to4 in params.txt")
+                    elif variable == "gkIntegrationWindow":  # Fix indentation here
+                        try:
+                            gkIntegrationWindow = float(value)
+                        except ValueError:
+                            raise ValueError("Invalid value for gkIntegrationWindow in params.txt")
+
+        if gkBGSamplesV1to4 is None:
+            raise ValueError("Variable gkBGSamplesV1to4 not found in params.txt")
+
+        if gkIntegrationWindow is None:
+            raise ValueError("Variable gkIntegrationWindow not found in params.txt")
+
+        if not isinstance(bgsamples, int):
+            raise ValueError("Invalid type for bgsamples")
+
+        if bgsamples <= gkBGSamplesV1to4:
             return 0.0
         if ifadc < 128:
-            return - bgsamples * params.gkIntegrationWindow * self.get_bin_width(ifadc, bgsamples-1, ncollapse)
-        r = (128 - bgsamples) * params.gkIntegrationWindow * self.get_bin_width(ifadc, bgsamples-1, ncollapse)
+            return - bgsamples * gkIntegrationWindow * self.get_bin_width(ifadc, bgsamples-1, ncollapse)
+        r = (128 - bgsamples) * gkIntegrationWindow * self.get_bin_width(ifadc, bgsamples-1, ncollapse)
         if ifadc < 256:
             return r
-        r += 128 * params.gkIntegrationWindow
+        r += 128 * gkIntegrationWindow
         if ifadc < 384:
             return r
-        r += 128 * params.gkIntegrationWindow * 2
+        r += 128 * gkIntegrationWindow * 2
         if ifadc < 448:
             return r
-        r += 64 * params.gkIntegrationWindow * 4
+        r += 64 * gkIntegrationWindow * 4
         return r
 
     def get_fadcr(self, i, bgsamples):
-        #fBGSamples = 0
-        if bgsamples <= params.gkBGSamplesV1to4:
+        filename = '/home/zywuckan/ctapipe_io_magic/ctapipe_io_magic/params.txt'
+        gkBGSamplesV1to4 = None
+        with open(filename, 'r') as file:
+            for line in file:
+                exec(line.strip())
+                if line.strip():  # Check if line is not empty
+                    variable, value = line.split("=")
+                    variable = variable.strip()
+                    value = value.split("#")[0].strip()  # Remove comments
+                if variable == "gkBGSamplesV1to4":
+                    try:
+                        gkBGSamplesV1to4 = int(value)
+                    except ValueError:
+                        raise ValueError("Invalid value for gkBGSamplesV1to4 in params.txt")
+
+        if gkBGSamplesV1to4 is None:
+            raise ValueError("Variable gkBGSamplesV1to4 not found in params.txt")
+
+        if not isinstance(bgsamples, int):
+            raise ValueError("Invalid type for bgsamples")
+
+        if bgsamples <= gkBGSamplesV1to4:
             return i
         ifadc = i + bgsamples
         if ifadc < 448:
@@ -136,21 +287,66 @@ class ReportLaser:
         return ifadc % 64
 
     def get_collapsed_signal(self, transmission6km, background1, phecounts, bg, bgvar):
+        filename = '/home/zywuckan/ctapipe_io_magic/ctapipe_io_magic/params.txt'
+        gkIntegrationWindow = None
+        with open(filename, 'r') as file:
+            for line in file:
+                exec(line.strip())
+                if line.strip():  # Check if line is not empty
+                    variable, value = line.split("=")
+                    variable = variable.strip()
+                    value = value.split("#")[0].strip()  # Remove comments
+                if variable == "gkIntegrationWindow":  # Fix indentation here
+                    try:
+                        gkIntegrationWindow = float(value)
+                    except ValueError:
+                        raise ValueError("Invalid value for gkIntegrationWindow in params.txt")
+
+        if gkIntegrationWindow is None:
+            raise ValueError("Variable gkIntegrationWindow not found in params.txt")
+
         signalsamples = 0
         sig = np.zeros(signalsamples)
         if transmission6km < -998.:
             for i in range(466, signalsamples):
-                background1 += np.power((phecounts[i] - phecounts[i - 1]) * 1E6 / np.power(params.gkIntegrationWindow * i, 2), 2)
+                background1 += np.power((phecounts[i] - phecounts[i - 1]) * 1E6 / np.power(gkIntegrationWindow * i, 2), 2)
             background1 /= 30.0
             bg = background1
             for i in range(signalsamples):
-                sig[i] = pheounts[i] * 1E6 / np.power(params.gkIntegrationWindow * i, 2) + background1
+                sig[i] = pheounts[i] * 1E6 / np.power(gkIntegrationWindow * i, 2) + background1
         return sig
 
     def get_range(self, i, bgsamples, ncollapse, t0shift):
+        filename = '/home/zywuckan/ctapipe_io_magic/ctapipe_io_magic/params.txt'
+        gkBGSamplesV1to4 = None
+        gkIntegrationWindow = None
+        with open(filename, 'r') as file:
+            for line in file:
+                exec(line.strip())
+                if line.strip():  # Check if line is not empty
+                    variable, value = line.split("=")
+                    variable = variable.strip()
+                    value = value.split("#")[0].strip()
+                if variable == "gkBGSamplesV1to4":
+                    try:
+                        gkBGSamplesV1to4 = int(value)
+                    except ValueError:
+                        raise ValueError("Invalid value for gkBGSamplesV1to4 in params.txt")
+                elif variable == "gkIntegrationWindow":  # Fix indentation here
+                    try:
+                        gkIntegrationWindow = float(value)
+                    except ValueError:
+                        raise ValueError("Invalid value for gkIntegrationWindow in params.txt")
+
+        if gkBGSamplesV1to4 is None:
+            raise ValueError("Variable gkBGSamplesV1to4 not found in params.txt")
+
+        if gkIntegrationWindow is None:
+            raise ValueError("Variable gkIntegrationWindow not found in params.txt")
+
         ifadc = i + bgsamples
-        return (self.get_offset_r(ifadc, bgsamples, ncollapse) + params.gkIntegrationWindow * (self.get_fadcr(i, bgsamples) + 0.5) * self.get_bin_width(ifadc, bgsamples, ncollapse)
-            + t0shift * params.gkIntegrationWindow * self.get_bin_width(ifadc, bgsamples, ncollapse))
+        return (self.get_offset_r(ifadc, bgsamples, ncollapse) + gkIntegrationWindow * (self.get_fadcr(i, bgsamples) + 0.5) * self.get_bin_width(ifadc, bgsamples, ncollapse)
+            + t0shift * gkIntegrationWindow * self.get_bin_width(ifadc, bgsamples, ncollapse))
 
     def get_signal(self, i, bgsamples, phecounts, ncollapse, bg, hwcorr):
         ifadc = i + bgsamples
@@ -188,7 +384,7 @@ def main():
     c0 = report.apply_zenith_correction(C_0, coszd)
     print("Zenith corrected c0:", c0)
 
-    c0 = report.apply_azimuth_correction(C_0, zenith, azimuth, zd_az_corr)
+    c0 = report.apply_azimuth_correction(C_0, zenith, azimuth) #, zd_az_corr)
 
     print("Zenith and Azimuth corrected c0:", c0)
 
