@@ -15,7 +15,6 @@ from pathlib import Path
 from decimal import Decimal
 from astropy import units as u
 from astropy.time import Time
-from astropy.coordinates import Angle
 from pkg_resources import resource_filename
 
 from ctapipe.io import EventSource, DataLevel
@@ -1175,8 +1174,8 @@ class MAGICEventSource(EventSource):
                 millisec_value = laser_info_runh['MTimeLaser.fTime.fMilliSec']
                 millisec_seconds = millisec_value * msec2sec
                 combined_mjd_value = mjd_value + millisec_seconds / 86400
-                for index in range(len(mjd_value)): 
-                    if combined_mjd_value[index] != old_mjd:                    
+                for index in range(len(mjd_value)):
+                    if combined_mjd_value[index] != old_mjd:
                         laser = ReportLaserContainer()
                         laser.MJD = combined_mjd_value[index]
                         laser.UniqueID = laser_info_runh['MReportLaser.MReport.fUniqueID'][index]
