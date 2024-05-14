@@ -1154,7 +1154,7 @@ class MAGICEventSource(EventSource):
 
         metadata = dict()
         metadata["file_list"] = self.file_list
-        metadata["run_numbers"] = self.run_numbers
+        metadata["run_numbers"] = self.run_id
         metadata["is_simulation"] = self.is_simulation
         metadata["telescopes"] = self.telescopes
         metadata["subrun_number"] = []
