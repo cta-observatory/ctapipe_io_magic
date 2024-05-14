@@ -263,6 +263,8 @@ class MAGICEventSource(EventSource):
         else:
             raise ValueError(f"Datalevel not recognized: {datalevel}")
 
+        self.mars_datalevel = datalevel
+
         reg_comp = re.compile(regex)
         reg_comp_mc = re.compile(regex_mc)
 
@@ -882,6 +884,15 @@ class MAGICEventSource(EventSource):
                     stereo = True
                     hast = False
 
+                    try:
+                        L3T_tree = rootf["L3T"]
+                    except uproot.exceptions.KeyInFileError:
+                        logger.warning(f"No L3T tree found in {rootf.file_path}. Assuming standard stereo data.")
+                        is_stereo.append(stereo)
+                        is_sumt.append(False)
+                        is_hast.append(hast)
+                        continue
+
                     L3Table_array = L3T_tree["MReportL3T.fTablename"].array(
                         library="np"
                     )
@@ -900,6 +911,7 @@ class MAGICEventSource(EventSource):
 
                     is_stereo.append(stereo)
                     is_sumt.append(sumt)
+                    is_hast.append(hast)
         else:
             for rootf in self.files_:
                 # looking into MC data, when SumT is simulated, trigger pattern of all events is set
