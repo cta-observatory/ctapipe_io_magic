@@ -532,23 +532,24 @@ class MAGICEventSource(EventSource):
         needed_trees = ["RunHeaders", "Events"]
         num_files = len(self.files_)
 
-        if (
-            num_files == 1
-            and "Drive" not in self.files_[0].keys(cycle=False)
-            and "OriginalMC" not in self.files_[0].keys(cycle=False)
-        ):
-            logger.error("Cannot proceed without Drive information for a single file.")
-            return False
+        if self.mars_datalevel <= MARSDataLevel.STAR:
+            if (
+                num_files == 1
+                and "Drive" not in self.files_[0].keys(cycle=False)
+                and "OriginalMC" not in self.files_[0].keys(cycle=False)
+            ):
+                logger.error("Cannot proceed without Drive information for a single file.")
+                return False
 
-        if (
-            num_files == 1
-            and "Trigger" not in self.files_[0].keys(cycle=False)
-            and "OriginalMC" not in self.files_[0].keys(cycle=False)
-        ):
-            logger.error(
-                "Cannot proceed without Trigger information for a single file."
-            )
-            return False
+            if (
+                num_files == 1
+                and "Trigger" not in self.files_[0].keys(cycle=False)
+                and "OriginalMC" not in self.files_[0].keys(cycle=False)
+            ):
+                logger.error(
+                    "Cannot proceed without Trigger information for a single file."
+                )
+                return False
 
         num_invalid_files = 0
 
