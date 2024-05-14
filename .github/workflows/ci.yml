@@ -1,6 +1,12 @@
 name: CI
 
-on: [push, pull_request]
+on:
+  push:
+    branches:
+      - master
+    tags:
+      - '**'
+  pull_request:
 
 env:
   NUMBA_NUM_THREADS: 1
@@ -12,34 +18,43 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: [3.7]
-        ctapipe-version: [v0.12.0]
+        python-version: ["3.9", "3.10", "3.11"]
+        ctapipe-version: ["v0.19.2"]
+
+    defaults:
+      run:
+        shell: bash -leo pipefail {0}
 
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v2
-        with:
-          python-version: ${{ matrix.python-version }}
-
-      - name: Install dependencies
+      - name: Set python version
         env:
-          PYTHON_VERSION: ${{ matrix.python-version }}
-          CTAPIPE_VERSION: ${{ matrix.ctapipe-version }}
-
+          python-version: ${{ matrix.python-version }}
         run: |
-          . $CONDA/etc/profile.d/conda.sh
-          conda config --set always_yes yes --set changeps1 no
           sed -i -e "s/- python=.*/- python=$PYTHON_VERSION/g" environment.yml
-          conda env create -n ci -f environment.yml
-          conda activate ci
-          # we install ctapipe using pip to be able to select any commit, e.g. the current master
-          pip install pytest-cov "git+https://github.com/cta-observatory/ctapipe@$CTAPIPE_VERSION"
+
+      - name: Create and activate env
+        uses: mamba-org/setup-micromamba@v1
+        with:
+          cache-downloads: true
+          environment-file: environment.yml
+
+      - name: install
+        env:
+          CTAPIPE_VERSION: ${{ matrix.ctapipe-version }}
+        run: |
           pip install -e .
+          pip install pytest-cov "ctapipe==$CTAPIPE_VERSION"
+          # ctapipe-info --version | grep "$CTAPIPE_VERSION"
           git describe --tags
+
+      - name: Test Plugin
+        run: |
+          # check the MAGICEventSource is available
+          python eventsource_subclasses.py | grep MAGICEventSource
 
       - name: Download test data
         env:
@@ -51,11 +66,6 @@ jobs:
 
       - name: Tests
         run: |
-          # github actions starts a new shell for each "step", so we need to
-          # activate our env again
-          source $CONDA/etc/profile.d/conda.sh
-          conda activate ci
-          coverage run -m pytest -v
-          coverage xml
+          pytest --cov=ctapipe_io_magic --cov-report=xml
 
-      - uses: codecov/codecov-action@v1
+      - uses: codecov/codecov-action@v4

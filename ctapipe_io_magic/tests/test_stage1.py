@@ -7,8 +7,7 @@ from pathlib import Path
 
 test_data = Path(os.getenv("MAGIC_TEST_DATA", "test_data")).absolute()
 test_cal_path = (
-    test_data
-    / "real/calibrated/20210314_M1_05095172.001_Y_CrabNebula-W0.40+035.root"
+    test_data / "real/calibrated/20210314_M1_05095172.001_Y_CrabNebula-W0.40+035.root"
 )
 config = Path(".").absolute() / "example_stage1_config.json"
 
@@ -20,8 +19,7 @@ def test_stage1_multiple_runs():
 
     tool = ProcessorTool()
     output = (
-        test_data
-        / "real/calibrated/20210314_M1_05095172_Y_CrabNebula-W0.40+035.h5"
+        test_data / "real/calibrated/20210314_M1_05095172_Y_CrabNebula-W0.40+035.h5"
     )
 
     ret = run_tool(

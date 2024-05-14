@@ -1,17 +1,16 @@
 name: magicio
 channels:
-  - default
+  - conda-forge
 dependencies:
-  - astropy>=4.0.5,<5
-  - python=3.7
-  - conda-forge::ctapipe=0.12
-  - conda-forge::eventio
-  - conda-forge::corsikaio
-  - traitlets
+  - astropy=5
+  - python=3.11
+  - ctapipe=0.19
+  - eventio
+  - corsikaio
   - zeromq
   - ipython
-  - numba
-  - numpy>=1.18
+  - numba>=0.56
+  - numpy>=1.22
   - numpydoc
   - pytest
   - pyyaml
@@ -19,6 +18,4 @@ dependencies:
   - zlib
   - pip
   - h5py
-  - pip:
-      - pytest_runner
-      - uproot~=4.1
+  - uproot=5

@@ -1,31 +1,44 @@
+# ctapipe_io_magic [![Build Status](https://github.com/cta-observatory/ctapipe_io_magic/workflows/CI/badge.svg?branch=master)](https://github.com/cta-observatory/ctapipe_io_magic/actions?query=workflow%3ACI+branch%3Amaster) [![PyPI version](https://badge.fury.io/py/ctapipe-io-magic.svg)](https://badge.fury.io/py/ctapipe-io-magic)[![Conda version](https://anaconda.org/conda-forge/ctapipe-io-magic/badges/version.svg)](https://anaconda.org/conda-forge/ctapipe-io-magic)
+
 ## *ctapipe* MAGIC event source
 
-EventSource plugin for *ctapipe*, needed to read the calibrated data of the MAGIC telescope system. It requires the [*ctapipe*](https://github.com/cta-observatory/ctapipe) (v0.12.0) and [*uproot*](https://github.com/scikit-hep/uproot4) (>=4.1) packages to run.
+EventSource plugin for *ctapipe*, needed to read the calibrated data of the MAGIC telescope system. It requires [*ctapipe*](https://github.com/cta-observatory/ctapipe) (v0.19.x) and [*uproot*](https://github.com/scikit-hep/uproot5) (>=5) packages to run.
 
 #### Installation
 
-Provided that *ctapipe* is already installed, the installation can be done via *pip* (the module is available in PyPI):
+Since version 0.5.4, `ctapipe_io_magic` is on conda-forge ([here](https://anaconda.org/conda-forge/ctapipe-io-magic)), which is the easiest way to install it.
 
-```bash
-pip install ctapipe_io_magic
+To install into an exisiting environtment, just do:
+```
+# or conda
+$ mamba install -c conda-forge ctapipe-io-magic
+```
+
+or, to create a new environment:
+```
+# or conda
+mamba create -c conda-forge -n magicio python=3.11 ctapipe-io-magic
 ```
 
 Alternatively, you can always clone the repository and install like in the following:
 
 ```bash
 git clone https://github.com/cta-observatory/ctapipe_io_magic.git
-pip install ./ctapipe_io_magic/
+cd ctapipe_io_magic
+conda env create -n ctapipe-io_magic -f environment.yml
+conda activate ctapipe-io_magic
+pip install .
 ```
 
-This installation via *pip* (provided, *pip* is installed) has the advantage to be nicely controlled for belonging to a given conda environment (and to be uninstalled). Alternatively, do
+`ctapipe_io_magic` is also in PyPI (see [here](https://pypi.org/project/ctapipe-io-magic/)).
+
+#### Test Data
+
+To run the tests, a set of non-public files is needed. If you are a member of MAGIC, ask one of the project maintainers for the credentials and then run:
 
 ```bash
-git clone https://github.com/cta-observatory/ctapipe_io_magic.git
-cd ctapipe_io_magic
-python setup.py install --user
+./download_test_data.sh
 ```
-
-In all cases, using *pip* will check if the version of *ctapipe* and *uproot* is compatible with the requested version of *ctapipe_io_magic*.
 
 #### Usage
 
@@ -118,3 +131,9 @@ Some general information about the simulated data, useful for IRF calculation, a
 -   v0.4.5: fixed automatic tests, add possibility to choose between effective and nominal focal length
 -   v0.4.6: add support to read in data taken in mono mode (full for real data, partial for MCs). Fixed bug in recognition of mono/stereo or standard trigger/SumT data (added also for MC)
 -   v0.4.7: add full support to read in real and MC data taken in mono mode, and with SumT. Added treatment of unsuitable pixels for MC data. Added readout of true XMax value from MC data (usually not available, filled with 0 otherwise)
+-   v0.5.0: release compatible with ctapipe 0.17. Also, the equivalent focal length is set to the
+    correct value used in MAGIC simulations (i.e. 16.97 meters)
+-   v0.5.1: release compatible with ctapipe 0.19
+-   v0.5.2: introduce capability of reading data taken with the Hardware Stereo Trigger (HaST) between MAGIC and LST-1. Also, fixed bug when getting the time difference between events for mono data
+-   v0.5.3: support for python 3.11
+-   v0.5.4: change license to BSD-3, add badges in README, do not use default channel in environment
