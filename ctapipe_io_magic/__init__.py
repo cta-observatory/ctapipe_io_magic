@@ -356,7 +356,11 @@ class MAGICEventSource(EventSource):
         self._scheduling_blocks = {
             self.run_id: SchedulingBlockContainer(
                 sb_id=np.uint64(self.run_id),
-                producer_id=f"MAGIC-{self.telescope}",
+                producer_id=(
+                    f"MAGIC-{self.telescopes[0]}"
+                    if len(self.telescopes) == 0
+                    else "MAGIC-stereo"
+                ),
                 pointing_mode=pointing_mode,
             )
         }
@@ -365,7 +369,11 @@ class MAGICEventSource(EventSource):
             self.run_id: ObservationBlockContainer(
                 obs_id=np.uint64(self.run_id),
                 sb_id=np.uint64(self.run_id),
-                producer_id=f"MAGIC-{self.telescope}",
+                producer_id=(
+                    f"MAGIC-{self.telescopes[0]}"
+                    if len(self.telescopes) == 0
+                    else "MAGIC-stereo"
+                ),
             )
         }
 
