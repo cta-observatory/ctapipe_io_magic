@@ -2126,7 +2126,7 @@ class MAGICEventSource(EventSource):
                             is_valid=True
                             if event_data["stereo"]["is_valid"][i_event] == 1
                             else False,
-                            tel_ids=[1, 2],
+                            telescopes=[1, 2],
                         )
 
                         event.dl2.stereo.classification = (
