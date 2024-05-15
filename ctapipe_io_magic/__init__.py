@@ -2627,6 +2627,9 @@ class MarsCalibratedRun:
                     [Decimal(str(x)) for x in pedestal_millisec]
                 )
 
+                pedestal_nanosec = np.round(
+                    pedestal_info["MTimePedestals.fNanoSec"] * nsec2sec, 7
+                )
                 pedestal_nanosec = np.array([Decimal(str(x)) for x in pedestal_nanosec])
 
                 pedestal_sample_time = (
