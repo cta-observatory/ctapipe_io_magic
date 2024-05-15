@@ -1819,7 +1819,6 @@ class MAGICEventSource(EventSource):
             run["data"] = MarsCalibratedRun(
                 uproot_file,
                 self.is_simulation,
-                self.telescopes[0],
                 self.is_stereo,
                 self.is_hast,
                 self.use_mc_mono_events,
