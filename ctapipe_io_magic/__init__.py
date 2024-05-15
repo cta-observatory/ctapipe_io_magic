@@ -2095,8 +2095,8 @@ class MAGICEventSource(EventSource):
                         event.dl1.tel[
                             tel_id
                         ].parameters.morphology = MorphologyContainer(
-                            num_pixels=event_data[tel_id]["num_pixels"][i_event],
-                            num_islands=event_data[tel_id]["num_islands"][i_event],
+                            n_pixels=event_data[tel_id]["num_pixels"][i_event],
+                            n_islands=event_data[tel_id]["num_islands"][i_event],
                         )
 
                         event.dl2.stereo.geometry[
