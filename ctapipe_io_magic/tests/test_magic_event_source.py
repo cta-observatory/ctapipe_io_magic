@@ -416,10 +416,16 @@ def test_loop(dataset):
             if source.mars_datalevel <= MARSDataLevel.STAR:
                 if "_M1_" in dataset.name and source.is_stereo:
                     assert 1 in event.trigger.tels_with_trigger
-                    assert event.trigger.tels_with_trigger == [1, 2]
+                    if source.is_hast:
+                        assert set(event.trigger.tels_with_trigger).issubset({1, 2, 3})
+                    else:
+                        assert set(event.trigger.tels_with_trigger).issubset({1, 2})
                 if "_M2_" in dataset.name and source.is_stereo:
                     assert 2 in event.trigger.tels_with_trigger
-                    assert event.trigger.tels_with_trigger == [1, 2]
+                    if source.is_hast:
+                        assert set(event.trigger.tels_with_trigger).issubset({1, 2, 3})
+                    else:
+                        assert set(event.trigger.tels_with_trigger).issubset({1, 2})
             else:
                 assert event.trigger.tels_with_trigger == [1, 2]
 
