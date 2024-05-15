@@ -2114,7 +2114,7 @@ class MAGICEventSource(EventSource):
                                 + event_data[2]["intensity"][i_event]
                             )
                             / 2.0,
-                            tel_ids=[1, 2],
+                            telescopes=[1, 2],
                         )
 
                     if self.mars_datalevel >= MARSDataLevel.MELIBEA:
