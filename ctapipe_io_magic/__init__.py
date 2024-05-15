@@ -1880,7 +1880,6 @@ class MAGICEventSource(EventSource):
             if self.use_pedestals:
                 event_data = self.current_run["data"].pedestal_events
                 n_events = self.current_run["data"].n_pedestal_events
-
             else:
                 event_data = self.current_run["data"].cosmic_events
                 n_events = self.current_run["data"].n_cosmic_events
@@ -1996,150 +1995,19 @@ class MAGICEventSource(EventSource):
             # Loop over the events:
             for i_event in range(n_events):
 
-                for tel_id in self.telescopes:
-                    event.count = counter
-
-                    if not self.is_simulation:
-                        if (
-                            event_data["trigger_pattern"][i_event]
-                            == DATA_STEREO_TRIGGER_PATTERN
-                        ):
-                            event.trigger.tels_with_trigger = [1, 2]
-                        elif (
-                            event_data["trigger_pattern"][i_event]
-                            == DATA_TOPOLOGICAL_TRIGGER
-                        ):
-                            event.trigger.tels_with_trigger = [tel_id, 3]
-                        elif (
-                            event_data["trigger_pattern"][i_event] == DATA_MAGIC_LST_TRIGGER
-                        ):
-                            event.trigger.tels_with_trigger = [1, 2, 3]
-                        else:
-                            event.trigger.tels_with_trigger = [tel_id]
-                    else:
-                        if self.is_stereo and not self.use_mc_mono_events:
-                            event.trigger.tels_with_trigger = [1, 2]
-                        else:
-                            event.trigger.tels_with_trigger = [tel_id]
-
-                    if self.allowed_tels:
-                        tels_with_trigger = np.intersect1d(
-                            event.trigger.tels_with_trigger,
-                            self.subarray.tel_ids,
-                            assume_unique=True,
-                        )
-
-                        event.trigger.tels_with_trigger = tels_with_trigger.tolist()
-
-                    event.index.event_id = event_data["event_number"][i_event]
-
-                    event.trigger.event_type = MAGIC_TO_CTA_EVENT_TYPE.get(
-                        event_data["trigger_pattern"][i_event]
-                    )
-
-                    if not self.is_simulation:
-                        event.trigger.time = event_data["time"][i_event]
-                        event.trigger.tel[tel_id].time = event_data["time"][
-                            i_event
-                        ]
-
-                        if (
-                            not self.use_pedestals
-                            and self.mars_datalevel == MARSDataLevel.CALIBRATED
-                        ):
-                            badrmspixel_mask = self.get_badrmspixel_mask(event, tel_id)
-                            event.mon.tel[
-                                tel_id
-                            ].pixel_status.pedestal_failing_pixels = badrmspixel_mask
-
-                    # Set the telescope pointing container:
-                    event.pointing.array_azimuth = event_data["pointing_az"][
-                        i_event
-                    ].to(u.rad)
-                    event.pointing.array_altitude = event_data["pointing_alt"][
-                        i_event
-                    ].to(u.rad)
-                    event.pointing.array_ra = event_data["pointing_ra"][
-                        i_event
-                    ].to(u.rad)
-                    event.pointing.array_dec = event_data["pointing_dec"][
-                        i_event
-                    ].to(u.rad)
-
-                    event.pointing.tel[tel_id].azimuth = event_data[
-                        "pointing_az"
-                    ][i_event].to(u.rad)
-                    event.pointing.tel[tel_id].altitude = event_data[
-                        "pointing_alt"
-                    ][i_event].to(u.rad)
-
-                    if self.mars_datalevel == MARSDataLevel.CALIBRATED:
-                        # Set event charge and peak positions per pixel:
-                        event.dl1.tel[tel_id].image = event_data["image"][
-                            i_event
-                        ]
-                        event.dl1.tel[tel_id].peak_time = event_data[
-                            "peak_time"
-                        ][i_event]
-
-                    if self.mars_datalevel >= MARSDataLevel.SUPERSTAR:
-                        event.dl1.tel[tel_id].parameters = ImageParametersContainer()
-                        event.dl1.tel[
-                            tel_id
-                        ].parameters.hillas = CameraHillasParametersContainer(
-                            x=-event_data["y"][i_event],
-                            y=-event_data["x"][i_event],
-                            length=event_data["length"][i_event],
-                            width=event_data["width"][i_event],
-                            intensity=event_data["intensity"][i_event],
-                            r=np.sqrt(
-                                event_data["x"][i_event]
-                                * event_data["x"][i_event]
-                                + event_data["y"][i_event]
-                                * event_data["y"][i_event]
-                            ),
-                            psi=event_data["psi"][i_event],
-                            phi=event_data["phi"][i_event],
-                        )
-
-                        event.dl1.tel[
-                            tel_id
-                        ].parameters.timing = TimingParametersContainer(
-                            slope=event_data["slope"][i_event].value
-                            * (1.0 / m2deg)
-                            / u.deg,
-                            intercept=event_data["intercept"][i_event],
-                        )
-
-                        # not fully filled
-                        event.dl1.tel[tel_id].parameters.leakage = LeakageContainer(
-                            intensity_width_1=event_data["intensity_width_1"][
-                                i_event
-                            ],
-                            intensity_width_2=event_data["intensity_width_2"][
-                                i_event
-                            ],
-                        )
-
-                        # not fully filled
-                        event.dl1.tel[
-                            tel_id
-                        ].parameters.morphology = MorphologyContainer(
-                            n_pixels=event_data["num_pixels"][i_event],
-                            n_islands=event_data["num_islands"][i_event],
-                        )
-
-                        event.dl2.stereo.geometry[
-                            "HillasReconstructor"
-                        ] = ReconstructedGeometryContainer(
+                if self.mars_datalevel >= MARSDataLevel.SUPERSTAR:
+                    event.dl2.stereo.geometry["HillasReconstructor"] = (
+                        ReconstructedGeometryContainer(
                             alt=event_data["stereo"]["alt"][i_event],
                             az=event_data["stereo"]["az"][i_event],
                             core_x=event_data["stereo"]["core_x"][i_event],
                             core_y=event_data["stereo"]["core_y"][i_event],
                             h_max=event_data["stereo"]["h_max"][i_event],
-                            is_valid=True
-                            if event_data["stereo"]["is_valid"][i_event] == 1
-                            else False,
+                            is_valid=(
+                                True
+                                if event_data["stereo"]["is_valid"][i_event] == 1
+                                else False
+                            ),
                             average_intensity=(
                                 event_data[1]["intensity"][i_event]
                                 + event_data[2]["intensity"][i_event]
@@ -2147,93 +2015,419 @@ class MAGICEventSource(EventSource):
                             / 2.0,
                             telescopes=[1, 2],
                         )
+                    )
 
-                    if self.mars_datalevel >= MARSDataLevel.MELIBEA:
-                        event.dl2.stereo.energy = ReconstructedEnergyContainer(
-                            energy=event_data["reconstructed"]["energy"][i_event],
-                            energy_uncert=event_data["reconstructed"]["energy_uncert"][
+                if self.mars_datalevel >= MARSDataLevel.MELIBEA:
+                    event.dl2.stereo.energy = ReconstructedEnergyContainer(
+                        energy=event_data["reconstructed"]["energy"][i_event],
+                        energy_uncert=event_data["reconstructed"]["energy_uncert"][
+                            i_event
+                        ],
+                        is_valid=(
+                            True
+                            if event_data["stereo"]["is_valid"][i_event] == 1
+                            else False
+                        ),
+                        telescopes=[1, 2],
+                    )
+
+                    event.dl2.stereo.classification = (
+                        ParticleClassificationContainer(
+                            prediction=event_data["reconstructed"]["gammanness"][
                                 i_event
                             ],
-                            is_valid=True
-                            if event_data["stereo"]["is_valid"][i_event] == 1
-                            else False,
+                            is_valid=(
+                                True
+                                if event_data["stereo"]["is_valid"][i_event] == 1
+                                else False
+                            ),
                             telescopes=[1, 2],
                         )
+                    )
 
-                        event.dl2.stereo.classification = (
-                            ParticleClassificationContainer(
-                                prediction=event_data["reconstructed"]["gammanness"][
-                                    i_event
-                                ],
-                                is_valid=True
-                                if event_data["stereo"]["is_valid"][i_event] == 1
-                                else False,
-                                telescopes=[1, 2],
+                for tel_id in self.telescopes:
+                    event.count = counter
+
+                    if self.mars_datalevel >= MARSDataLevel.SUPERSTAR:
+
+                        if not self.is_simulation:
+                            if (
+                                event_data[tel_id]["trigger_pattern"][i_event]
+                                == DATA_STEREO_TRIGGER_PATTERN
+                            ):
+                                event.trigger.tels_with_trigger = [1, 2]
+                            elif (
+                                event_data[tel_id]["trigger_pattern"][i_event]
+                                == DATA_TOPOLOGICAL_TRIGGER
+                            ):
+                                event.trigger.tels_with_trigger = [tel_id, 3]
+                            elif (
+                                event_data[tel_id]["trigger_pattern"][i_event]
+                                == DATA_MAGIC_LST_TRIGGER
+                            ):
+                                event.trigger.tels_with_trigger = [1, 2, 3]
+                            else:
+                                event.trigger.tels_with_trigger = [tel_id]
+                        else:
+                            if self.is_stereo and not self.use_mc_mono_events:
+                                event.trigger.tels_with_trigger = [1, 2]
+                            else:
+                                event.trigger.tels_with_trigger = [tel_id]
+
+                        if self.allowed_tels:
+                            tels_with_trigger = np.intersect1d(
+                                event.trigger.tels_with_trigger,
+                                self.subarray.tel_ids,
+                                assume_unique=True,
+                            )
+
+                            event.trigger.tels_with_trigger = tels_with_trigger.tolist()
+
+                        event.index.event_id = event_data[tel_id]["event_number"][i_event]
+
+                        event.trigger.event_type = MAGIC_TO_CTA_EVENT_TYPE.get(
+                            event_data[tel_id]["trigger_pattern"][i_event]
+                        )
+
+                        if not self.is_simulation:
+                            event.trigger.time = event_data[tel_id]["time"][i_event]
+                            event.trigger.tel[tel_id].time = event_data[tel_id]["time"][i_event]
+
+                            if (
+                                not self.use_pedestals
+                                and self.mars_datalevel == MARSDataLevel.CALIBRATED
+                            ):
+                                badrmspixel_mask = self.get_badrmspixel_mask(
+                                    event, tel_id
+                                )
+                                event.mon.tel[
+                                    tel_id
+                                ].pixel_status.pedestal_failing_pixels = (
+                                    badrmspixel_mask
+                                )
+
+                        # Set the telescope pointing container:
+                        event.pointing.array_azimuth = event_data[tel_id]["pointing_az"][
+                            i_event
+                        ].to(u.rad)
+                        event.pointing.array_altitude = event_data[tel_id]["pointing_alt"][
+                            i_event
+                        ].to(u.rad)
+                        event.pointing.array_ra = event_data[tel_id]["pointing_ra"][i_event].to(
+                            u.rad
+                        )
+                        event.pointing.array_dec = event_data[tel_id]["pointing_dec"][
+                            i_event
+                        ].to(u.rad)
+
+                        event.pointing.tel[tel_id].azimuth = event_data[tel_id]["pointing_az"][
+                            i_event
+                        ].to(u.rad)
+                        event.pointing.tel[tel_id].altitude = event_data[tel_id][
+                            "pointing_alt"
+                        ][i_event].to(u.rad)
+
+                        event.dl1.tel[tel_id].parameters = (
+                            ImageParametersContainer()
+                        )
+                        event.dl1.tel[tel_id].parameters.hillas = (
+                            CameraHillasParametersContainer(
+                                x=-event_data[tel_id]["y"][i_event],
+                                y=-event_data[tel_id]["x"][i_event],
+                                length=event_data[tel_id]["length"][i_event],
+                                width=event_data[tel_id]["width"][i_event],
+                                intensity=event_data[tel_id]["intensity"][i_event],
+                                r=np.sqrt(
+                                    event_data[tel_id]["x"][i_event]
+                                    * event_data[tel_id]["x"][i_event]
+                                    + event_data[tel_id]["y"][i_event]
+                                    * event_data[tel_id]["y"][i_event]
+                                ),
+                                psi=event_data[tel_id]["psi"][i_event],
+                                phi=event_data[tel_id]["phi"][i_event],
                             )
                         )
 
-                    # Set the simulated event container:
-                    if self.is_simulation:
-                        event.simulation = SimulatedEventContainer()
-
-                        event.simulation.shower.energy = event_data[
-                            "mc_energy"
-                        ][i_event].to(u.TeV)
-                        event.simulation.shower.shower_primary_id = (
-                            1 - event_data["mc_shower_primary_id"][i_event]
+                        event.dl1.tel[tel_id].parameters.timing = (
+                            TimingParametersContainer(
+                                slope=event_data[tel_id]["slope"][i_event].value
+                                * (1.0 / m2deg)
+                                / u.deg,
+                                intercept=event_data[tel_id]["intercept"][i_event],
+                            )
                         )
-                        event.simulation.shower.h_first_int = event_data[
-                            "mc_h_first_int"
-                        ][i_event].to(u.m)
 
-                        event.simulation.shower.x_max = event_data["mc_x_max"][
+                        # not fully filled
+                        event.dl1.tel[tel_id].parameters.leakage = LeakageContainer(
+                            intensity_width_1=event_data[tel_id]["intensity_width_1"][
+                                i_event
+                            ],
+                            intensity_width_2=event_data[tel_id]["intensity_width_2"][
+                                i_event
+                            ],
+                        )
+
+                        # not fully filled
+                        event.dl1.tel[tel_id].parameters.morphology = (
+                            MorphologyContainer(
+                                n_pixels=event_data[tel_id]["num_pixels"][i_event],
+                                n_islands=event_data[tel_id]["num_islands"][i_event],
+                            )
+                        )
+
+                        # Set the simulated event container:
+                        if self.is_simulation:
+                            event.simulation = SimulatedEventContainer()
+
+                            event.simulation.shower.energy = event_data[tel_id]["mc_energy"][
+                                i_event
+                            ].to(u.TeV)
+                            event.simulation.shower.shower_primary_id = (
+                                1 - event_data[tel_id]["mc_shower_primary_id"][i_event]
+                            )
+                            event.simulation.shower.h_first_int = event_data[tel_id][
+                                "mc_h_first_int"
+                            ][i_event].to(u.m)
+
+                            event.simulation.shower.x_max = event_data[tel_id]["mc_x_max"][
+                                i_event
+                            ].to("g cm-2")
+
+                            # Convert the corsika coordinate (x-axis: magnetic north) to the geographical one.
+                            # Rotate the corsika coordinate by the magnetic declination (= 7 deg):
+                            mfield_dec = self.simulation_config[self.obs_ids[0]][
+                                "prod_site_B_declination"
+                            ]
+
+                            event.simulation.shower.alt = u.Quantity(
+                                90, u.deg
+                            ) - event_data[tel_id]["mc_theta"][i_event].to(u.deg)
+                            event.simulation.shower.az = (
+                                u.Quantity(180, u.deg)
+                                - event_data[tel_id]["mc_phi"][i_event].to(u.deg)
+                                + mfield_dec
+                            )
+
+                            if event.simulation.shower.az > u.Quantity(180, u.deg):
+                                event.simulation.shower.az -= u.Quantity(360, u.deg)
+
+                            event.simulation.shower.core_x = event_data[tel_id]["mc_core_x"][
+                                i_event
+                            ].to(u.m) * np.cos(mfield_dec) + event_data[tel_id]["mc_core_y"][
+                                i_event
+                            ].to(
+                                u.m
+                            ) * np.sin(
+                                mfield_dec
+                            )
+
+                            event.simulation.shower.core_y = event_data[tel_id]["mc_core_y"][
+                                i_event
+                            ].to(u.m) * np.cos(mfield_dec) - event_data[tel_id]["mc_core_x"][
+                                i_event
+                            ].to(
+                                u.m
+                            ) * np.sin(
+                                mfield_dec
+                            )
+
+                        yield event
+                        counter += 1
+
+                    else:
+
+                        if not self.is_simulation:
+                            if (
+                                event_data["trigger_pattern"][i_event]
+                                == DATA_STEREO_TRIGGER_PATTERN
+                            ):
+                                event.trigger.tels_with_trigger = [1, 2]
+                            elif (
+                                event_data["trigger_pattern"][i_event]
+                                == DATA_TOPOLOGICAL_TRIGGER
+                            ):
+                                event.trigger.tels_with_trigger = [tel_id, 3]
+                            elif (
+                                event_data["trigger_pattern"][i_event] == DATA_MAGIC_LST_TRIGGER
+                            ):
+                                event.trigger.tels_with_trigger = [1, 2, 3]
+                            else:
+                                event.trigger.tels_with_trigger = [tel_id]
+                        else:
+                            if self.is_stereo and not self.use_mc_mono_events:
+                                event.trigger.tels_with_trigger = [1, 2]
+                            else:
+                                event.trigger.tels_with_trigger = [tel_id]
+
+                        if self.allowed_tels:
+                            tels_with_trigger = np.intersect1d(
+                                event.trigger.tels_with_trigger,
+                                self.subarray.tel_ids,
+                                assume_unique=True,
+                            )
+
+                            event.trigger.tels_with_trigger = tels_with_trigger.tolist()
+
+                        event.index.event_id = event_data["event_number"][i_event]
+
+                        event.trigger.event_type = MAGIC_TO_CTA_EVENT_TYPE.get(
+                            event_data["trigger_pattern"][i_event]
+                        )
+
+                        if not self.is_simulation:
+                            event.trigger.time = event_data["time"][i_event]
+                            event.trigger.tel[tel_id].time = event_data["time"][
+                                i_event
+                            ]
+
+                            if (
+                                not self.use_pedestals
+                                and self.mars_datalevel == MARSDataLevel.CALIBRATED
+                            ):
+                                badrmspixel_mask = self.get_badrmspixel_mask(event, tel_id)
+                                event.mon.tel[
+                                    tel_id
+                                ].pixel_status.pedestal_failing_pixels = badrmspixel_mask
+
+                        # Set the telescope pointing container:
+                        event.pointing.array_azimuth = event_data["pointing_az"][
                             i_event
-                        ].to("g cm-2")
-
-                        # Convert the corsika coordinate (x-axis: magnetic north) to the geographical one.
-                        # Rotate the corsika coordinate by the magnetic declination (= 7 deg):
-                        mfield_dec = self.simulation_config[self.obs_ids[0]][
-                            "prod_site_B_declination"
-                        ]
-
-                        event.simulation.shower.alt = u.Quantity(
-                            90, u.deg
-                        ) - event_data["mc_theta"][i_event].to(u.deg)
-                        event.simulation.shower.az = (
-                            u.Quantity(180, u.deg)
-                            - event_data["mc_phi"][i_event].to(u.deg)
-                            + mfield_dec
-                        )
-
-                        if event.simulation.shower.az > u.Quantity(180, u.deg):
-                            event.simulation.shower.az -= u.Quantity(360, u.deg)
-
-                        event.simulation.shower.core_x = event_data[
-                            "mc_core_x"
-                        ][i_event].to(u.m) * np.cos(mfield_dec) + event_data[
-                            "mc_core_y"
-                        ][
+                        ].to(u.rad)
+                        event.pointing.array_altitude = event_data["pointing_alt"][
                             i_event
-                        ].to(
-                            u.m
-                        ) * np.sin(
-                            mfield_dec
-                        )
-
-                        event.simulation.shower.core_y = event_data[
-                            "mc_core_y"
-                        ][i_event].to(u.m) * np.cos(mfield_dec) - event_data[
-                            "mc_core_x"
-                        ][
+                        ].to(u.rad)
+                        event.pointing.array_ra = event_data["pointing_ra"][
                             i_event
-                        ].to(
-                            u.m
-                        ) * np.sin(
-                            mfield_dec
-                        )
+                        ].to(u.rad)
+                        event.pointing.array_dec = event_data["pointing_dec"][
+                            i_event
+                        ].to(u.rad)
 
-                    yield event
-                    counter += 1
+                        event.pointing.tel[tel_id].azimuth = event_data[
+                            "pointing_az"
+                        ][i_event].to(u.rad)
+                        event.pointing.tel[tel_id].altitude = event_data[
+                            "pointing_alt"
+                        ][i_event].to(u.rad)
+
+                        if self.mars_datalevel == MARSDataLevel.CALIBRATED:
+                            # Set event charge and peak positions per pixel:
+                            event.dl1.tel[tel_id].image = event_data["image"][
+                                i_event
+                            ]
+                            event.dl1.tel[tel_id].peak_time = event_data[
+                                "peak_time"
+                            ][i_event]
+
+                        if self.mars_datalevel == MARSDataLevel.STAR:
+                            event.dl1.tel[tel_id].parameters = ImageParametersContainer()
+                            event.dl1.tel[
+                                tel_id
+                            ].parameters.hillas = CameraHillasParametersContainer(
+                                x=-event_data["y"][i_event],
+                                y=-event_data["x"][i_event],
+                                length=event_data["length"][i_event],
+                                width=event_data["width"][i_event],
+                                intensity=event_data["intensity"][i_event],
+                                r=np.sqrt(
+                                    event_data["x"][i_event]
+                                    * event_data["x"][i_event]
+                                    + event_data["y"][i_event]
+                                    * event_data["y"][i_event]
+                                ),
+                                psi=event_data["psi"][i_event],
+                                phi=event_data["phi"][i_event],
+                            )
+
+                            event.dl1.tel[
+                                tel_id
+                            ].parameters.timing = TimingParametersContainer(
+                                slope=event_data["slope"][i_event].value
+                                * (1.0 / m2deg)
+                                / u.deg,
+                                intercept=event_data["intercept"][i_event],
+                            )
+
+                            # not fully filled
+                            event.dl1.tel[tel_id].parameters.leakage = LeakageContainer(
+                                intensity_width_1=event_data["intensity_width_1"][
+                                    i_event
+                                ],
+                                intensity_width_2=event_data["intensity_width_2"][
+                                    i_event
+                                ],
+                            )
+
+                            # not fully filled
+                            event.dl1.tel[
+                                tel_id
+                            ].parameters.morphology = MorphologyContainer(
+                                n_pixels=event_data["num_pixels"][i_event],
+                                n_islands=event_data["num_islands"][i_event],
+                            )
+
+                        # Set the simulated event container:
+                        if self.is_simulation:
+                            event.simulation = SimulatedEventContainer()
+
+                            event.simulation.shower.energy = event_data[
+                                "mc_energy"
+                            ][i_event].to(u.TeV)
+                            event.simulation.shower.shower_primary_id = (
+                                1 - event_data["mc_shower_primary_id"][i_event]
+                            )
+                            event.simulation.shower.h_first_int = event_data[
+                                "mc_h_first_int"
+                            ][i_event].to(u.m)
+
+                            event.simulation.shower.x_max = event_data["mc_x_max"][
+                                i_event
+                            ].to("g cm-2")
+
+                            # Convert the corsika coordinate (x-axis: magnetic north) to the geographical one.
+                            # Rotate the corsika coordinate by the magnetic declination (= 7 deg):
+                            mfield_dec = self.simulation_config[self.obs_ids[0]][
+                                "prod_site_B_declination"
+                            ]
+
+                            event.simulation.shower.alt = u.Quantity(
+                                90, u.deg
+                            ) - event_data["mc_theta"][i_event].to(u.deg)
+                            event.simulation.shower.az = (
+                                u.Quantity(180, u.deg)
+                                - event_data["mc_phi"][i_event].to(u.deg)
+                                + mfield_dec
+                            )
+
+                            if event.simulation.shower.az > u.Quantity(180, u.deg):
+                                event.simulation.shower.az -= u.Quantity(360, u.deg)
+
+                            event.simulation.shower.core_x = event_data[
+                                "mc_core_x"
+                            ][i_event].to(u.m) * np.cos(mfield_dec) + event_data[
+                                "mc_core_y"
+                            ][
+                                i_event
+                            ].to(
+                                u.m
+                            ) * np.sin(
+                                mfield_dec
+                            )
+
+                            event.simulation.shower.core_y = event_data[
+                                "mc_core_y"
+                            ][i_event].to(u.m) * np.cos(mfield_dec) - event_data[
+                                "mc_core_x"
+                            ][
+                                i_event
+                            ].to(
+                                u.m
+                            ) * np.sin(
+                                mfield_dec
+                            )
+
+                        yield event
+                        counter += 1
 
         return
 
