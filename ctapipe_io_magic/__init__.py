@@ -360,7 +360,7 @@ class MAGICEventSource(EventSource):
                 sb_id=np.uint64(self.run_id),
                 producer_id=(
                     f"MAGIC-{self.telescopes[0]}"
-                    if len(self.telescopes) == 0
+                    if len(self.telescopes) == 1
                     else "MAGIC-stereo"
                 ),
                 pointing_mode=pointing_mode,
@@ -373,7 +373,7 @@ class MAGICEventSource(EventSource):
                 sb_id=np.uint64(self.run_id),
                 producer_id=(
                     f"MAGIC-{self.telescopes[0]}"
-                    if len(self.telescopes) == 0
+                    if len(self.telescopes) == 1
                     else "MAGIC-stereo"
                 ),
             )
