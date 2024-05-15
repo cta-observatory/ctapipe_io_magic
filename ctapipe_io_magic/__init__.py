@@ -2627,9 +2627,6 @@ class MarsCalibratedRun:
                     [Decimal(str(x)) for x in pedestal_millisec]
                 )
 
-                pedestal_nanosec = np.round(
-                    pedestal_info["MTimePedestals.fNanoSec"] * nsec2sec, 7
-                )
                 pedestal_nanosec = np.array([Decimal(str(x)) for x in pedestal_nanosec])
 
                 pedestal_sample_time = (
@@ -2639,19 +2636,6 @@ class MarsCalibratedRun:
                 calib_data["monitoring_data"]["pedestal_sample_time"] = Time(
                     pedestal_sample_time, format="unix", scale="utc"
                 )
-
-                pedestal_nanosec = np.round(
-                    pedestal_info["MTimePedestals.fNanoSec"] * nsec2sec, 7
-                )
-                pedestal_nanosec = np.array([Decimal(str(x)) for x in pedestal_nanosec])
-
-                pedestal_sample_time = (
-                    pedestal_obs_day + pedestal_millisec + pedestal_nanosec
-                )
-
-                calib_data["monitoring_data"][self.tel_id][
-                    "pedestal_sample_time"
-                ] = Time(pedestal_sample_time, format="unix", scale="utc")
 
             # Set the mean and RMS of pedestal charges:
             calib_data["monitoring_data"]["pedestal_fundamental"] = {
