@@ -1897,28 +1897,26 @@ class MAGICEventSource(EventSource):
                     ].pedestal.n_events = (
                         500  # hardcoded number of pedestal events averaged over
                     )
-                    event.mon.tel[tel_id].pedestal.sample_time = monitoring_data[
-                        tel_id
-                    ]["pedestal_sample_time"]
+                    event.mon.tel[tel_id].pedestal.sample_time = monitoring_data["pedestal_sample_time"]
 
                     event.mon.tel[tel_id].pedestal.charge_mean = [
-                        monitoring_data[tel_id]["pedestal_fundamental"]["mean"],
-                        monitoring_data[tel_id]["pedestal_from_extractor"]["mean"],
-                        monitoring_data[tel_id]["pedestal_from_extractor_rndm"]["mean"],
+                        monitoring_data["pedestal_fundamental"]["mean"],
+                        monitoring_data["pedestal_from_extractor"]["mean"],
+                        monitoring_data["pedestal_from_extractor_rndm"]["mean"],
                     ]
 
                     event.mon.tel[tel_id].pedestal.charge_std = [
-                        monitoring_data[tel_id]["pedestal_fundamental"]["rms"],
-                        monitoring_data[tel_id]["pedestal_from_extractor"]["rms"],
-                        monitoring_data[tel_id]["pedestal_from_extractor_rndm"]["rms"],
+                        monitoring_data["pedestal_fundamental"]["rms"],
+                        monitoring_data["pedestal_from_extractor"]["rms"],
+                        monitoring_data["pedestal_from_extractor_rndm"]["rms"],
                     ]
 
                     # Set the bad pixel information:
                     event.mon.tel[
                         tel_id
                     ].pixel_status.hardware_failing_pixels = np.reshape(
-                        monitoring_data[tel_id]["bad_pixel"],
-                        (1, len(monitoring_data[tel_id]["bad_pixel"])),
+                        monitoring_data["bad_pixel"],
+                        (1, len(monitoring_data["bad_pixel"])),
                     )
 
                     if not self.is_simulation:
@@ -2000,7 +1998,40 @@ class MAGICEventSource(EventSource):
 
                 for tel_id in self.telescopes:
                     event.count = counter
-                    event.index.event_id = event_data[tel_id]["event_number"][i_event]
+
+                    if not self.is_simulation:
+                        if (
+                            event_data["trigger_pattern"][i_event]
+                            == DATA_STEREO_TRIGGER_PATTERN
+                        ):
+                            event.trigger.tels_with_trigger = [1, 2]
+                        elif (
+                            event_data["trigger_pattern"][i_event]
+                            == DATA_TOPOLOGICAL_TRIGGER
+                        ):
+                            event.trigger.tels_with_trigger = [tel_id, 3]
+                        elif (
+                            event_data["trigger_pattern"][i_event] == DATA_MAGIC_LST_TRIGGER
+                        ):
+                            event.trigger.tels_with_trigger = [1, 2, 3]
+                        else:
+                            event.trigger.tels_with_trigger = [tel_id]
+                    else:
+                        if self.is_stereo and not self.use_mc_mono_events:
+                            event.trigger.tels_with_trigger = [1, 2]
+                        else:
+                            event.trigger.tels_with_trigger = [tel_id]
+
+                    if self.allowed_tels:
+                        tels_with_trigger = np.intersect1d(
+                            event.trigger.tels_with_trigger,
+                            self.subarray.tel_ids,
+                            assume_unique=True,
+                        )
+
+                        event.trigger.tels_with_trigger = tels_with_trigger.tolist()
+
+                    event.index.event_id = event_data["event_number"][i_event]
 
                     event.trigger.event_type = MAGIC_TO_CTA_EVENT_TYPE.get(
                         event_data["trigger_pattern"][i_event]
