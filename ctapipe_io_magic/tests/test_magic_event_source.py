@@ -537,7 +537,7 @@ def test_multiple_runs_real():
         for i, event in enumerate(source):
             assert event.trigger.event_type == EventType.SUBARRAY
             assert event.count == i
-            assert source.telescope in event.trigger.tels_with_trigger
+            assert set(source.telescopes).issubset(set(event.trigger.tels_with_trigger))
             assert event.trigger.tels_with_trigger == [1, 2]
 
         assert (i + 1) == n_events
