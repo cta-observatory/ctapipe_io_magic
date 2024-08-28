@@ -14,7 +14,7 @@ dependencies:
   - numpydoc
   - pytest
   - pyyaml
-  - scipy
+  - scipy~=1.2
   - zlib
   - pip
   - h5py
