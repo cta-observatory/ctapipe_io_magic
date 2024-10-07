@@ -37,7 +37,7 @@ jobs:
           sed -i -e "s/- python=.*/- python=$PYTHON_VERSION/g" environment.yml
 
       - name: Create and activate env
-        uses: mamba-org/setup-micromamba@v1
+        uses: mamba-org/setup-micromamba@v2
         with:
           cache-downloads: true
           environment-file: environment.yml
