@@ -37,7 +37,7 @@ jobs:
           sed -i -e "s/- python=.*/- python=$PYTHON_VERSION/g" environment.yml
 
       - name: Create and activate env
-        uses: mamba-org/setup-micromamba@v1
+        uses: mamba-org/setup-micromamba@v2
         with:
           cache-downloads: true
           environment-file: environment.yml
@@ -61,7 +61,6 @@ jobs:
           TEST_DATA_USER: ${{ secrets.test_data_user }}
           TEST_DATA_PASSWORD: ${{ secrets.test_data_password }}
         run: |
-          chmod +x ./download_test_data.sh
           ./download_test_data.sh
 
       - name: Tests
@@ -69,3 +68,7 @@ jobs:
           pytest --cov=ctapipe_io_magic --cov-report=xml
 
       - uses: codecov/codecov-action@v4
+        if: contains(github.event.pull_request.labels.*.name, 'documentation-only') == false
+        with:
+            fail_ci_if_error: true
+            token: ${{ secrets.CODECOV_TOKEN }}
