@@ -1,78 +1,35 @@
-Switch Time: 2018-01-12 12:00:00
-Correction Parameters: (0.311, 0.0)
-
-Switch Time: 2018-02-11 12:00:00
-Correction Parameters: (0.302, 0.016)
-
-Switch Time: 2018-06-27 12:00:00
-Correction Parameters: (0.323, 0.389)
-
-Switch Time: 2018-08-26 12:00:00
-Correction Parameters: (0.375, 0.0)
-
-Switch Time: 2018-09-13 12:00:00
-Correction Parameters: (0.394, 0.127)
-
-Switch Time: 2019-03-14 12:00:00
-Correction Parameters: (0.462, 0.11)
-
-Switch Time: 2019-05-08 12:00:00
-Correction Parameters: (0.489, 0.145)
-
-Switch Time: 2020-02-18 02:00:00
-Correction Parameters: (0.661, 0.0)
-
-Switch Time: 2020-02-20 12:00:00
-Correction Parameters: (0.573, 0.03)
-
-Switch Time: 2020-03-13 12:00:00
-Correction Parameters: (0.58, 0.75)
-
-Switch Time: 2020-06-10 00:00:00
-Correction Parameters: (0.637, 0.555)
-
-Switch Time: 2020-07-21 12:00:00
-Correction Parameters: (0.358, 0.5)
-
-Switch Time: 2020-07-26 01:22:00
-Correction Parameters: (0.53, 0.0)
-
-Switch Time: 2020-07-26 02:46:00
-Correction Parameters: (0.385, 0.0)
-
-Switch Time: 2020-07-26 03:10:00
-Correction Parameters: (0.447, 0.0)
-
-Switch Time: 2020-07-29 12:00:00
-Correction Parameters: (0.36, 0.1)
-
-Switch Time: 2020-09-09 12:00:00
-Correction Parameters: (0.99, 0.0)
-
-Switch Time: 2020-09-19 02:30:00
-Correction Parameters: (0.38, 0.001)
-
-Switch Time: 2020-09-19 23:10:00
-Correction Parameters: (0.451, 0.0)
-
-Switch Time: 2020-10-06 12:00:00
-Correction Parameters: (0.423, 0.209)
-
-Switch Time: 2021-02-10 12:00:00
-Correction Parameters: (0.502, 0.112)
-
-Switch Time: 2021-09-19 14:00:00
-Correction Parameters: (0.43, 0.03)
-
-Switch Time: 2022-01-01 14:00:00
-Correction Parameters: (0.0, 0.03)
-
-Switch Time: 2022-05-05 12:00:00
-Correction Parameters: (0.0, 0.03)
-
-Switch Time: 2023-05-17 12:00:00
-Correction Parameters: (0.0, 0.03)
-
-Switch Time: 2023-07-03 12:00:00
-Correction Parameters: (0.0, 0.03)
-
+# date up to correction is valid
+# time
+# correction parameter 1
+# correction Parameter 2
+2017-12-10 12:00:00 0.146 0.389 #stime16
+2018-01-12 12:00:00 0.304 0.553 #stime17
+2018-02-11 12:00:00 0.311 0.0 #stime18
+2018-06-27 12:00:00 0.302 0.16 #stime19
+2018-08-26 12:00:00 0.323 0.389 #stime20
+2018-09-13 12:00:00 0.375 0.0 #stime201
+2019-03-14 12:00:00 0.394 0.127 #stime21
+2019-05-08 12:00:00 0.462 0.11 #stime22
+2020-02-18 02:00:00 0.489 0.145 #stime229
+2020-02-20 12:00:00 0.661 0.0 #stime23
+2020-03-13 12:00:00 0.573 0.03 #stime2300
+2020-06-10 00:00:00 0.58 0.75 #stime230
+2020-07-21 12:00:00 0.637 0.555 #stime231
+2020-07-26 01:22:00 0.358 0.5 #stime232
+2020-07-26 02:46:00 0.53 0.0 #stime233
+2020-07-26 03:10:00 0.385 0.0 #stime234
+2020-07-29 12:00:00 0.447 0.0 #stime24
+2020-09-09 12:00:00 0.36 0.1 #stime25
+2020-09-19 02:30:00 0.99 0.0 #stime26
+2020-09-19 23:10:00 0.38 0.001 #stime261
+2020-10-06 12:00:00 0.451 0.0 #stime262
+2021-02-10 12:00:00 0.423 0.209 #stime263
+2021-09-19 14:00:00 0.502 0.112 #stime27
+#2022-01-01 14:00:00 0.43 0.03 #stime275
+2022-05-05 12:00:00 0.439 0.03 #stime28
+#2022-05-05 12:00:00 0.439 0.03 #stime28 calculated as 0.43 + 0.03 * (switchtime275 - switchtime27) 
+#2023-05-17 12:00:00 0.449 0.03 #stime285 calculated as 0.439 + 0.03 * (switchtime28 - switchtime275)
+#2023-05-17 12:00:00 0.449 0.03 #stime285
+#2023-07-03 12:00:00 0.0 0.03 #stime29 calculated as 0.449 + 0.03 * (switchtime285 - switchtime28)
+2023-07-03 12:00:00 0.0 0.03 #stime29
+2025-01-01 12:00:00 0.20 0.03 #final calculations
