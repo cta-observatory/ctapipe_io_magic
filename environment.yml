@@ -2,7 +2,7 @@ name: magicio
 channels:
   - conda-forge
 dependencies:
-  - astropy=5
+  - astropy-base=5
   - python=3.11
   - ctapipe=0.19
   - eventio
