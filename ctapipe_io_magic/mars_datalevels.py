@@ -31,4 +31,6 @@ class MARSDataLevel(OrderedEnum):
     CALIBRATED = auto()  # Calibrated images in charge and time (no waveforms)
     STAR = auto()  # Cleaned images, with Hillas parametrization
     SUPERSTAR = auto()  # Stereo parameters reconstructed
-    MELIBEA = auto()  # Reconstruction of hadronness, event direction and energy
+    MELIBEA = (
+        auto()
+    )  # Reconstruction of hadronness, event direction and energy
