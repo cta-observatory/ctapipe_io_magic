@@ -1,0 +1,21 @@
+stime21 = -1
+stime22 = -1
+stime26 = -1
+stime261 = -1
+stime232 = -1
+stime233 = -1
+stime234 = -1
+stime27 = -1
+stime285 = -1
+
+gkC_0Period1 = 16.43  # log (6.825E12*0.04*48*1.545E-6) - log(ptMAGIC)
+
+gkFullOverlap5 = 780.0  # start region of full overlap and end of ADC saturation (m) (after installation of new DAQ)
+gkFullOverlap6 = 2000.0  # start region of full overlap and end of ADC saturation (m) (after installation of new DAQ)
+gkFullOverlap7 = 1500.0  # start region of full overlap and end of ADC saturation (m) (after installation of new DAQ)
+
+gkIntegrationWindow = 47.954  # integration window of one FADC slice (in m): 0.299792458 (m/ns) / 1.00027 / 2 * 5 (ns) * 64 (output bins)
+gkHWSwitchV1to4 = 96  # position of switch betw. amplitude sensing and p.e. counting (FADC slice)
+
+gkBGSamplesV1to4 = 16  # Number of BG samples before LIDAR signal (starting from 0)
+
