@@ -16,6 +16,7 @@ from decimal import Decimal
 from astropy import units as u
 from astropy.time import Time
 from pkg_resources import resource_filename
+from astropy.coordinates import EarthLocation    
 
 from ctapipe.io import EventSource, DataLevel
 from ctapipe.core import Provenance, Container, Field
@@ -885,6 +886,7 @@ class MAGICEventSource(EventSource):
 
         # MAGIC telescope positions in m wrt. to the center of MAGIC simulations, from
         # CORSIKA and reflector input card and recomputed (rotated) to be w.r.t. geographical North
+        reference_location = EarthLocation.of_site('lapalma')
         MAGIC_TEL_POSITIONS = {
             1: [34.99, -24.02, 0.00] * u.m,
             2: [-34.99, 24.02, 0.00] * u.m,
@@ -971,6 +973,7 @@ class MAGICEventSource(EventSource):
             name="MAGIC",
             tel_positions=MAGIC_TEL_POSITIONS,
             tel_descriptions=MAGIC_TEL_DESCRIPTIONS,
+            reference_location=reference_location
         )
 
         if self.allowed_tels:
