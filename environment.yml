@@ -5,6 +5,7 @@ dependencies:
   - astropy-base
   - python=3.11
   - ctapipe>=0.25.0
+  - ctapipe_io_lst
   - eventio
   - corsikaio
   - zeromq
