@@ -17,7 +17,6 @@ from astropy import units as u
 from astropy.time import Time
 from pkg_resources import resource_filename
 
-from ctapipe_io_lst.constants import REFERENCE_LOCATION
 from ctapipe.io import EventSource, DataLevel
 from ctapipe.core import Provenance, Container, Field
 from ctapipe.core.traits import Bool, UseEnum
@@ -45,6 +44,7 @@ from ctapipe.instrument import (
     FocalLengthKind,
 )
 
+from .constants import REFERENCE_LOCATION
 from .mars_datalevels import MARSDataLevel
 from .exceptions import (
     MissingInputFilesError,
