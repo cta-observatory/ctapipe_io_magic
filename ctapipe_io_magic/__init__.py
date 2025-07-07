@@ -44,6 +44,7 @@ from ctapipe.instrument import (
     FocalLengthKind,
 )
 
+from .constants import REFERENCE_LOCATION
 from .mars_datalevels import MARSDataLevel
 from .exceptions import (
     MissingInputFilesError,
@@ -971,6 +972,7 @@ class MAGICEventSource(EventSource):
             name="MAGIC",
             tel_positions=MAGIC_TEL_POSITIONS,
             tel_descriptions=MAGIC_TEL_DESCRIPTIONS,
+            reference_location=REFERENCE_LOCATION,
         )
 
         if self.allowed_tels:
