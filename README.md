@@ -140,3 +140,4 @@ Some general information about the simulated data, useful for IRF calculation, a
 -   v0.5.5: read LIDAR information, add checks for missing trees in the input files, take prescaler and trigger information from previous subruns if they are missing, add release-drafter and PyPI deploy workflows
 -   v0.5.6: small maintenance changes
 -   v0.5.7: changes for ctapipe v0.25
+-   v0.5.8: remove pkg_resources
