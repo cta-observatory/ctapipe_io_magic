@@ -15,7 +15,7 @@ from pathlib import Path
 from decimal import Decimal
 from astropy import units as u
 from astropy.time import Time
-from pkg_resources import resource_filename
+from importlib.resources import files
 
 from ctapipe.io import EventSource, DataLevel
 from ctapipe.core import Provenance, Container, Field
@@ -159,7 +159,7 @@ class ReportLaserContainer(Container):
 
 def load_camera_geometry():
     """Load camera geometry from bundled resources of this repo"""
-    f = resource_filename("ctapipe_io_magic", "resources/MAGICCam.camgeom.fits.gz")
+    f = str(files("ctapipe_io_magic") / "resources/MAGICCam.camgeom.fits.gz")
     Provenance().add_input_file(f, role="CameraGeometry")
     return CameraGeometry.from_table(f)
 
