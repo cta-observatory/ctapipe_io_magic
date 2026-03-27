@@ -26,6 +26,16 @@ echo "https://www.magic.iac.es/mcp-testdata/test_data/simulated/calibrated/GA_M1
 echo "https://www.magic.iac.es/mcp-testdata/test_data/simulated/calibrated/GA_M2_za35to50_8_824318_Y_w0.root" >> test_data_simulated.txt
 echo "https://www.magic.iac.es/mcp-testdata/test_data/simulated/calibrated/GA_M2_za35to50_8_824319_Y_w0.root" >> test_data_simulated.txt
 
+echo "https://www.magic.iac.es/mcp-testdata/test_data/real/superstar/20210314_05095172_S_CrabNebula-W0.40+035.root" > test_data_superstar_real.txt
+
+echo "https://www.magic.iac.es/mcp-testdata/test_data/simulated/superstar/GA_za35to50_8_824318_S_w0.root" > test_data_superstar_simulated.txt
+echo "https://www.magic.iac.es/mcp-testdata/test_data/simulated/superstar/GA_za35to50_8_824319_S_w0.root" >> test_data_superstar_simulated.txt
+
+echo "https://www.magic.iac.es/mcp-testdata/test_data/real/melibea/20210314_05095172_Q_CrabNebula-W0.40+035.root" > test_data_melibea_real.txt
+
+echo "https://www.magic.iac.es/mcp-testdata/test_data/simulated/melibea/GA_za35to50_8_824318_Q_w0.root" > test_data_melibea_simulated.txt
+echo "https://www.magic.iac.es/mcp-testdata/test_data/simulated/melibea/GA_za35to50_8_824319_Q_w0.root" >> test_data_melibea_simulated.txt
+
 if [ -z "$TEST_DATA_USER" ]; then
     read -p "Username: " TEST_DATA_USER
     echo
@@ -43,6 +53,10 @@ TEST_FILES_DOWNLOAD[test_data_real_missing_trees]="test_data/real/calibrated/mis
 TEST_FILES_DOWNLOAD[test_data_real_missing_prescaler_trigger]="test_data/real/calibrated/missing_prescaler_trigger"
 TEST_FILES_DOWNLOAD[test_data_real_missing_arrays]="test_data/real/calibrated/missing_arrays"
 TEST_FILES_DOWNLOAD[test_data_simulated]="test_data/simulated/calibrated"
+TEST_FILES_DOWNLOAD[test_data_superstar_real]="test_data/real/superstar"
+TEST_FILES_DOWNLOAD[test_data_melibea_real]="test_data/real/melibea"
+TEST_FILES_DOWNLOAD[test_data_superstar_simulated]="test_data/simulated/superstar"
+TEST_FILES_DOWNLOAD[test_data_melibea_simulated]="test_data/simulated/melibea"
 
 for key in "${!TEST_FILES_DOWNLOAD[@]}"
 do
@@ -58,4 +72,4 @@ do
 fi
 done
 
-rm -f test_data_real.txt test_data_simulated.txt test_data_real_missing_trees.txt test_data_real_missing_prescaler_trigger.txt test_data_real_missing_arrays.txt
+rm -f test_data_real.txt test_data_simulated.txt test_data_real_missing_trees.txt test_data_real_missing_prescaler_trigger.txt test_data_real_missing_arrays.txt test_data_superstar_real.txt test_data_superstar_simulated.txt test_data_melibea_real.txt test_data_melibea_simulated.txt
