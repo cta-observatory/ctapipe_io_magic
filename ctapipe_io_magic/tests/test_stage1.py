@@ -1,9 +1,9 @@
-from pathlib import Path
+import numpy as np
 import os
 
-from ctapipe.io import read_table
 from ctapipe.containers import EventType
-import numpy as np
+from ctapipe.io import read_table
+from pathlib import Path
 
 test_data = Path(os.getenv("MAGIC_TEST_DATA", "test_data")).absolute()
 test_cal_path = (
@@ -14,8 +14,8 @@ config = Path(".").absolute() / "example_stage1_config.json"
 
 def test_stage1_multiple_runs():
     """Test the ctapipe process tool can read in MAGIC real data using the event source"""
-    from ctapipe.tools.process import ProcessorTool
     from ctapipe.core import run_tool
+    from ctapipe.tools.process import ProcessorTool
 
     tool = ProcessorTool()
     output = (
@@ -49,8 +49,8 @@ def test_stage1_multiple_runs():
 
 def test_stage1_single_run():
     """Test the ctapipe process tool can read in MAGIC real data using the event source"""
-    from ctapipe.tools.process import ProcessorTool
     from ctapipe.core import run_tool
+    from ctapipe.tools.process import ProcessorTool
 
     tool = ProcessorTool()
     output = test_cal_path.with_suffix(".h5")
@@ -62,6 +62,7 @@ def test_stage1_single_run():
             f"--output={output}",
             f"--config={str(config)}",
             "--MAGICEventSource.process_run=false",
+            "--allowed-tels=1",
             "--camera-frame",
         ],
     )
