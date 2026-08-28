@@ -1,0 +1,32 @@
+Rule 1:
+Zenith Threshold: 50
+Azimuth Threshold: [157.5, 202.5]
+Correction Factor: 0.17
+
+Rule 2:
+Zenith Threshold: 40
+Azimuth Threshold: [135, 225]
+Correction Factor: 0.24
+
+Rule 3:
+Zenith Threshold: 30
+Azimuth Threshold: [112.5, 247.5]
+Correction Factor: 0.24
+
+Rule 4:
+Zenith Threshold: 20
+Azimuth Threshold: [90, 270]
+Correction Factor: 0.24
+
+Rule 5:
+Zenith Threshold: 10
+Azimuth Threshold: [337.5, 360]
+Correction Factor: 0.2
+
+Rule 6:
+Zenith Threshold Min: 10
+Zenith Threshold Max: 50
+Azimuth Threshold Min: 337.5
+Azimuth Threshold Max: 360
+Correction Factor: 0.11
+
